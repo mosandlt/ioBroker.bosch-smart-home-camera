@@ -150,7 +150,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
     private static readonly EVENT_POLL_INTERVAL_MS = 30_000;
 
     /**
-     * v0.6.2: pending FCM auto-reconnect timer (forum #84538).
+     * v0.6.2: pending FCM auto-reconnect timer.
      * Armed on the listener's "disconnect" event and walks the backoff array
      * below. Cleared on successful reconnect, on unload, and re-armed on every
      * failed start() retry.
@@ -1942,9 +1942,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
 
         // MTalk socket closed. The @aracna/fcm FcmClient does not auto-reconnect
         // (see src/lib/fcm.ts header comment), so we re-arm the listener here
-        // with exponential backoff. Forum #84538 (2026-05-17): one MTalk server
-        // rotation left the adapter on 30 s event polling until restart;
-        // backoff lets transient drops heal in seconds.
+        // with exponential backoff. Without this, a single transient MTalk
+        // drop (e.g. Google server rotation) would leave the adapter on the
+        // 30 s event-polling fallback until the next restart.
         this._fcmListener.on("disconnect", () => {
             this.log.warn("FCM disconnected — scheduling reconnect");
             void this.setStateAsync("info.fcm_active", "disconnected", true);
@@ -3036,9 +3036,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
     }
 
     /**
-     * v0.6.2: arm an FCM reconnect attempt with exponential backoff
-     * (forum #84538). No-op if a timer is already pending (re-entrancy guard)
-     * or if the listener has been torn down (adapter shutting down).
+     * v0.6.2: arm an FCM reconnect attempt with exponential backoff.
+     * No-op if a timer is already pending (re-entrancy guard) or if the
+     * listener has been torn down (adapter shutting down).
      */
     private _scheduleFcmReconnect(): void {
         if (this._fcmReconnectTimer !== null) {

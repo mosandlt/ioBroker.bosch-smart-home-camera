@@ -76,7 +76,7 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     /** Event-poll interval (ms) when FCM push is unavailable. */
     private static readonly EVENT_POLL_INTERVAL_MS;
     /**
-     * v0.6.2: pending FCM auto-reconnect timer (forum #84538).
+     * v0.6.2: pending FCM auto-reconnect timer.
      * Armed on the listener's "disconnect" event and walks the backoff array
      * below. Cleared on successful reconnect, on unload, and re-armed on every
      * failed start() retry.
@@ -625,9 +625,9 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _startEventPolling;
     /**
-     * v0.6.2: arm an FCM reconnect attempt with exponential backoff
-     * (forum #84538). No-op if a timer is already pending (re-entrancy guard)
-     * or if the listener has been torn down (adapter shutting down).
+     * v0.6.2: arm an FCM reconnect attempt with exponential backoff.
+     * No-op if a timer is already pending (re-entrancy guard) or if the
+     * listener has been torn down (adapter shutting down).
      */
     private _scheduleFcmReconnect;
     /**

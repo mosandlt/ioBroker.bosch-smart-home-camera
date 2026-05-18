@@ -1,12 +1,11 @@
 /**
- * v0.6.2 — FCM auto-reconnect on disconnect (Forum #84538 / 2026-05-18)
+ * v0.6.2 — FCM auto-reconnect on disconnect
  *
  * Before v0.6.2 the adapter only logged "FCM disconnected — adapter continues
- * polling" and never re-armed the FCM socket. After a single MTalk server reset
- * (Google rotates push servers occasionally), the adapter stayed on the 30 s
- * polling fallback forever, costing one event window (~30-45 s gap before the
- * next /v11/events poll caught up). Forum user Jaschkopf reported a ~43 s
- * disconnect on 2026-05-17 21:29 that matches this signature exactly.
+ * polling" and never re-armed the FCM socket. A single MTalk server reset
+ * (Google occasionally rotates the push backend) would leave the adapter on the
+ * 30 s polling fallback forever, costing one event window (~30-45 s gap before
+ * the next /v11/events poll caught up).
  *
  * v0.6.2 schedules an exponential-backoff reconnect: 5 s, 30 s, 120 s, then
  * 600 s cap (mirrors the HA integration's stream-reconnect pattern).
@@ -264,7 +263,7 @@ function getStateVal(db: MockDatabase, adapter: TestAdapter, id: string): unknow
     return (state as ioBroker.State | null | undefined)?.val;
 }
 
-describe("main adapter — FCM auto-reconnect on disconnect (v0.6.2 / forum #84538)", () => {
+describe("main adapter — FCM auto-reconnect on disconnect (v0.6.2)", () => {
     afterEach(() => {
         restoreAxios();
         sinon.restore();
