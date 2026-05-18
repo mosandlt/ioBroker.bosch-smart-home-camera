@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "news": {
+      "0.6.1": {
+        "en": "Cleanup: removed legacy iOS FCM code paths; FCM_IOS_APP_ID constant + ios-mode dispatch chain dropped; adapter has used only the OSS-sanctioned Android Firebase key since v0.x — this removes dead branches. No functional change for users.",
+        "de": "Aufräumen: iOS-FCM-Codepfade entfernt; FCM_IOS_APP_ID-Konstante + ios-Mode-Dispatch-Chain gelöscht; Adapter nutzte bereits seit v0.x nur den OSS-freigegebenen Android-Firebase-Key — nur tote Branches entfernt. Keine funktionale Änderung für Nutzer.",
+        "ru": "Очистка: удалены устаревшие iOS-пути FCM; константа FCM_IOS_APP_ID и ios-mode dispatch chain удалены; адаптер и так использовал только Android Firebase ключ. Без функциональных изменений.",
+        "pt": "Limpeza: caminhos FCM iOS legados removidos; constante FCM_IOS_APP_ID e cadeia ios-mode removidas; adaptador já usava apenas a chave Android OSS. Sem mudanças funcionais.",
+        "nl": "Opruimen: legacy iOS FCM-codepaden verwijderd; FCM_IOS_APP_ID-constante + ios-mode dispatch chain verwijderd; adapter gebruikte al alleen de Android Firebase-sleutel. Geen functionele wijziging.",
+        "fr": "Nettoyage: chemins FCM iOS hérités supprimés; constante FCM_IOS_APP_ID + chaîne ios-mode supprimées; l'adaptateur utilisait déjà uniquement la clé Android OSS. Aucun changement fonctionnel.",
+        "it": "Pulizia: percorsi FCM iOS legacy rimossi; costante FCM_IOS_APP_ID + catena ios-mode rimossa; l'adapter usava già solo la chiave Android OSS. Nessuna modifica funzionale.",
+        "es": "Limpieza: rutas FCM iOS heredadas eliminadas; constante FCM_IOS_APP_ID + cadena ios-mode eliminadas; el adaptador ya usaba solo la clave Android OSS. Sin cambios funcionales.",
+        "pl": "Czyszczenie: usunięto przestarzałe ścieżki iOS FCM; stała FCM_IOS_APP_ID + łańcuch ios-mode usunięte; adapter używał już tylko klucza Android OSS. Brak zmian funkcjonalnych.",
+        "uk": "Очищення: застарілі iOS-шляхи FCM видалено; константа FCM_IOS_APP_ID + ios-mode ланцюг видалені; адаптер вже використовував лише Android Firebase ключ. Без функціональних змін.",
+        "zh-cn": "清理：移除遗留 iOS FCM 代码路径；删除 FCM_IOS_APP_ID 常量和 ios-mode 分发链；适配器本就只使用 OSS 认可的 Android Firebase 密钥。用户无功能变化。"
+      },
       "0.6.0": {
         "en": "Beta release. OAuth tokens and PKCE secrets now AES-encrypted at rest (auto-migration on first start). FCM credentials persisted across restarts (no more full re-registration handshake every start). Camera-state poll runs parallel per camera. motion_active and snapshot-idle timers use adapter-core for clean unload. +51 unit tests, 436 total. README cleaned for ioBroker repo PR.",
         "de": "Beta-Release. OAuth-Tokens und PKCE-Secrets jetzt AES-verschlüsselt (Migration beim ersten Start). FCM-Credentials restart-fest persistiert (kein Full-Re-Register-Handshake pro Start mehr). Kamera-State-Poll läuft parallel pro Kamera. motion_active- und snapshot-idle-Timer nutzen adapter-core für sauberes Unload. +51 Unit-Tests, 436 gesamt. README für ioBroker-Repo-PR aufgeräumt.",

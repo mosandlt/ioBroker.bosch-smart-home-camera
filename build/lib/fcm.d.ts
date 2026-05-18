@@ -15,9 +15,8 @@
  * payload. The adapter fetches fresh events from /v11/events on each push.
  *
  * ## Push mode
- * - "ios":     register as iOS app (FCM_IOS_APP_ID) — matches Python HA integration default
- * - "android": register as Android app
- * - "auto":    try iOS first, fall back to Android (same as Python fcm.py)
+ * - "android": register as Android OSS app (FCM_ANDROID_APP_ID)
+ * - "auto":    use Android OSS app (default; mirrors HA v12.4.5+ cleanup)
  *
  * ## Credential persistence
  * ACG ID / ACG security token / ECDH keys must be persisted across restarts to avoid
@@ -31,7 +30,6 @@
  *
  * Constants mirrored from Python fcm.py:
  *   FCM_SENDER_ID = "404630424405"
- *   FCM_IOS_APP_ID = "1:404630424405:ios:715aae2570e39faad9bddc"
  *
  * Firebase config (Android, "bosch-smart-cameras" project) — public app identifiers
  * embedded in every Bosch Smart Camera APK, vendor-confirmed for OSS use (2026-04-20).
@@ -41,7 +39,6 @@ import type { AxiosInstance } from "axios";
 import { FcmClient, createFcmECDH, generateFcmAuthSecret, registerToFCM } from "@aracna/fcm";
 export declare const CLOUD_API = "https://residential.cbs.boschsecurity.com";
 export declare const FCM_SENDER_ID = "404630424405";
-export declare const FCM_IOS_APP_ID = "1:404630424405:ios:715aae2570e39faad9bddc";
 export declare const FCM_ANDROID_APP_ID = "1:404630424405:android:9e5b6b58e4c70075";
 /**
  * Payload emitted on every motion / audio-alarm / person event.
@@ -78,7 +75,7 @@ export interface FcmRawCredentials {
     /** ECDH public key (Uint8Array serialised as number array for JSON) */
     ecdhPublicKey: number[];
     /** Push mode used for this registration */
-    mode: "ios" | "android";
+    mode: "android";
 }
 /**
  * FCM credentials returned after successful registration.
@@ -89,8 +86,8 @@ export interface FcmCredentials {
      *
      */
     fcmToken: string;
-    /** Push mode actually used ("ios" | "android") */
-    mode: "ios" | "android";
+    /** Push mode actually used */
+    mode: "android";
     /** Raw credential blob for persistence across restarts (pass as savedCredentials.raw) */
     raw: FcmRawCredentials;
 }
@@ -100,11 +97,10 @@ export interface FcmCredentials {
 export interface FcmListenerOptions {
     /**
      * Push registration mode.
-     * - "ios"     → register as iOS app (FCM_IOS_APP_ID)
-     * - "android" → register as Android app
-     * - "auto"    → try iOS first, fall back to Android (default)
+     * - "android" → register as Android OSS app (FCM_ANDROID_APP_ID)
+     * - "auto"    → use Android OSS app (default; same as "android" since v0.6.1)
      */
-    mode?: "ios" | "android" | "auto";
+    mode?: "android" | "auto";
     /**
      * Previously saved credentials (survives adapter restart — skip re-register
      * if token is still valid). Mirrors `saved_fcm_creds` in Python.
@@ -255,7 +251,7 @@ export declare class FcmListener extends EventEmitter {
      * @param mode
      * @throws FcmCbsRegistrationError on non-retryable HTTP 4xx.
      */
-    _registerWithCbs(token: string, mode: "ios" | "android"): Promise<void>;
+    _registerWithCbs(token: string, mode: "android"): Promise<void>;
     /**
      * Handle an incoming FCM push message from Bosch.
      *

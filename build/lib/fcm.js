@@ -16,9 +16,8 @@
  * payload. The adapter fetches fresh events from /v11/events on each push.
  *
  * ## Push mode
- * - "ios":     register as iOS app (FCM_IOS_APP_ID) — matches Python HA integration default
- * - "android": register as Android app
- * - "auto":    try iOS first, fall back to Android (same as Python fcm.py)
+ * - "android": register as Android OSS app (FCM_ANDROID_APP_ID)
+ * - "auto":    use Android OSS app (default; mirrors HA v12.4.5+ cleanup)
  *
  * ## Credential persistence
  * ACG ID / ACG security token / ECDH keys must be persisted across restarts to avoid
@@ -32,25 +31,23 @@
  *
  * Constants mirrored from Python fcm.py:
  *   FCM_SENDER_ID = "404630424405"
- *   FCM_IOS_APP_ID = "1:404630424405:ios:715aae2570e39faad9bddc"
  *
  * Firebase config (Android, "bosch-smart-cameras" project) — public app identifiers
  * embedded in every Bosch Smart Camera APK, vendor-confirmed for OSS use (2026-04-20).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FcmListener = exports.FcmRegistrationError = exports.FcmCbsRegistrationError = exports.FCM_ANDROID_APP_ID = exports.FCM_IOS_APP_ID = exports.FCM_SENDER_ID = exports.CLOUD_API = void 0;
+exports.FcmListener = exports.FcmRegistrationError = exports.FcmCbsRegistrationError = exports.FCM_ANDROID_APP_ID = exports.FCM_SENDER_ID = exports.CLOUD_API = void 0;
 const node_events_1 = require("node:events");
 const fcm_1 = require("@aracna/fcm");
 // ── Constants (from Python fcm.py) ───────────────────────────────────────────
 exports.CLOUD_API = "https://residential.cbs.boschsecurity.com";
 exports.FCM_SENDER_ID = "404630424405";
-exports.FCM_IOS_APP_ID = `1:${exports.FCM_SENDER_ID}:ios:715aae2570e39faad9bddc`;
 exports.FCM_ANDROID_APP_ID = `1:${exports.FCM_SENDER_ID}:android:9e5b6b58e4c70075`;
 // Firebase project ID — Bosch Smart Camera Firebase project
 const FCM_PROJECT_ID = "bosch-smart-cameras";
 // Vendor-sanctioned OSS Firebase API key (2026-04-20).
 // Firebase Installations API + FCM registration permissions confirmed for OSS use.
-// Single key for both iOS and Android registration paths (one project, one key).
+// One project, one key (Android OSS path only since v0.6.1).
 // Stored base64-wrapped so GitHub Secret Scanning doesn't flag the public key;
 // decoded once at module load — no runtime overhead.
 const FCM_OSS_API_KEY = Buffer.from("QUl6YVN5Q0toaGZ4ZlRzMUc3V3Z6VERBaU8wQWlzN0VIMjVEYk9z", "base64").toString("utf8");
@@ -141,23 +138,11 @@ class FcmListener extends node_events_1.EventEmitter {
         if (this._running) {
             return;
         }
-        const mode = this._options.mode ?? "auto";
-        if (mode === "auto") {
-            // Try iOS first, then Android — mirrors Python _try_fcm_with_mode logic
-            const iosOk = await this._tryStart("ios");
-            if (iosOk) {
-                return;
-            }
-            const androidOk = await this._tryStart("android");
-            if (!androidOk) {
-                throw new FcmRegistrationError("FCM: both iOS and Android registration failed — check network and Firebase credentials");
-            }
-        }
-        else {
-            const ok = await this._tryStart(mode);
-            if (!ok) {
-                throw new FcmRegistrationError(`FCM: registration failed for mode '${mode}'`);
-            }
+        // "auto" is an alias for "android" since v0.6.1 — iOS code paths removed.
+        // The OSS-sanctioned Android Firebase app handles all registration.
+        const ok = await this._tryStart("android");
+        if (!ok) {
+            throw new FcmRegistrationError("FCM: Android registration failed — check network and Firebase credentials");
         }
     }
     /**
@@ -225,7 +210,7 @@ class FcmListener extends node_events_1.EventEmitter {
             else {
                 authSecret = deps.generateFcmAuthSecret();
             }
-            const appID = mode === "ios" ? exports.FCM_IOS_APP_ID : exports.FCM_ANDROID_APP_ID;
+            const appID = exports.FCM_ANDROID_APP_ID;
             const apiKey = FCM_OSS_API_KEY;
             const publicKey = ecdh.getPublicKey();
             // Step 2: Register with Google FCM
@@ -238,7 +223,7 @@ class FcmListener extends node_events_1.EventEmitter {
                 },
                 firebase: {
                     apiKey,
-                    appID: mode === "ios" ? exports.FCM_IOS_APP_ID : exports.FCM_ANDROID_APP_ID,
+                    appID: exports.FCM_ANDROID_APP_ID,
                     projectID: FCM_PROJECT_ID,
                 },
                 vapidKey: FCM_VAPID_KEY,
@@ -337,7 +322,7 @@ class FcmListener extends node_events_1.EventEmitter {
      * @throws FcmCbsRegistrationError on non-retryable HTTP 4xx.
      */
     async _registerWithCbs(token, mode) {
-        const deviceType = mode === "ios" ? "IOS" : "ANDROID";
+        const deviceType = "ANDROID";
         const resp = await this._httpClient.post(`${exports.CLOUD_API}/v11/devices`, { deviceType, deviceToken: token }, {
             headers: {
                 Authorization: `Bearer ${this._bearerToken}`,

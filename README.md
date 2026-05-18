@@ -84,6 +84,14 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via three sibling 
 
 ## Changelog
 
+### 0.6.1 (2026-05-18)
+Cleanup: removed legacy iOS FCM code paths aligned with HA integration v12.4.5.
+
+- **`FCM_IOS_APP_ID` constant removed** — the adapter has used only the OSS-sanctioned Android Firebase key since its first release; the constant was dead code.
+- **`mode: "ios"` dispatch chain removed** — `FcmListenerOptions.mode`, `FcmCredentials.mode`, and `FcmRawCredentials.mode` now accept `"android" | "auto"` only. `"auto"` is a direct alias for `"android"` (no iOS fallback).
+- **`_registerWithCbs()` always posts `deviceType: "ANDROID"`** — the `"IOS"` branch is gone.
+- **Legacy-creds back-compat**: users who stored credentials with `mode: "ios"` from a hypothetical pre-cleanup install will have their persisted mode rewritten to `"android"` on first start — no re-registration triggered.
+
 ### 0.6.0 (2026-05-16)
 Security hardening + reliability round. Prepares the codebase for the official ioBroker repository PR.
 
@@ -362,8 +370,8 @@ This adapter is part of a 3-implementation family for Bosch Smart Home Cameras:
 | Implementation | Repo | Status |
 |---|---|---|
 | 🏆 Home Assistant Integration | [Bosch-Smart-Home-Camera-Tool-HomeAssistant](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | v12.4.5 · HA Quality Scale **Platinum** · production-ready |
-| 🐍 Python CLI | [Bosch-Smart-Home-Camera-Tool-Python](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | v10.7.0 · Mini-NVR + SMB upload (BETA) · capture / research / no-HA standalone |
-| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.6.0 · beta · npm |
+| 🐍 Python CLI | [Bosch-Smart-Home-Camera-Tool-Python](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | v10.7.1 · Mini-NVR + SMB upload (BETA) · capture / research / no-HA standalone |
+| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.6.1 · beta · npm |
 | 🤖 MCP Server | [Bosch-Smart-Home-Camera-Tool-MCP](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) | v1.0.0 · Claude Code / Claude Desktop integration |
 
 HA stays the **reference implementation** — features land there first; the Python CLI and this adapter catch up over time.

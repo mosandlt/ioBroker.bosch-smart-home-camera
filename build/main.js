@@ -587,14 +587,25 @@ class BoschSmartHomeCamera extends utils.Adapter {
             if (!plain) {
                 return null;
             }
-            const parsed = JSON.parse(plain);
-            if (typeof parsed?.fcmToken === "string" &&
-                parsed.fcmToken.length > 0 &&
-                (parsed.mode === "ios" || parsed.mode === "android") &&
-                parsed.raw &&
-                typeof parsed.raw === "object") {
+            // Use a loose type for JSON parse so we can handle legacy "ios" mode
+            // stored before v0.6.1 (back-compat migration — no re-registration needed).
+            const parsedRaw = JSON.parse(plain);
+            const rawMode = parsedRaw["mode"];
+            if (typeof parsedRaw["fcmToken"] === "string" &&
+                parsedRaw["fcmToken"].length > 0 &&
+                // Accept legacy "ios" mode from creds stored before v0.6.1 cleanup;
+                // treat as "android" on rehydration — functional behaviour is identical.
+                (rawMode === "ios" || rawMode === "android") &&
+                parsedRaw["raw"] &&
+                typeof parsedRaw["raw"] === "object") {
+                if (rawMode === "ios") {
+                    // Legacy creds migration: rewrite to android so subsequent saves
+                    // use the current type (no functional re-registration needed).
+                    parsedRaw["mode"] = "android";
+                    parsedRaw["raw"]["mode"] = "android";
+                }
                 this.log.debug("Replaying persisted FCM credentials — skipping fresh registration");
-                return parsed;
+                return parsedRaw;
             }
             return null;
         }
@@ -1702,7 +1713,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 await this.setStateAsync("info.fcm_active", "error", true);
             }
             else {
-                // Both iOS and Android registration failed. Fall back to polling
+                // FCM registration failed. Fall back to polling
                 // (mirrors HA's `fcm_push_mode=polling` default-fallback) — adapter
                 // stays usable; events arrive via the polling timer every 30 s.
                 this.log.warn(`FCM push unavailable (${msg}) — falling back to event polling every ${BoschSmartHomeCamera.EVENT_POLL_INTERVAL_MS / 1000}s`);

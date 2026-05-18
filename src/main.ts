@@ -661,16 +661,27 @@ class BoschSmartHomeCamera extends utils.Adapter {
             if (!plain) {
                 return null;
             }
-            const parsed = JSON.parse(plain) as Partial<FcmCredentials>;
+            // Use a loose type for JSON parse so we can handle legacy "ios" mode
+            // stored before v0.6.1 (back-compat migration — no re-registration needed).
+            const parsedRaw = JSON.parse(plain) as Record<string, unknown>;
+            const rawMode = parsedRaw["mode"] as string | undefined;
             if (
-                typeof parsed?.fcmToken === "string" &&
-                parsed.fcmToken.length > 0 &&
-                (parsed.mode === "ios" || parsed.mode === "android") &&
-                parsed.raw &&
-                typeof parsed.raw === "object"
+                typeof parsedRaw["fcmToken"] === "string" &&
+                (parsedRaw["fcmToken"] as string).length > 0 &&
+                // Accept legacy "ios" mode from creds stored before v0.6.1 cleanup;
+                // treat as "android" on rehydration — functional behaviour is identical.
+                (rawMode === "ios" || rawMode === "android") &&
+                parsedRaw["raw"] &&
+                typeof parsedRaw["raw"] === "object"
             ) {
+                if (rawMode === "ios") {
+                    // Legacy creds migration: rewrite to android so subsequent saves
+                    // use the current type (no functional re-registration needed).
+                    parsedRaw["mode"] = "android";
+                    (parsedRaw["raw"] as Record<string, unknown>)["mode"] = "android";
+                }
                 this.log.debug("Replaying persisted FCM credentials — skipping fresh registration");
-                return parsed as FcmCredentials;
+                return parsedRaw as unknown as FcmCredentials;
             }
             return null;
         } catch (err) {
@@ -1894,7 +1905,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // mode that fails to register. Without this log the user sees only the
         // generic "both iOS and Android failed" message and can't diagnose the
         // real cause (network, CBS auth, @aracna/fcm bug, ...).
-        this._fcmListener.on("mode-failed", (info: { mode: "ios" | "android"; error: Error }) => {
+        this._fcmListener.on("mode-failed", (info: { mode: "android"; error: Error }) => {
             this.log.warn(`FCM ${info.mode} registration failed: ${info.error.message}`);
             if (info.error.stack) {
                 this.log.debug(`FCM ${info.mode} stack: ${info.error.stack}`);
@@ -1923,7 +1934,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 this.log.error(`FCM CBS registration failed (auth/token issue): ${msg}`);
                 await this.setStateAsync("info.fcm_active", "error", true);
             } else {
-                // Both iOS and Android registration failed. Fall back to polling
+                // FCM registration failed. Fall back to polling
                 // (mirrors HA's `fcm_push_mode=polling` default-fallback) — adapter
                 // stays usable; events arrive via the polling timer every 30 s.
                 this.log.warn(
