@@ -459,7 +459,7 @@ export class FcmListener extends EventEmitter {
             };
 
             // Step 3: Register FCM token with Bosch CBS
-            await this._registerWithCbs(fcmRegistration.token, mode);
+            await this._registerWithCbs(fcmRegistration.token);
 
             // Emit registered event so caller can persist credentials
             this.emit("registered", creds);
@@ -513,15 +513,14 @@ export class FcmListener extends EventEmitter {
     /**
      * Register the FCM device token with Bosch CBS.
      *
-     * Endpoint: POST /v11/devices  { deviceType: "IOS"|"ANDROID", deviceToken }
+     * Endpoint: POST /v11/devices  { deviceType: "ANDROID", deviceToken }
      * HTTP 204 → success. HTTP 500 + "sh:internal.error" → already registered
      * (treat as success, same as Python register_fcm_with_bosch()).
      *
-     * @param token
-     * @param mode
+     * @param token FCM registration token returned by Google FCM.
      * @throws FcmCbsRegistrationError on non-retryable HTTP 4xx.
      */
-    async _registerWithCbs(token: string, mode: "android"): Promise<void> {
+    async _registerWithCbs(token: string): Promise<void> {
         const deviceType = "ANDROID";
         const resp = await this._httpClient.post(
             `${CLOUD_API}/v11/devices`,

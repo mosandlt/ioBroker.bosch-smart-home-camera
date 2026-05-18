@@ -243,15 +243,14 @@ export declare class FcmListener extends EventEmitter {
     /**
      * Register the FCM device token with Bosch CBS.
      *
-     * Endpoint: POST /v11/devices  { deviceType: "IOS"|"ANDROID", deviceToken }
+     * Endpoint: POST /v11/devices  { deviceType: "ANDROID", deviceToken }
      * HTTP 204 → success. HTTP 500 + "sh:internal.error" → already registered
      * (treat as success, same as Python register_fcm_with_bosch()).
      *
-     * @param token
-     * @param mode
+     * @param token FCM registration token returned by Google FCM.
      * @throws FcmCbsRegistrationError on non-retryable HTTP 4xx.
      */
-    _registerWithCbs(token: string, mode: "android"): Promise<void>;
+    _registerWithCbs(token: string): Promise<void>;
     /**
      * Handle an incoming FCM push message from Bosch.
      *

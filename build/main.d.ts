@@ -76,6 +76,25 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     /** Event-poll interval (ms) when FCM push is unavailable. */
     private static readonly EVENT_POLL_INTERVAL_MS;
     /**
+     * v0.6.2: pending FCM auto-reconnect timer (forum #84538).
+     * Armed on the listener's "disconnect" event and walks the backoff array
+     * below. Cleared on successful reconnect, on unload, and re-armed on every
+     * failed start() retry.
+     */
+    private _fcmReconnectTimer;
+    /**
+     * v0.6.2: current backoff attempt index (0 → 5 s, 1 → 30 s, 2 → 120 s,
+     * 3+ → 600 s cap). Reset to 0 on successful reconnect.
+     */
+    private _fcmReconnectAttempt;
+    /**
+     * v0.6.2: exponential-backoff schedule for FCM auto-reconnect (ms).
+     * Last entry is the cap — any attempt beyond this index reuses 600 s.
+     * Tuned for Google MTalk server rotation (typically heals in seconds)
+     * while keeping log noise bounded if push stays unreachable.
+     */
+    private static readonly FCM_RECONNECT_BACKOFF_MS;
+    /**
      * Periodic poll of /v11/video_inputs to pick up app-side state changes
      * (privacy toggled via the Bosch app, camera renamed, …). Independent of
      * FCM — runs always so DPs stay accurate even with push healthy.
@@ -605,6 +624,19 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * Idempotent: re-calling while a timer is already armed is a no-op.
      */
     private _startEventPolling;
+    /**
+     * v0.6.2: arm an FCM reconnect attempt with exponential backoff
+     * (forum #84538). No-op if a timer is already pending (re-entrancy guard)
+     * or if the listener has been torn down (adapter shutting down).
+     */
+    private _scheduleFcmReconnect;
+    /**
+     * v0.6.2: re-call `_fcmListener.start()` after a disconnect.
+     * Success → reset backoff, mark info.fcm_active="healthy".
+     * Failure → bump attempt counter, re-schedule via {@link _scheduleFcmReconnect}.
+     * Treats a missing listener as terminal (adapter is unloading).
+     */
+    private _attemptFcmReconnect;
     /**
      * Update `cameras.<id>.online` based on snapshot reachability.
      *

@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "0.6.1",
+    "version": "0.6.2",
     "news": {
+      "0.6.2": {
+        "en": "Beta release — FCM auto-reconnect (forum #84538). After an MTalk push-channel drop the adapter now retries with exponential backoff (5 s → 30 s → 120 s → 600 s) and reverts info.fcm_active to 'healthy' on success. Previously a single Google MTalk server rotation left the adapter on the 30 s polling fallback until restart.",
+        "de": "Beta-Release — FCM Auto-Reconnect (Forum #84538). Nach einem MTalk-Push-Drop versucht der Adapter jetzt mit Exponential-Backoff (5 s → 30 s → 120 s → 600 s) neu zu verbinden und setzt info.fcm_active wieder auf 'healthy'. Vorher blieb der Adapter nach einer einzelnen MTalk-Server-Rotation bis zum Restart auf dem 30-s-Polling-Fallback.",
+        "ru": "Beta релиз — авто-переподключение FCM (форум #84538). После обрыва push-канала MTalk адаптер теперь повторяет попытки с экспоненциальной задержкой (5 с → 30 с → 120 с → 600 с) и возвращает info.fcm_active в 'healthy'. Раньше после одной ротации сервера MTalk адаптер оставался на 30-с polling fallback до перезапуска.",
+        "pt": "Release beta — reconexão automática FCM (fórum #84538). Após queda do canal push MTalk o adaptador agora tenta reconectar com backoff exponencial (5 s → 30 s → 120 s → 600 s) e restaura info.fcm_active para 'healthy'. Antes, uma única rotação do servidor MTalk deixava o adaptador no fallback de polling de 30 s até reiniciar.",
+        "nl": "Beta release — FCM auto-reconnect (forum #84538). Na een MTalk push-drop probeert de adapter nu opnieuw te verbinden met exponential backoff (5 s → 30 s → 120 s → 600 s) en zet info.fcm_active terug op 'healthy'. Eerder bleef de adapter na één MTalk-server-rotatie tot de herstart op de 30 s polling fallback.",
+        "fr": "Version beta — reconnexion FCM automatique (forum #84538). Après une perte du canal push MTalk, l'adaptateur retente avec un backoff exponentiel (5 s → 30 s → 120 s → 600 s) et remet info.fcm_active à 'healthy'. Avant, une seule rotation de serveur MTalk laissait l'adaptateur en fallback polling 30 s jusqu'au redémarrage.",
+        "it": "Release beta — riconnessione FCM automatica (forum #84538). Dopo una caduta del canale push MTalk l'adapter ora ritenta con backoff esponenziale (5 s → 30 s → 120 s → 600 s) e riporta info.fcm_active a 'healthy'. Prima, una singola rotazione del server MTalk lasciava l'adapter sul fallback di polling 30 s fino al riavvio.",
+        "es": "Release beta — reconexión FCM automática (foro #84538). Tras la caída del canal push MTalk el adaptador ahora reintenta con backoff exponencial (5 s → 30 s → 120 s → 600 s) y devuelve info.fcm_active a 'healthy'. Antes, una sola rotación de servidor MTalk dejaba al adaptador en el fallback de polling de 30 s hasta el reinicio.",
+        "pl": "Wydanie beta — automatyczne ponowne łączenie FCM (forum #84538). Po zerwaniu kanału push MTalk adapter ponawia próby z wykładniczym backoffem (5 s → 30 s → 120 s → 600 s) i przywraca info.fcm_active do 'healthy'. Wcześniej pojedyncza rotacja serwera MTalk pozostawiała adapter na 30-sekundowym pollingu do restartu.",
+        "uk": "Beta-реліз — авто-перепідключення FCM (форум #84538). Після обриву push-каналу MTalk адаптер тепер повторює спроби з експоненційною затримкою (5 с → 30 с → 120 с → 600 с) і повертає info.fcm_active в 'healthy'. Раніше одна ротація сервера MTalk залишала адаптер на 30-секундному polling fallback до перезапуску.",
+        "zh-cn": "Beta 版本——FCM 自动重连（论坛 #84538）。MTalk 推送通道断开后，适配器现在按指数退避（5 秒 → 30 秒 → 120 秒 → 600 秒）重连，成功后将 info.fcm_active 恢复为 'healthy'。此前一次 Google MTalk 服务器轮换会让适配器停留在 30 秒轮询回退模式直到重启。"
+      },
       "0.6.1": {
         "en": "Cleanup: removed legacy iOS FCM code paths; FCM_IOS_APP_ID constant + ios-mode dispatch chain dropped; adapter has used only the OSS-sanctioned Android Firebase key since v0.x — this removes dead branches. No functional change for users.",
         "de": "Aufräumen: iOS-FCM-Codepfade entfernt; FCM_IOS_APP_ID-Konstante + ios-Mode-Dispatch-Chain gelöscht; Adapter nutzte bereits seit v0.x nur den OSS-freigegebenen Android-Firebase-Key — nur tote Branches entfernt. Keine funktionale Änderung für Nutzer.",

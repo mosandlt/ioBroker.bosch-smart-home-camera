@@ -150,6 +150,28 @@ class BoschSmartHomeCamera extends utils.Adapter {
     private static readonly EVENT_POLL_INTERVAL_MS = 30_000;
 
     /**
+     * v0.6.2: pending FCM auto-reconnect timer (forum #84538).
+     * Armed on the listener's "disconnect" event and walks the backoff array
+     * below. Cleared on successful reconnect, on unload, and re-armed on every
+     * failed start() retry.
+     */
+    private _fcmReconnectTimer: ioBroker.Timeout | null = null;
+
+    /**
+     * v0.6.2: current backoff attempt index (0 → 5 s, 1 → 30 s, 2 → 120 s,
+     * 3+ → 600 s cap). Reset to 0 on successful reconnect.
+     */
+    private _fcmReconnectAttempt = 0;
+
+    /**
+     * v0.6.2: exponential-backoff schedule for FCM auto-reconnect (ms).
+     * Last entry is the cap — any attempt beyond this index reuses 600 s.
+     * Tuned for Google MTalk server rotation (typically heals in seconds)
+     * while keeping log noise bounded if push stays unreachable.
+     */
+    private static readonly FCM_RECONNECT_BACKOFF_MS = [5_000, 30_000, 120_000, 600_000];
+
+    /**
      * Periodic poll of /v11/video_inputs to pick up app-side state changes
      * (privacy toggled via the Bosch app, camera renamed, …). Independent of
      * FCM — runs always so DPs stay accurate even with push healthy.
@@ -664,21 +686,21 @@ class BoschSmartHomeCamera extends utils.Adapter {
             // Use a loose type for JSON parse so we can handle legacy "ios" mode
             // stored before v0.6.1 (back-compat migration — no re-registration needed).
             const parsedRaw = JSON.parse(plain) as Record<string, unknown>;
-            const rawMode = parsedRaw["mode"] as string | undefined;
+            const rawMode = parsedRaw.mode as string | undefined;
             if (
-                typeof parsedRaw["fcmToken"] === "string" &&
-                (parsedRaw["fcmToken"] as string).length > 0 &&
+                typeof parsedRaw.fcmToken === "string" &&
+                parsedRaw.fcmToken.length > 0 &&
                 // Accept legacy "ios" mode from creds stored before v0.6.1 cleanup;
                 // treat as "android" on rehydration — functional behaviour is identical.
                 (rawMode === "ios" || rawMode === "android") &&
-                parsedRaw["raw"] &&
-                typeof parsedRaw["raw"] === "object"
+                parsedRaw.raw &&
+                typeof parsedRaw.raw === "object"
             ) {
                 if (rawMode === "ios") {
                     // Legacy creds migration: rewrite to android so subsequent saves
                     // use the current type (no functional re-registration needed).
-                    parsedRaw["mode"] = "android";
-                    (parsedRaw["raw"] as Record<string, unknown>)["mode"] = "android";
+                    parsedRaw.mode = "android";
+                    (parsedRaw.raw as Record<string, unknown>).mode = "android";
                 }
                 this.log.debug("Replaying persisted FCM credentials — skipping fresh registration");
                 return parsedRaw as unknown as FcmCredentials;
@@ -1918,10 +1940,15 @@ class BoschSmartHomeCamera extends utils.Adapter {
             void this.setStateAsync("info.fcm_active", "error", true);
         });
 
-        // MTalk socket closed — adapter still usable via polling
+        // MTalk socket closed. The @aracna/fcm FcmClient does not auto-reconnect
+        // (see src/lib/fcm.ts header comment), so we re-arm the listener here
+        // with exponential backoff. Forum #84538 (2026-05-17): one MTalk server
+        // rotation left the adapter on 30 s event polling until restart;
+        // backoff lets transient drops heal in seconds.
         this._fcmListener.on("disconnect", () => {
-            this.log.warn("FCM disconnected — adapter continues polling");
+            this.log.warn("FCM disconnected — scheduling reconnect");
             void this.setStateAsync("info.fcm_active", "disconnected", true);
+            this._scheduleFcmReconnect();
         });
 
         try {
@@ -3009,6 +3036,56 @@ class BoschSmartHomeCamera extends utils.Adapter {
     }
 
     /**
+     * v0.6.2: arm an FCM reconnect attempt with exponential backoff
+     * (forum #84538). No-op if a timer is already pending (re-entrancy guard)
+     * or if the listener has been torn down (adapter shutting down).
+     */
+    private _scheduleFcmReconnect(): void {
+        if (this._fcmReconnectTimer !== null) {
+            return;
+        }
+        if (!this._fcmListener) {
+            return;
+        }
+        const backoff = BoschSmartHomeCamera.FCM_RECONNECT_BACKOFF_MS;
+        const idx = Math.min(this._fcmReconnectAttempt, backoff.length - 1);
+        const delayMs = backoff[idx];
+        this.log.debug(
+            `Scheduling FCM reconnect in ${delayMs / 1000}s (attempt ${this._fcmReconnectAttempt + 1})`,
+        );
+        // this.setTimeout returns ioBroker.Timeout | undefined — coalesce to null
+        // so the field type stays `ioBroker.Timeout | null` (matches `_refreshTimeout`).
+        this._fcmReconnectTimer =
+            this.setTimeout(() => {
+                this._fcmReconnectTimer = null;
+                void this._attemptFcmReconnect();
+            }, delayMs) ?? null;
+    }
+
+    /**
+     * v0.6.2: re-call `_fcmListener.start()` after a disconnect.
+     * Success → reset backoff, mark info.fcm_active="healthy".
+     * Failure → bump attempt counter, re-schedule via {@link _scheduleFcmReconnect}.
+     * Treats a missing listener as terminal (adapter is unloading).
+     */
+    private async _attemptFcmReconnect(): Promise<void> {
+        if (!this._fcmListener) {
+            return;
+        }
+        try {
+            await this._fcmListener.start();
+            this._fcmReconnectAttempt = 0;
+            await this.setStateAsync("info.fcm_active", "healthy", true);
+            this.log.info("FCM push listener reconnected");
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.log.warn(`FCM reconnect attempt failed: ${msg}`);
+            this._fcmReconnectAttempt += 1;
+            this._scheduleFcmReconnect();
+        }
+    }
+
+    /**
      * Update `cameras.<id>.online` based on snapshot reachability.
      *
      * Bosch's list endpoint does not expose connectivity, so the only signal we have
@@ -3094,6 +3171,15 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     clearInterval(this._statePollTimer);
                     this._statePollTimer = null;
                 }
+
+                // v0.6.2: cancel any pending FCM reconnect timer BEFORE
+                // nulling the listener — otherwise a timer that fires during
+                // shutdown would try to start() a half-torn-down listener.
+                if (this._fcmReconnectTimer) {
+                    this.clearTimeout(this._fcmReconnectTimer);
+                    this._fcmReconnectTimer = null;
+                }
+                this._fcmReconnectAttempt = 0;
 
                 // Stop FCM listener
                 if (this._fcmListener) {

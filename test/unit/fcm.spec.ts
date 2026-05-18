@@ -8,7 +8,7 @@
  *   3. CBS registration (_registerWithCbs) — all HTTP status paths
  *   4. Notification parser (_parseNotification) — all event types + PERSON upgrade
  *   5. EventEmitter contract — "push", "registered", "disconnect", "error"
- *   6. Mode selection — ios/android/auto fall-back logic
+ *   6. Mode selection — android/auto (FCM register or fail)
  *   7. Credential persistence — savedCredentials.raw reused across restarts
  *
  * Framework: Mocha + Chai + Sinon
@@ -29,7 +29,6 @@ import {
     FcmCbsRegistrationError,
     FcmRegistrationError,
     FCM_SENDER_ID,
-    FCM_IOS_APP_ID,
     FCM_ANDROID_APP_ID,
     CLOUD_API,
     type FcmEventPayload,
@@ -115,10 +114,6 @@ describe("FCM constants", () => {
         expect(FCM_SENDER_ID).to.equal("404630424405");
     });
 
-    it("FCM_IOS_APP_ID contains FCM_SENDER_ID", () => {
-        expect(FCM_IOS_APP_ID).to.include(FCM_SENDER_ID);
-    });
-
     it("FCM_ANDROID_APP_ID contains FCM_SENDER_ID", () => {
         expect(FCM_ANDROID_APP_ID).to.include(FCM_SENDER_ID);
     });
@@ -135,10 +130,10 @@ describe("FcmListener lifecycle (real impl, injected deps)", () => {
         restoreAxios();
     });
 
-    it("start() registers with FCM, registers with CBS, and sets _running=true (ios mode)", async () => {
+    it("start() registers with FCM, registers with CBS, and sets _running=true (android mode)", async () => {
         const { deps } = makeDeps();
         stubAxiosSequence([{ status: 204, data: "" }]); // CBS registration
-        const listener = makeListener("tok", { mode: "ios" }, deps);
+        const listener = makeListener("tok", { mode: "android" }, deps);
         await listener.start();
 
         expect(listener.isHealthy()).to.be.true;
@@ -157,21 +152,10 @@ describe("FcmListener lifecycle (real impl, injected deps)", () => {
         expect(config.firebase.appID).to.equal(FCM_ANDROID_APP_ID);
     });
 
-    it("start() with mode='ios' calls registerToFCM with iOS app ID", async () => {
-        const { deps } = makeDeps();
-        stubAxiosSequence([{ status: 204, data: "" }]);
-        const listener = makeListener("tok", { mode: "ios" }, deps);
-        await listener.start();
-
-        const registerStub = deps.registerToFCM as sinon.SinonStub;
-        const config = registerStub.firstCall.args[0] as { firebase: { appID: string } };
-        expect(config.firebase.appID).to.equal(FCM_IOS_APP_ID);
-    });
-
     it("start() is idempotent — second call does nothing when already running", async () => {
         const { deps } = makeDeps();
         stubAxiosSequence([{ status: 204, data: "" }]);
-        const listener = makeListener("tok", { mode: "ios" }, deps);
+        const listener = makeListener("tok", { mode: "android" }, deps);
         await listener.start();
         await listener.start(); // second call must be no-op
 
@@ -181,7 +165,7 @@ describe("FcmListener lifecycle (real impl, injected deps)", () => {
     it("start() emits 'registered' with FcmCredentials", async () => {
         const { deps } = makeDeps();
         stubAxiosSequence([{ status: 204, data: "" }]);
-        const listener = makeListener("tok", { mode: "ios" }, deps);
+        const listener = makeListener("tok", { mode: "android" }, deps);
 
         const registeredSpy = sinon.spy();
         listener.on("registered", registeredSpy);
@@ -191,7 +175,7 @@ describe("FcmListener lifecycle (real impl, injected deps)", () => {
         expect(registeredSpy.calledOnce).to.be.true;
         const creds = registeredSpy.firstCall.args[0] as FcmCredentials;
         expect(creds.fcmToken).to.equal("fake-fcm-token-xyz");
-        expect(creds.mode).to.equal("ios");
+        expect(creds.mode).to.equal("android");
         expect(creds.raw).to.have.property("acgId");
         expect(creds.raw).to.have.property("acgSecurityToken");
         expect(creds.raw).to.have.property("authSecret");
@@ -202,7 +186,7 @@ describe("FcmListener lifecycle (real impl, injected deps)", () => {
     it("stop() sets _running=false and emits 'disconnect'", async () => {
         const { deps } = makeDeps();
         stubAxiosSequence([{ status: 204, data: "" }]);
-        const listener = makeListener("tok", { mode: "ios" }, deps);
+        const listener = makeListener("tok", { mode: "android" }, deps);
         await listener.start();
 
         const spy = sinon.spy();
@@ -217,7 +201,7 @@ describe("FcmListener lifecycle (real impl, injected deps)", () => {
     it("stop() is idempotent — does not emit 'disconnect' twice", async () => {
         const { deps } = makeDeps();
         stubAxiosSequence([{ status: 204, data: "" }]);
-        const listener = makeListener("tok", { mode: "ios" }, deps);
+        const listener = makeListener("tok", { mode: "android" }, deps);
         await listener.start();
 
         const spy = sinon.spy();
@@ -231,7 +215,7 @@ describe("FcmListener lifecycle (real impl, injected deps)", () => {
 
     it("stop() on a non-running listener does nothing", async () => {
         const { deps } = makeDeps();
-        const listener = makeListener("tok", { mode: "ios" }, deps);
+        const listener = makeListener("tok", { mode: "android" }, deps);
         const spy = sinon.spy();
         listener.on("disconnect", spy);
         await listener.stop();
@@ -248,9 +232,9 @@ describe("FcmListener lifecycle (real impl, injected deps)", () => {
         expect(listener.isHealthy()).to.be.false;
     });
 
-    it("start() throws FcmRegistrationError when registerToFCM returns Error (mode=ios)", async () => {
+    it("start() throws FcmRegistrationError when registerToFCM returns Error (mode=android)", async () => {
         const { deps } = makeDeps({ registerResult: new Error("Google API rejected") });
-        const listener = makeListener("tok", { mode: "ios" }, deps);
+        const listener = makeListener("tok", { mode: "android" }, deps);
 
         try {
             await listener.start();
@@ -260,34 +244,8 @@ describe("FcmListener lifecycle (real impl, injected deps)", () => {
         }
     });
 
-    it("start() mode='auto' falls back to android when ios fails", async () => {
-        // iOS registration fails, android succeeds
-        const registerStub = sinon.stub();
-        registerStub.onFirstCall().resolves(new Error("iOS reg failed"));
-        registerStub.onSecondCall().resolves(makeFakeReg());
-
-        const fakeClient = makeFakeClient();
-        const deps: FcmDeps = {
-            registerToFCM: registerStub as unknown as FcmDeps["registerToFCM"],
-            createFcmECDH: sinon
-                .stub()
-                .returns(makeFakeEcdh()) as unknown as FcmDeps["createFcmECDH"],
-            generateFcmAuthSecret: sinon
-                .stub()
-                .returns(Buffer.alloc(16, 0x11)) as unknown as FcmDeps["generateFcmAuthSecret"],
-            FcmClient: sinon.stub().returns(fakeClient) as unknown as FcmDeps["FcmClient"],
-        };
-
-        stubAxiosSequence([{ status: 204, data: "" }]); // CBS for android
-        const listener = makeListener("tok", { mode: "auto" }, deps);
-        await listener.start();
-
-        expect(registerStub.callCount).to.equal(2);
-        expect(listener.isHealthy()).to.be.true;
-    });
-
-    it("start() mode='auto' throws FcmRegistrationError when both ios and android fail", async () => {
-        const { deps } = makeDeps({ registerResult: new Error("all modes failed") });
+    it("start() mode='auto' throws FcmRegistrationError when android fails", async () => {
+        const { deps } = makeDeps({ registerResult: new Error("android registration failed") });
         const listener = makeListener("tok", { mode: "auto" }, deps);
 
         try {
@@ -310,7 +268,7 @@ describe("FcmListener — push event forwarding", () => {
         const fakeClient = makeFakeClient();
         const { deps } = makeDeps({ fakeClient });
         stubAxiosSequence([{ status: 204, data: "" }]);
-        const listener = makeListener("tok", { mode: "ios" }, deps);
+        const listener = makeListener("tok", { mode: "android" }, deps);
         const pushSpy = sinon.spy();
         listener.on("push", pushSpy);
 
@@ -331,7 +289,7 @@ describe("FcmListener — push event forwarding", () => {
         const fakeClient = makeFakeClient();
         const { deps } = makeDeps({ fakeClient });
         stubAxiosSequence([{ status: 204, data: "" }]);
-        const listener = makeListener("tok", { mode: "ios" }, deps);
+        const listener = makeListener("tok", { mode: "android" }, deps);
         const motionSpy = sinon.spy();
         listener.on("motion", motionSpy);
 
@@ -357,7 +315,7 @@ describe("FcmListener — push event forwarding", () => {
         const fakeClient = makeFakeClient();
         const { deps } = makeDeps({ fakeClient });
         stubAxiosSequence([{ status: 204, data: "" }]);
-        const listener = makeListener("tok", { mode: "ios" }, deps);
+        const listener = makeListener("tok", { mode: "android" }, deps);
         const disconnectSpy = sinon.spy();
         listener.on("disconnect", disconnectSpy);
 
@@ -379,34 +337,34 @@ describe("FcmListener._registerWithCbs()", () => {
     it("resolves on HTTP 204 success", async () => {
         stubAxiosSequence([{ status: 204, data: "" }]);
         const listener = makeListener();
-        await listener._registerWithCbs("fcm-token-xyz", "ios");
+        await listener._registerWithCbs("fcm-token-xyz");
         // No throw = pass
     });
 
     it("resolves on HTTP 200 success", async () => {
         stubAxiosSequence([{ status: 200, data: {} }]);
         const listener = makeListener();
-        await listener._registerWithCbs("fcm-token-xyz", "android");
+        await listener._registerWithCbs("fcm-token-xyz");
     });
 
     it("resolves on HTTP 201 success", async () => {
         stubAxiosSequence([{ status: 201, data: {} }]);
         const listener = makeListener();
-        await listener._registerWithCbs("fcm-token-xyz", "ios");
+        await listener._registerWithCbs("fcm-token-xyz");
     });
 
     it("resolves on HTTP 500 sh:internal.error (duplicate registration)", async () => {
         stubAxiosSequence([{ status: 500, data: "sh:internal.error already registered" }]);
         const listener = makeListener();
         // Should NOT throw — Bosch returns 500 for duplicate, same as Python
-        await listener._registerWithCbs("token-already-registered", "ios");
+        await listener._registerWithCbs("token-already-registered");
     });
 
     it("throws FcmCbsRegistrationError on HTTP 401 (invalid token)", async () => {
         stubAxiosSequence([{ status: 401, data: { error: "Unauthorized" } }]);
         const listener = makeListener();
         try {
-            await listener._registerWithCbs("bad-token", "android");
+            await listener._registerWithCbs("bad-token");
             expect.fail("should have thrown");
         } catch (err: unknown) {
             expect(err).to.be.instanceOf(FcmCbsRegistrationError);
@@ -419,7 +377,7 @@ describe("FcmListener._registerWithCbs()", () => {
         stubAxiosSequence([{ status: 403, data: "Forbidden" }]);
         const listener = makeListener();
         try {
-            await listener._registerWithCbs("token", "ios");
+            await listener._registerWithCbs("token");
             expect.fail("should have thrown");
         } catch (err: unknown) {
             expect(err).to.be.instanceOf(FcmCbsRegistrationError);
@@ -431,7 +389,7 @@ describe("FcmListener._registerWithCbs()", () => {
         stubAxiosSequence([{ status: 500, data: "Internal Server Error" }]);
         const listener = makeListener();
         try {
-            await listener._registerWithCbs("token", "android");
+            await listener._registerWithCbs("token");
             expect.fail("should have thrown");
         } catch (err: unknown) {
             // Must NOT be FcmCbsRegistrationError — it's a transient 5xx
@@ -441,7 +399,7 @@ describe("FcmListener._registerWithCbs()", () => {
         }
     });
 
-    it("sends IOS deviceType when mode='ios'", async () => {
+    it("sends ANDROID deviceType", async () => {
         let capturedBody: unknown;
         const savedAdapter = axios.defaults.adapter;
         axios.defaults.adapter = (config) => {
@@ -457,30 +415,7 @@ describe("FcmListener._registerWithCbs()", () => {
         };
         try {
             const listener = makeListener();
-            await listener._registerWithCbs("tok", "ios");
-            expect((capturedBody as Record<string, unknown>)["deviceType"]).to.equal("IOS");
-        } finally {
-            axios.defaults.adapter = savedAdapter as typeof axios.defaults.adapter;
-        }
-    });
-
-    it("sends ANDROID deviceType when mode='android'", async () => {
-        let capturedBody: unknown;
-        const savedAdapter = axios.defaults.adapter;
-        axios.defaults.adapter = (config) => {
-            capturedBody = typeof config.data === "string" ? JSON.parse(config.data) : config.data;
-            return Promise.resolve({
-                status: 204,
-                data: "",
-                headers: {},
-                statusText: "No Content",
-                config,
-                request: {},
-            } as Parameters<NonNullable<typeof axios.defaults.adapter>>[0]);
-        };
-        try {
-            const listener = makeListener();
-            await listener._registerWithCbs("tok", "android");
+            await listener._registerWithCbs("tok");
             expect((capturedBody as Record<string, unknown>)["deviceType"]).to.equal("ANDROID");
         } finally {
             axios.defaults.adapter = savedAdapter as typeof axios.defaults.adapter;
@@ -617,7 +552,7 @@ describe("FcmListener EventEmitter contract", () => {
     });
 
     it("FcmRegistrationError has correct name and message", () => {
-        const err = new FcmRegistrationError("FCM: registration failed for mode 'ios'");
+        const err = new FcmRegistrationError("FCM: registration failed for mode 'android'");
         expect(err.name).to.equal("FcmRegistrationError");
         expect(err.message).to.include("registration failed");
     });
@@ -656,15 +591,15 @@ describe("FcmListener — credential persistence (savedCredentials)", () => {
             authSecret: Array.from(Buffer.alloc(16, 0x22)),
             ecdhPrivateKey: Array.from(Buffer.alloc(32, 0xcc)),
             ecdhPublicKey: Array.from(Buffer.alloc(65, 0x04)),
-            mode: "ios",
+            mode: "android",
         };
         const savedCreds: FcmCredentials = {
             fcmToken: "old-token",
-            mode: "ios",
+            mode: "android",
             raw: savedRaw,
         };
 
-        const listener = makeListener("tok", { mode: "ios", savedCredentials: savedCreds }, deps);
+        const listener = makeListener("tok", { mode: "android", savedCredentials: savedCreds }, deps);
         await listener.start();
 
         const config = registerStub.firstCall.args[0] as {
@@ -688,7 +623,7 @@ describe("FcmListener — credential persistence (savedCredentials)", () => {
         };
 
         stubAxiosSequence([{ status: 204, data: "" }]);
-        const listener = makeListener("tok", { mode: "ios" }, deps);
+        const listener = makeListener("tok", { mode: "android" }, deps);
         await listener.start();
 
         expect(generateStub.calledOnce).to.be.true;
