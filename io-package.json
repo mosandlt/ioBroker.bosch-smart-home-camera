@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "0.7.0",
+    "version": "0.7.1",
     "news": {
+      "0.7.1": {
+        "en": "Hotfix: ESLint/Prettier formatting violations in maintenance.ts blocked the v0.7.0 CI release. No runtime behaviour change.",
+        "de": "Hotfix: ESLint/Prettier-Formatierungsfehler in maintenance.ts haben den v0.7.0-CI-Release blockiert. Keine Verhaltensänderung zur Laufzeit.",
+        "ru": "Hotfix: нарушения форматирования ESLint/Prettier в maintenance.ts блокировали CI-релиз v0.7.0. Поведение во время выполнения не изменилось.",
+        "pt": "Hotfix: violações de formatação ESLint/Prettier em maintenance.ts bloquearam o release CI v0.7.0. Sem mudança de comportamento em execução.",
+        "nl": "Hotfix: ESLint/Prettier-opmaakfouten in maintenance.ts blokkeerden de v0.7.0 CI-release. Geen runtime-gedragsverandering.",
+        "fr": "Correctif : violations de formatage ESLint/Prettier dans maintenance.ts bloquaient la release CI v0.7.0. Aucun changement de comportement à l'exécution.",
+        "it": "Hotfix: violazioni di formattazione ESLint/Prettier in maintenance.ts hanno bloccato il rilascio CI v0.7.0. Nessun cambio di comportamento a runtime.",
+        "es": "Hotfix: violaciones de formato ESLint/Prettier en maintenance.ts bloquearon la release CI v0.7.0. Sin cambio de comportamiento en ejecución.",
+        "pl": "Hotfix: naruszenia formatowania ESLint/Prettier w maintenance.ts zablokowały wydanie CI v0.7.0. Bez zmiany zachowania w czasie wykonania.",
+        "uk": "Hotfix: порушення форматування ESLint/Prettier у maintenance.ts блокували CI-реліз v0.7.0. Поведінка під час виконання не змінилася.",
+        "zh-cn": "热修复：maintenance.ts 中的 ESLint/Prettier 格式问题阻塞了 v0.7.0 CI 发布。运行时行为无变化。"
+      },
       "0.7.0": {
         "en": "Cloud maintenance banner: adapter fetches Bosch community RSS (Wartungsarbeiten + Statusmeldungen) hourly; exposes state active/scheduled/past/recent/unknown/idle in info.maintenance.* DPs; reactive re-fetch on 5xx; HTML fallback if RSS unreachable.",
         "de": "Cloud-Wartungs-Banner: Adapter holt stündlich Bosch-Community-RSS (Wartungsarbeiten + Statusmeldungen); Status active/scheduled/past/recent/unknown/idle in info.maintenance.*; reaktiver Re-Fetch bei 5xx; HTML-Fallback wenn RSS nicht erreichbar.",

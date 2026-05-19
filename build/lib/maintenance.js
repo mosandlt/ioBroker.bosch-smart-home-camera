@@ -71,7 +71,11 @@ const CAMERA_KEYWORDS = [
     "infrastruktur",
 ];
 // ── String helpers ────────────────────────────────────────────────────────────
-/** Strip HTML tags and decode HTML entities. */
+/**
+ * Strip HTML tags and decode HTML entities.
+ *
+ * @param html
+ */
 function stripHtml(html) {
     const noTags = html.replace(/<[^>]+>/g, " ");
     const decoded = noTags
@@ -84,7 +88,12 @@ function stripHtml(html) {
         .replace(/&nbsp;/g, " ");
     return decoded.replace(/\s+/g, " ").trim();
 }
-/** Return true if the combined title+summary contains a camera-relevant keyword. */
+/**
+ * Return true if the combined title+summary contains a camera-relevant keyword.
+ *
+ * @param title
+ * @param summary
+ */
 function isCameraRelevant(title, summary) {
     const haystack = `${title}\n${summary}`.toLowerCase();
     return CAMERA_KEYWORDS.some((kw) => haystack.includes(kw));
@@ -95,6 +104,10 @@ function isCameraRelevant(title, summary) {
  * MESZ (CEST) = UTC+2 (late March to late October), MEZ (CET) = UTC+1 otherwise.
  *
  * Uses the ECMAScript Intl API to detect DST reliably without a TZ database dep.
+ *
+ * @param year
+ * @param month
+ * @param day
  */
 function berlinOffsetMinutes(year, month, day) {
     try {
@@ -128,6 +141,9 @@ function berlinOffsetMinutes(year, month, day) {
  * null) if no time range is found.
  *
  * Mirrors Python's _parse_window() exactly.
+ *
+ * @param text
+ * @param pubDateIso
  */
 function parseWindow(text, pubDateIso) {
     const rangeM = TIME_RANGE_RE.exec(text);
@@ -158,10 +174,7 @@ function parseWindow(text, pubDateIso) {
     const h2 = parseInt(rangeM[3], 10);
     const m2 = parseInt(rangeM[4], 10);
     // Validate ranges
-    if (mon < 1 || mon > 12 ||
-        day < 1 || day > 31 ||
-        h1 > 23 || m1 > 59 ||
-        h2 > 23 || m2 > 59) {
+    if (mon < 1 || mon > 12 || day < 1 || day > 31 || h1 > 23 || m1 > 59 || h2 > 23 || m2 > 59) {
         return [null, null];
     }
     const offsetMin = berlinOffsetMinutes(year, mon, day);
@@ -179,13 +192,14 @@ function parseWindow(text, pubDateIso) {
     if (endLocalMs <= startLocalMs) {
         endLocalMs += 24 * 60 * 60 * 1000;
     }
-    return [
-        new Date(startLocalMs).toISOString(),
-        new Date(endLocalMs).toISOString(),
-    ];
+    return [new Date(startLocalMs).toISOString(), new Date(endLocalMs).toISOString()];
 }
 // ── Pub-date parser ───────────────────────────────────────────────────────────
-/** RFC 822 and ISO 8601 parser, falling back to 'now' as ISO string. */
+/**
+ * RFC 822 and ISO 8601 parser, falling back to 'now' as ISO string.
+ *
+ * @param raw
+ */
 function parsePubDate(raw) {
     const trimmed = raw.trim();
     // ISO 8601: 2026-05-19T12:00:00Z or with offset
@@ -214,6 +228,9 @@ function parsePubDate(raw) {
  *           getMaintenanceState when mw is null)
  *
  * Mirrors Python's MaintenanceWindow.state() method exactly.
+ *
+ * @param mw
+ * @param nowMs
  */
 function classifyState(mw, nowMs) {
     const now = nowMs ?? Date.now();
@@ -239,6 +256,10 @@ function classifyState(mw, nowMs) {
  * Return true if candidate 'a' should win over 'b'.
  * Rank: active(0) > scheduled(1) > recent(2) > past(3) > unknown(4).
  * Tie-break: camera_relevant, then newer pub_date.
+ *
+ * @param a
+ * @param b
+ * @param nowMs
  */
 function prefers(a, b, nowMs) {
     const rank = {
@@ -260,19 +281,27 @@ function prefers(a, b, nowMs) {
     return new Date(a.pub_date).getTime() > new Date(b.pub_date).getTime();
 }
 // ── Board label extraction ────────────────────────────────────────────────────
-/** Extract the board name from an RSS or HTML URL for the `source` field. */
+/**
+ * Extract the board name from an RSS or HTML URL for the `source` field.
+ *
+ * @param url
+ */
 function boardLabel(url) {
     const rssM = /board\.id=([^&]+)/.exec(url);
-    if (rssM)
+    if (rssM) {
         return rssM[1];
+    }
     const htmlM = /\/bg-p\/([^/?#]+)/.exec(url);
-    if (htmlM)
+    if (htmlM) {
         return htmlM[1];
+    }
     return "unknown";
 }
 /**
  * Extract items from RSS 2.0 or Atom XML text using regex-based extraction.
  * Mirrors Python's _items_from_rss() for both RSS 2.0 and Atom.
+ *
+ * @param xml
  */
 function itemsFromXml(xml) {
     const items = [];
@@ -295,19 +324,16 @@ function itemsFromXml(xml) {
     while ((entryMatch = entryRe.exec(xml)) !== null) {
         const block = entryMatch[1];
         const title = extractXmlTag(block, "title");
-        if (!title)
+        if (!title) {
             continue;
+        }
         // Atom link: <link href="..." />
         const linkM = /<link\b[^>]*href="([^"]+)"/.exec(block);
         const link = linkM ? linkM[1] : "";
         // Atom dates: prefer <updated> then <published>
-        const pub = extractXmlTag(block, "updated") ||
-            extractXmlTag(block, "published") ||
-            "";
+        const pub = extractXmlTag(block, "updated") || extractXmlTag(block, "published") || "";
         // Atom content: <summary> or <content>
-        const desc = extractXmlTag(block, "summary") ||
-            extractXmlTag(block, "content") ||
-            "";
+        const desc = extractXmlTag(block, "summary") || extractXmlTag(block, "content") || "";
         items.push({ title, link, pub, desc });
     }
     return items;
@@ -315,18 +341,25 @@ function itemsFromXml(xml) {
 /**
  * Extract text content of a tag from an XML fragment.
  * Handles CDATA sections and strips surrounding whitespace.
+ *
+ * @param xml
+ * @param tag
  */
 function extractXmlTag(xml, tag) {
-    const re = new RegExp(`<${tag}\\b[^>]*>\\s*(?:<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>|([^<]*))\\s*<\/${tag}>`, "i");
+    const re = new RegExp(`<${tag}\\b[^>]*>\\s*(?:<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>|([^<]*))\\s*</${tag}>`, "i");
     const m = re.exec(xml);
-    if (!m)
+    if (!m) {
         return "";
+    }
     return (m[1] ?? m[2] ?? "").trim();
 }
 // ── Feed body parser ──────────────────────────────────────────────────────────
 /**
  * Parse an RSS/Atom feed body and return the best-match MaintenanceWindow.
  * Returns null if the body is unparseable or contains no items.
+ *
+ * @param body
+ * @param sourceUrl
  */
 function parseFeedBody(body, sourceUrl) {
     // Basic XML sanity check — must contain at least one tag
@@ -337,8 +370,9 @@ function parseFeedBody(body, sourceUrl) {
     const label = boardLabel(sourceUrl);
     let best = null;
     for (const raw of items) {
-        if (!raw.title)
+        if (!raw.title) {
             continue;
+        }
         const pub_date = parsePubDate(raw.pub);
         const summary = stripHtml(raw.desc).slice(0, 500);
         const [scheduled_start, scheduled_end] = parseWindow(`${raw.title} ${summary}`, pub_date);
@@ -363,6 +397,9 @@ function parseFeedBody(body, sourceUrl) {
 /**
  * Extract a single best-match item from the rendered Khoros board page.
  * Mirrors Python's _parse_html_fallback() exactly.
+ *
+ * @param html
+ * @param sourceUrl
  */
 function parseHtmlFallback(html, sourceUrl) {
     // Find the first item link: /t5/<board>/<slug>/ba-p/<id>
@@ -371,7 +408,7 @@ function parseHtmlFallback(html, sourceUrl) {
     if (!linkM) {
         return null;
     }
-    const href = "https://community.bosch-smarthome.com" + linkM[1];
+    const href = `https://community.bosch-smarthome.com${linkM[1]}`;
     const title = stripHtml(linkM[2]);
     // Meta description for summary
     const descM = /<meta\s+name="description"\s+content="([^"]{20,500})"/i.exec(html);
@@ -394,6 +431,9 @@ function parseHtmlFallback(html, sourceUrl) {
  * Returns null on network error, timeout, or non-200 status.
  *
  * Uses the global `fetch` (Node 18+ built-in), which matches the ASYNC_FIRST rule.
+ *
+ * @param url
+ * @param timeoutMs
  */
 async function fetchOne(url, timeoutMs = 8_000) {
     const controller = new AbortController();
@@ -432,8 +472,9 @@ async function fetchMaintenance(timeoutMs = 8_000) {
     // ── Primary: RSS feeds ───────────────────────────────────────────────────
     for (const url of exports.RSS_FEEDS) {
         const got = await fetchOne(url, timeoutMs);
-        if (got === null)
+        if (got === null) {
             continue;
+        }
         const parsed = parseFeedBody(got[1], url);
         if (parsed !== null && (best === null || prefers(parsed, best))) {
             best = parsed;
@@ -445,8 +486,9 @@ async function fetchMaintenance(timeoutMs = 8_000) {
     // ── Fallback: HTML board pages ───────────────────────────────────────────
     for (const url of exports.HTML_FALLBACKS) {
         const got = await fetchOne(url, timeoutMs);
-        if (got === null)
+        if (got === null) {
             continue;
+        }
         const parsed = parseHtmlFallback(got[1], url);
         if (parsed !== null && (best === null || prefers(parsed, best))) {
             best = parsed;

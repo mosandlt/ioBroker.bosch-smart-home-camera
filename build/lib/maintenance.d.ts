@@ -28,21 +28,45 @@ export declare const HTML_FALLBACKS: readonly string[];
 export type MaintenanceState = "active" | "scheduled" | "past" | "recent" | "unknown" | "idle";
 /** Parsed maintenance/incident announcement from a Bosch community feed. */
 export interface MaintenanceWindow {
+    /**
+     *
+     */
     title: string;
+    /**
+     *
+     */
     link: string;
     /** ISO 8601 UTC string */
     pub_date: string;
+    /**
+     *
+     */
     summary: string;
     /** ISO 8601 UTC string or null */
     scheduled_start: string | null;
     /** ISO 8601 UTC string or null */
     scheduled_end: string | null;
+    /**
+     *
+     */
     source: string;
+    /**
+     *
+     */
     camera_relevant: boolean;
 }
-/** Strip HTML tags and decode HTML entities. */
+/**
+ * Strip HTML tags and decode HTML entities.
+ *
+ * @param html
+ */
 export declare function stripHtml(html: string): string;
-/** Return true if the combined title+summary contains a camera-relevant keyword. */
+/**
+ * Return true if the combined title+summary contains a camera-relevant keyword.
+ *
+ * @param title
+ * @param summary
+ */
 export declare function isCameraRelevant(title: string, summary: string): boolean;
 /**
  * Extract (start, end) ISO UTC strings from German announcement text.
@@ -52,9 +76,16 @@ export declare function isCameraRelevant(title: string, summary: string): boolea
  * null) if no time range is found.
  *
  * Mirrors Python's _parse_window() exactly.
+ *
+ * @param text
+ * @param pubDateIso
  */
 export declare function parseWindow(text: string, pubDateIso: string): [string | null, string | null];
-/** RFC 822 and ISO 8601 parser, falling back to 'now' as ISO string. */
+/**
+ * RFC 822 and ISO 8601 parser, falling back to 'now' as ISO string.
+ *
+ * @param raw
+ */
 export declare function parsePubDate(raw: string): string;
 /**
  * Classify a MaintenanceWindow into one of:
@@ -67,15 +98,26 @@ export declare function parsePubDate(raw: string): string;
  *           getMaintenanceState when mw is null)
  *
  * Mirrors Python's MaintenanceWindow.state() method exactly.
+ *
+ * @param mw
+ * @param nowMs
  */
 export declare function classifyState(mw: MaintenanceWindow, nowMs?: number): MaintenanceState;
 /**
  * Return true if candidate 'a' should win over 'b'.
  * Rank: active(0) > scheduled(1) > recent(2) > past(3) > unknown(4).
  * Tie-break: camera_relevant, then newer pub_date.
+ *
+ * @param a
+ * @param b
+ * @param nowMs
  */
 export declare function prefers(a: MaintenanceWindow, b: MaintenanceWindow, nowMs?: number): boolean;
-/** Extract the board name from an RSS or HTML URL for the `source` field. */
+/**
+ * Extract the board name from an RSS or HTML URL for the `source` field.
+ *
+ * @param url
+ */
 export declare function boardLabel(url: string): string;
 interface RssItem {
     title: string;
@@ -86,16 +128,24 @@ interface RssItem {
 /**
  * Extract items from RSS 2.0 or Atom XML text using regex-based extraction.
  * Mirrors Python's _items_from_rss() for both RSS 2.0 and Atom.
+ *
+ * @param xml
  */
 export declare function itemsFromXml(xml: string): RssItem[];
 /**
  * Parse an RSS/Atom feed body and return the best-match MaintenanceWindow.
  * Returns null if the body is unparseable or contains no items.
+ *
+ * @param body
+ * @param sourceUrl
  */
 export declare function parseFeedBody(body: string, sourceUrl: string): MaintenanceWindow | null;
 /**
  * Extract a single best-match item from the rendered Khoros board page.
  * Mirrors Python's _parse_html_fallback() exactly.
+ *
+ * @param html
+ * @param sourceUrl
  */
 export declare function parseHtmlFallback(html: string, sourceUrl: string): MaintenanceWindow | null;
 /** Result of a single HTTP fetch attempt: [statusCode, bodyText] or null on error. */
@@ -105,6 +155,9 @@ export type FetchResult = [number, string] | null;
  * Returns null on network error, timeout, or non-200 status.
  *
  * Uses the global `fetch` (Node 18+ built-in), which matches the ASYNC_FIRST rule.
+ *
+ * @param url
+ * @param timeoutMs
  */
 export declare function fetchOne(url: string, timeoutMs?: number): Promise<FetchResult>;
 /**

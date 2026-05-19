@@ -663,8 +663,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 this.upsertState("info.maintenance.camera_relevant", active?.camera_relevant ?? false),
                 this.upsertState("info.maintenance.last_fetched", active !== null ? new Date().toISOString() : ""),
             ]);
-            this.log.debug(`Maintenance status: state=${state}` +
-                (active ? ` source=${active.source} title="${active.title.slice(0, 60)}"` : ""));
+            this.log.debug(`Maintenance status: state=${state}${active ? ` source=${active.source} title="${active.title.slice(0, 60)}"` : ""}`);
         }
         catch (err) {
             const msg = err instanceof Error ? err.message : String(err);

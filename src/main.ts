@@ -743,10 +743,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 this.upsertState("info.maintenance.state", state),
                 this.upsertState("info.maintenance.title", active?.title ?? ""),
                 this.upsertState("info.maintenance.link", active?.link ?? ""),
-                this.upsertState(
-                    "info.maintenance.scheduled_start",
-                    active?.scheduled_start ?? "",
-                ),
+                this.upsertState("info.maintenance.scheduled_start", active?.scheduled_start ?? ""),
                 this.upsertState("info.maintenance.scheduled_end", active?.scheduled_end ?? ""),
                 this.upsertState("info.maintenance.summary", active?.summary ?? ""),
                 this.upsertState("info.maintenance.source", active?.source ?? ""),
@@ -761,8 +758,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
             ]);
 
             this.log.debug(
-                `Maintenance status: state=${state}` +
-                    (active ? ` source=${active.source} title="${active.title.slice(0, 60)}"` : ""),
+                `Maintenance status: state=${state}${
+                    active ? ` source=${active.source} title="${active.title.slice(0, 60)}"` : ""
+                }`,
             );
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
