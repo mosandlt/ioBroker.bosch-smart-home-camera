@@ -231,6 +231,43 @@ flowchart LR
     Adapter -->|file-store| Snapshots[snapshot.jpg<br/>last_event_image]
 ```
 
+### Maintenance RSS flow
+
+```mermaid
+sequenceDiagram
+    participant Tick as Adapter tick (hourly)
+    participant RSS as Bosch Community RSS
+    participant MP as maintenance parser
+    participant DP as info.maintenance.*
+
+    Tick->>RSS: fetch Wartungsarbeiten + Statusmeldungen
+    RSS-->>MP: raw feed entries (+ HTML fallback)
+    MP-->>MP: parse title / time window / camera_relevant
+    MP-->>DP: state: active / scheduled / past / recent / idle
+    DP-->>DP: last_notification written on state transition
+    Note over Tick,DP: reactive re-fetch (5 min cooldown) on any 5xx
+```
+
+### LAN-fallback during cloud outage
+
+```mermaid
+sequenceDiagram
+    participant DP as cameras.<id>.privacy_enabled<br/>cameras.<id>.front_light_enabled
+    participant Adapter
+    participant Cloud as Bosch CBS API
+    participant RCP as Camera LAN RCP
+    participant Cam as Camera 192.168.x.y:443
+
+    DP->>Adapter: handlePrivacyToggle / _applyLightingState
+    Adapter->>Cloud: PUT /v11/.../privacy or lighting
+    Cloud-->>Adapter: 5xx (cloud outage)
+    Adapter->>Adapter: lan_ip known + Gen2?
+    Adapter->>RCP: RCP write (0x0d00 / 0x0c22)
+    RCP->>Cam: HTTPS Digest + payload
+    Cam-->>Adapter: 200 OK (local fallback)
+    Adapter-->>DP: update + _localWriteAt stamp
+```
+
 ## Setup
 
 1. **Install** the adapter and create an instance (the adapter starts in "waiting for login" mode).
