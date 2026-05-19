@@ -148,12 +148,23 @@
           </block>
         </statement>
         <statement name="ELSE">
-          <!-- Vacation mode turned OFF: clear timers and extinguish light -->
+          <!-- Vacation mode turned OFF: cancel BOTH named timers by overwriting
+               them with a no-op timer at delay 0. Cancelling only one would
+               leave the other (scheduled up to 30 min ahead) free to fire
+               after vacation ended, re-triggering the light cycle. -->
           <block type="timeouts_settimeout" id="clear_off_timer">
             <field name="NAME">det_toggle_off</field>
             <field name="DELAY">0</field>
             <statement name="STATEMENT">
             </statement>
+            <next>
+              <block type="timeouts_settimeout" id="clear_on_timer">
+                <field name="NAME">det_toggle_on</field>
+                <field name="DELAY">0</field>
+                <statement name="STATEMENT">
+                </statement>
+              </block>
+            </next>
           </block>
         </statement>
       </block>
