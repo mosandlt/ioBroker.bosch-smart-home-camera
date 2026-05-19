@@ -1,0 +1,88 @@
+<!--
+  Master Privacy Switch
+  =====================
+  Drives the privacy mode of every camera from a single virtual datapoint.
+
+  Setup:
+    1. Create 0_userdata.0.master_privacy (boolean, role switch) once.
+       Objects tab → + → 0_userdata.0 → master_privacy, type boolean.
+    2. Replace the four <CAM_UUID_N> placeholders below with your actual
+       camera IDs (Objects tab → bosch-smart-home-camera.0.cameras.<UUID>).
+       Remove the extra control blocks if you have fewer cameras.
+    3. Save + Run the script.
+
+  Usage:
+    Set 0_userdata.0.master_privacy to TRUE to enable privacy on all cameras
+    (lenses covered), FALSE to disable. Use any ioBroker view, VIS widget,
+    or other script to control this single datapoint.
+
+  Placeholders:
+    <CAM_UUID_1> – first camera UUID
+    <CAM_UUID_2> – second camera UUID
+    <CAM_UUID_3> – third camera UUID
+    <CAM_UUID_4> – fourth camera UUID
+-->
+<xml xmlns="https://developers.google.com/blockly/xml">
+  <block type="on_ext" id="master_privacy_trigger" x="0" y="0">
+    <mutation items="1"></mutation>
+    <field name="CONDITION">ne</field>
+    <field name="ACK_CONDITION"></field>
+    <value name="OID0">
+      <shadow type="field_oid">
+        <field name="oid">0_userdata.0.master_privacy</field>
+      </shadow>
+    </value>
+    <statement name="STATEMENT">
+      <block type="control" id="ctrl_priv_cam1">
+        <mutation delay_input="false"></mutation>
+        <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_1&gt;.privacy_enabled</field>
+        <field name="WITH_DELAY">FALSE</field>
+        <value name="VALUE">
+          <block type="get_value" id="getval_priv_1">
+            <field name="ATTR">val</field>
+            <field name="OID">0_userdata.0.master_privacy</field>
+          </block>
+        </value>
+        <next>
+          <block type="control" id="ctrl_priv_cam2">
+            <mutation delay_input="false"></mutation>
+            <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_2&gt;.privacy_enabled</field>
+            <field name="WITH_DELAY">FALSE</field>
+            <value name="VALUE">
+              <block type="get_value" id="getval_priv_2">
+                <field name="ATTR">val</field>
+                <field name="OID">0_userdata.0.master_privacy</field>
+              </block>
+            </value>
+            <next>
+              <block type="control" id="ctrl_priv_cam3">
+                <mutation delay_input="false"></mutation>
+                <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_3&gt;.privacy_enabled</field>
+                <field name="WITH_DELAY">FALSE</field>
+                <value name="VALUE">
+                  <block type="get_value" id="getval_priv_3">
+                    <field name="ATTR">val</field>
+                    <field name="OID">0_userdata.0.master_privacy</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="control" id="ctrl_priv_cam4">
+                    <mutation delay_input="false"></mutation>
+                    <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_4&gt;.privacy_enabled</field>
+                    <field name="WITH_DELAY">FALSE</field>
+                    <value name="VALUE">
+                      <block type="get_value" id="getval_priv_4">
+                        <field name="ATTR">val</field>
+                        <field name="OID">0_userdata.0.master_privacy</field>
+                      </block>
+                    </value>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+</xml>

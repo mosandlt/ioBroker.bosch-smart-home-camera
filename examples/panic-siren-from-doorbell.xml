@@ -1,0 +1,67 @@
+<!--
+  Doorbell → Panic Siren (Gen2 cameras only)
+  ===========================================
+  When a doorbell or alarm trigger fires, the camera's built-in siren is
+  activated. After 30 seconds the siren is automatically silenced.
+
+  WARNING: The siren datapoint (siren_active) is only available on Gen2
+  cameras: Eyes Outdoor II (HOME_Eyes_Outdoor) and Eyes Indoor II
+  (HOME_Eyes_Indoor). Gen1 cameras do not have a siren — the write will
+  be silently ignored on Gen1 devices.
+
+  Setup:
+    1. Replace <DOORBELL_OID> with the boolean OID of your doorbell or
+       alarm trigger, e.g. hm-rpc.0.<device>.1.PRESS_SHORT or
+       zigbee.0.<device>.action (mapped to boolean via script or alias).
+       The script reacts to the value becoming TRUE.
+    2. Replace <CAM_UUID> with your Gen2 camera UUID
+       (Objects tab → bosch-smart-home-camera.0.cameras.<UUID>).
+    3. Save + Run. Pressing the doorbell again while the siren is active
+       resets the 30-second countdown.
+
+  Placeholders:
+    <DOORBELL_OID> – full OID of the boolean doorbell / alarm trigger
+    <CAM_UUID>     – Gen2 Bosch camera UUID
+-->
+<xml xmlns="https://developers.google.com/blockly/xml">
+  <block type="on_ext" id="doorbell_trigger" x="0" y="0">
+    <mutation items="1"></mutation>
+    <field name="CONDITION">true</field>
+    <field name="ACK_CONDITION"></field>
+    <value name="OID0">
+      <shadow type="field_oid">
+        <field name="oid">&lt;DOORBELL_OID&gt;</field>
+      </shadow>
+    </value>
+    <statement name="STATEMENT">
+      <block type="control" id="siren_on">
+        <mutation delay_input="false"></mutation>
+        <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID&gt;.siren_active</field>
+        <field name="WITH_DELAY">FALSE</field>
+        <value name="VALUE">
+          <block type="logic_boolean" id="bool_siren_on">
+            <field name="BOOL">TRUE</field>
+          </block>
+        </value>
+        <next>
+          <block type="timeouts_settimeout" id="siren_off_timer">
+            <field name="NAME">siren_auto_off</field>
+            <field name="DELAY">30000</field>
+            <statement name="STATEMENT">
+              <block type="control" id="siren_off">
+                <mutation delay_input="false"></mutation>
+                <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID&gt;.siren_active</field>
+                <field name="WITH_DELAY">FALSE</field>
+                <value name="VALUE">
+                  <block type="logic_boolean" id="bool_siren_off">
+                    <field name="BOOL">FALSE</field>
+                  </block>
+                </value>
+              </block>
+            </statement>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+</xml>

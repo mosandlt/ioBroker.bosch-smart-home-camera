@@ -1,0 +1,187 @@
+<!--
+  Vacation Deterrent Lights (Night-Only, Variable Interval)
+  ==========================================================
+  While a "vacation mode" switch is active, this script randomly toggles
+  the camera's front light on and off during nighttime hours to simulate
+  occupancy and deter potential intruders.
+
+  How it works:
+    1. When <VACATION_MODE_OID> becomes TRUE the script checks whether it
+       is currently after sunset (astro block). If it is night, it starts
+       a recurring loop that alternates the front light every 30 minutes.
+       During the day the loop is paused; it resumes automatically at the
+       next nightfall trigger.
+    2. When <VACATION_MODE_OID> becomes FALSE all timers are cleared and
+       the light is switched off unconditionally.
+
+  Note on random intervals:
+    This example uses a fixed 30-minute interval for broad compatibility.
+    To add randomness, open the script in the Blockly editor, find the
+    math_number block containing "1800000", and replace it with a
+    "random integer from … to …" math block (Blockly Math category).
+    A range of 900000–2700000 (15–45 min in ms) works well.
+
+  Setup:
+    1. Create 0_userdata.0.vacation_mode (boolean, role switch) once
+       if it does not already exist.
+    2. Replace <VACATION_MODE_OID> with 0_userdata.0.vacation_mode or
+       your preferred vacation flag OID.
+    3. Replace <CAM_UUID> with your Bosch camera UUID
+       (Objects tab → bosch-smart-home-camera.0.cameras.<UUID>).
+    4. Save + Run. Disabling vacation mode immediately kills the timers
+       and turns the light off.
+
+  Placeholders:
+    <VACATION_MODE_OID> – boolean OID of the vacation flag
+    <CAM_UUID>          – Bosch camera UUID
+-->
+<xml xmlns="https://developers.google.com/blockly/xml">
+
+  <!-- Trigger: vacation mode turned ON -->
+  <block type="on_ext" id="vacation_on_trigger" x="0" y="0">
+    <mutation items="1"></mutation>
+    <field name="CONDITION">true</field>
+    <field name="ACK_CONDITION"></field>
+    <value name="OID0">
+      <shadow type="field_oid">
+        <field name="oid">&lt;VACATION_MODE_OID&gt;</field>
+      </shadow>
+    </value>
+    <statement name="STATEMENT">
+      <block type="controls_if" id="vacation_mode_check">
+        <mutation else="1"></mutation>
+        <value name="IF0">
+          <block type="logic_compare" id="check_vac_true">
+            <field name="OP">EQ</field>
+            <value name="A">
+              <block type="get_value" id="getval_vac">
+                <field name="ATTR">val</field>
+                <field name="OID">&lt;VACATION_MODE_OID&gt;</field>
+              </block>
+            </value>
+            <value name="B">
+              <block type="logic_boolean" id="bool_check_true">
+                <field name="BOOL">TRUE</field>
+              </block>
+            </value>
+          </block>
+        </value>
+        <statement name="DO0">
+          <!-- Only run during nighttime (after sunset, before sunrise) -->
+          <block type="controls_if" id="night_check">
+            <value name="IF0">
+              <block type="astro" id="astro_night">
+                <field name="TYPE">isNight</field>
+                <field name="OFFSET">0</field>
+              </block>
+            </value>
+            <statement name="DO0">
+              <!-- Toggle light ON, schedule toggle OFF after 30 min, then reschedule -->
+              <block type="control" id="det_light_on">
+                <mutation delay_input="false"></mutation>
+                <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID&gt;.front_light_enabled</field>
+                <field name="WITH_DELAY">FALSE</field>
+                <value name="VALUE">
+                  <block type="logic_boolean" id="bool_det_on">
+                    <field name="BOOL">TRUE</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="timeouts_settimeout" id="det_off_timer">
+                    <field name="NAME">det_toggle_off</field>
+                    <field name="DELAY">1800000</field>
+                    <statement name="STATEMENT">
+                      <block type="control" id="det_light_off">
+                        <mutation delay_input="false"></mutation>
+                        <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID&gt;.front_light_enabled</field>
+                        <field name="WITH_DELAY">FALSE</field>
+                        <value name="VALUE">
+                          <block type="logic_boolean" id="bool_det_off">
+                            <field name="BOOL">FALSE</field>
+                          </block>
+                        </value>
+                        <next>
+                          <!-- Reschedule next ON cycle after another 30 min if still in vacation mode -->
+                          <block type="controls_if" id="reschedule_check">
+                            <value name="IF0">
+                              <block type="logic_compare" id="vac_still_on">
+                                <field name="OP">EQ</field>
+                                <value name="A">
+                                  <block type="get_value" id="getval_vac2">
+                                    <field name="ATTR">val</field>
+                                    <field name="OID">&lt;VACATION_MODE_OID&gt;</field>
+                                  </block>
+                                </value>
+                                <value name="B">
+                                  <block type="logic_boolean" id="bool_vac_still">
+                                    <field name="BOOL">TRUE</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </value>
+                            <statement name="DO0">
+                              <block type="timeouts_settimeout" id="det_on_timer">
+                                <field name="NAME">det_toggle_on</field>
+                                <field name="DELAY">1800000</field>
+                                <statement name="STATEMENT">
+                                  <block type="control" id="det_light_on2">
+                                    <mutation delay_input="false"></mutation>
+                                    <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID&gt;.front_light_enabled</field>
+                                    <field name="WITH_DELAY">FALSE</field>
+                                    <value name="VALUE">
+                                      <block type="logic_boolean" id="bool_det_on2">
+                                        <field name="BOOL">TRUE</field>
+                                      </block>
+                                    </value>
+                                  </block>
+                                </statement>
+                              </block>
+                            </statement>
+                          </block>
+                        </next>
+                      </block>
+                    </statement>
+                  </block>
+                </next>
+              </block>
+            </statement>
+          </block>
+        </statement>
+        <statement name="ELSE">
+          <!-- Vacation mode turned OFF: clear timers and extinguish light -->
+          <block type="timeouts_settimeout" id="clear_off_timer">
+            <field name="NAME">det_toggle_off</field>
+            <field name="DELAY">0</field>
+            <statement name="STATEMENT">
+            </statement>
+          </block>
+        </statement>
+      </block>
+    </statement>
+  </block>
+
+  <!-- Separate trigger: turn light off immediately when vacation mode deactivated -->
+  <block type="on_ext" id="vacation_off_trigger" x="0" y="300">
+    <mutation items="1"></mutation>
+    <field name="CONDITION">false</field>
+    <field name="ACK_CONDITION"></field>
+    <value name="OID0">
+      <shadow type="field_oid">
+        <field name="oid">&lt;VACATION_MODE_OID&gt;</field>
+      </shadow>
+    </value>
+    <statement name="STATEMENT">
+      <block type="control" id="cleanup_light_off">
+        <mutation delay_input="false"></mutation>
+        <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID&gt;.front_light_enabled</field>
+        <field name="WITH_DELAY">FALSE</field>
+        <value name="VALUE">
+          <block type="logic_boolean" id="bool_cleanup_off">
+            <field name="BOOL">FALSE</field>
+          </block>
+        </value>
+      </block>
+    </statement>
+  </block>
+
+</xml>

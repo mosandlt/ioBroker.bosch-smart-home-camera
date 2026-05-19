@@ -1,0 +1,108 @@
+<!--
+  Door Sensor → Privacy Off + Light On (with auto-restore)
+  =========================================================
+  When a door or gate sensor opens, the camera near it switches to live
+  mode (privacy OFF) and turns on its front light. When the door closes,
+  a 5-minute timer starts; after it expires privacy is re-enabled and the
+  light is switched off.
+
+  Setup:
+    1. Replace <DOOR_SENSOR_OID> with your door/contact sensor datapoint,
+       e.g. hm-rpc.0.<device>.1.STATE or zigbee.0.<device>.opened.
+       The value must be boolean: TRUE = open, FALSE = closed.
+    2. Replace <CAM_UUID> with your Bosch camera's UUID
+       (Objects tab → bosch-smart-home-camera.0.cameras.<UUID>).
+    3. Save + Run. The 5-minute delay fires only on door close events;
+       opening the door again before the timer fires leaves the camera live.
+
+  Placeholders:
+    <DOOR_SENSOR_OID> – full OID of the boolean door/contact sensor
+    <CAM_UUID>        – Bosch camera UUID
+-->
+<xml xmlns="https://developers.google.com/blockly/xml">
+  <block type="on_ext" id="door_trigger" x="0" y="0">
+    <mutation items="1"></mutation>
+    <field name="CONDITION">ne</field>
+    <field name="ACK_CONDITION">true</field>
+    <value name="OID0">
+      <shadow type="field_oid">
+        <field name="oid">&lt;DOOR_SENSOR_OID&gt;</field>
+      </shadow>
+    </value>
+    <statement name="STATEMENT">
+      <block type="controls_if" id="door_if">
+        <mutation else="1"></mutation>
+        <value name="IF0">
+          <block type="logic_compare" id="door_is_open">
+            <field name="OP">EQ</field>
+            <value name="A">
+              <block type="get_value" id="getval_door">
+                <field name="ATTR">val</field>
+                <field name="OID">&lt;DOOR_SENSOR_OID&gt;</field>
+              </block>
+            </value>
+            <value name="B">
+              <block type="logic_boolean" id="bool_true">
+                <field name="BOOL">TRUE</field>
+              </block>
+            </value>
+          </block>
+        </value>
+        <statement name="DO0">
+          <block type="control" id="priv_off">
+            <mutation delay_input="false"></mutation>
+            <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID&gt;.privacy_enabled</field>
+            <field name="WITH_DELAY">FALSE</field>
+            <value name="VALUE">
+              <block type="logic_boolean" id="bool_priv_off">
+                <field name="BOOL">FALSE</field>
+              </block>
+            </value>
+            <next>
+              <block type="control" id="light_on">
+                <mutation delay_input="false"></mutation>
+                <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID&gt;.front_light_enabled</field>
+                <field name="WITH_DELAY">FALSE</field>
+                <value name="VALUE">
+                  <block type="logic_boolean" id="bool_light_on">
+                    <field name="BOOL">TRUE</field>
+                  </block>
+                </value>
+              </block>
+            </next>
+          </block>
+        </statement>
+        <statement name="ELSE">
+          <block type="timeouts_settimeout" id="close_timer">
+            <field name="NAME">door_close_restore</field>
+            <field name="DELAY">300000</field>
+            <statement name="STATEMENT">
+              <block type="control" id="priv_on_delayed">
+                <mutation delay_input="false"></mutation>
+                <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID&gt;.privacy_enabled</field>
+                <field name="WITH_DELAY">FALSE</field>
+                <value name="VALUE">
+                  <block type="logic_boolean" id="bool_priv_on">
+                    <field name="BOOL">TRUE</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="control" id="light_off_delayed">
+                    <mutation delay_input="false"></mutation>
+                    <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID&gt;.front_light_enabled</field>
+                    <field name="WITH_DELAY">FALSE</field>
+                    <value name="VALUE">
+                      <block type="logic_boolean" id="bool_light_off">
+                        <field name="BOOL">FALSE</field>
+                      </block>
+                    </value>
+                  </block>
+                </next>
+              </block>
+            </statement>
+          </block>
+        </statement>
+      </block>
+    </statement>
+  </block>
+</xml>

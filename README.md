@@ -341,15 +341,37 @@ flowchart TD
     L -.->|register fail<br/>3x| Poll[Polling fallback<br/>every 30s<br/>info.fcm_active=polling]
 ```
 
-## Blockly examples
+## Example automations
 
-Import-ready Blockly scripts for the most common automations live in
-[`docs/blockly-examples/`](./docs/blockly-examples/): master-wallwasher
-switch, dusk-driven auto-wallwasher via Astro, and a Philips-Hue-PIR →
-synthetic Bosch motion bridge. Open javascript adapter → Scripts → new
-Blockly → click the XML icon → paste. Replace `<CAM_UUID>` placeholders
-with your actual camera IDs from the Objects tab. See the folder's
-[README](./docs/blockly-examples/README.md) for details.
+A growing library of 20 ready-to-import scripts lives in
+[`examples/`](./examples/) — 8 Blockly XML files for the visual editor and
+12 plain JavaScript snippets side-by-side. Themes covered:
+
+- **Master switches** — one virtual datapoint flips wallwasher / privacy
+  on every camera in lock-step.
+- **Motion handling** — snapshot-on-motion with notification, Hue-PIR →
+  synthetic Bosch motion bridge, burst-aggregation notify, presence-driven
+  privacy.
+- **Light scenes** — dusk-driven auto-wallwasher, full driveway scene
+  (Hue floodlight + Bosch wallwasher/frontlight, contributed by
+  [Jaschkopf](https://forum.iobroker.net/topic/84538/adapter-bosch-smart-home-kameras/29)),
+  vacation deterrent, door-sensor light.
+- **Bot / dashboard integration** — Telegram `/snap` command, last-event
+  slideshow for VIS, stream-URL push to a Fully Kiosk tablet.
+- **Status & safety** — camera-offline alert, FCM-push degradation
+  monitor, panic-siren trigger, weather-suppressed alerts, sleep-mode
+  mute, garage-door coordination, night-mode schedule.
+
+Open javascript adapter → Scripts → new Blockly (or JavaScript) → paste.
+Replace the `<CAM_UUID>` / `<PRESENCE_OID>` / lux-sensor / Telegram-bot
+placeholders with your actual object IDs from the Objects tab. The
+folder's [README](./examples/README.md) has the full index, prerequisites,
+and notification-adapter call patterns (Telegram, signal-cmb, Pushover,
+email).
+
+→ **Contribute your own**: drop a working script as a code block in the
+[ioBroker forum thread](https://forum.iobroker.net/topic/84538) or open a
+PR — community examples are explicitly welcome.
 
 Note on **live streaming in the browser**: no browser supports RTSP natively.
 The adapter publishes a per-camera `stream_url`
@@ -383,6 +405,18 @@ host:
 The port is sticky across adapter restarts and Bosch session renewals
 (persisted in `cameras.<id>._proxy_port`) — set the URL in your recorder
 once and it keeps working.
+
+#### Person-only recording via CodeProject AI
+
+A workflow described by [Jaschkopf](https://forum.iobroker.net/topic/84538/adapter-bosch-smart-home-kameras/29)
+on the ioBroker forum: add each `stream_url` as an RTSP camera in BlueIris,
+enable 24/7 sub-stream recording with a short retention (e.g. 7 days), and
+wire BlueIris's motion-detection alerts into [CodeProject AI](https://www.codeproject.com/AI/)
+running YOLO. Only when CodeProject classifies a frame as a person (or
+another configured class — dog, cat, vehicle, license plate, face) does
+BlueIris flip to mainstream recording, with a few seconds of pre-roll. Cuts
+storage and false-positive alerts dramatically while keeping the rich
+mainstream footage for events that matter.
 
 ## Roadmap
 

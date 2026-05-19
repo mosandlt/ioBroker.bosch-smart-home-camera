@@ -1,0 +1,521 @@
+<!--
+  Driveway Lighting Automation
+  ============================
+  Outdoor lighting scene triggered by ambient brightness + motion. Dims Hue
+  floodlight + camera wallwashers automatically at dusk, then ramps to bright
+  scene + camera frontlights when motion is detected by either a Hue PIR or
+  one of two Bosch cameras. After a configurable timeout the lights fall back
+  to the dimmed scene.
+
+  Setup:
+    1. Replace the eight placeholders below with your own object IDs:
+         <CAM_UUID_1>          first  Bosch camera UUID
+         <CAM_UUID_2>          second Bosch camera UUID
+         <ILLUMINATION_SENSOR> lux datapoint (e.g. an HM-Sec-MDIR illumination
+                               channel, hue motion sensor lightlevel, etc.)
+         <HUE_FLOODLIGHT>      Hue lamp or group on/off datapoint
+         <HUE_SCENE_DIMMED>    Hue scene (dimmed)  - boolean activator
+         <HUE_SCENE_BRIGHT>    Hue scene (bright)  - boolean activator
+         <HUE_PIR_1>           first  Hue outdoor motion sensor presence
+         <HUE_PIR_2>           second Hue outdoor motion sensor presence
+       Remove the second-camera or second-PIR branches if you have fewer
+       devices.
+    2. Tweak the lux threshold (default: 20) and timeout duration to taste.
+    3. Save + Run the script.
+
+  Contributed by Jaschkopf via
+  https://forum.iobroker.net/topic/84538/adapter-bosch-smart-home-kameras/29
+  (post #29, 2026-05-19). Placeholders replace the original user-specific
+  object IDs; logic preserved verbatim.
+-->
+<xml xmlns="https://developers.google.com/blockly/xml">
+  <variables>
+    <variable type="timeout" id="timeout">timeout</variable>
+    <variable type="timeout" id="timeout2">timeout2</variable>
+    <variable type="timeout" id="timeout3">timeout3</variable>
+  </variables>
+  <block type="comment" id=";ND@UTL#|@VJq+pz;(fl" x="263" y="413">
+    <field name="COMMENT">Ambientelicht an/aus</field>
+    <next>
+      <block type="on" id="fZsDvd1Dl5z.V?lCn5d@">
+        <field name="OID">&lt;ILLUMINATION_SENSOR&gt;</field>
+        <field name="CONDITION">any</field>
+        <field name="ACK_CONDITION"></field>
+        <statement name="STATEMENT">
+          <block type="controls_if" id="WgdInzPd@A(@YfD9BnkC">
+            <mutation elseif="1"></mutation>
+            <value name="IF0">
+              <block type="logic_compare" id="CxxWB-%YHwd/]Ok7x$?]">
+                <field name="OP">LT</field>
+                <value name="A">
+                  <block type="on_source" id="BxosP{JewA4m]v:UO9Nk">
+                    <field name="ATTR">state.val</field>
+                  </block>
+                </value>
+                <value name="B">
+                  <block type="math_number" id="PqQgwxo9I7Fs:UAlqcwl">
+                    <field name="NUM">20</field>
+                  </block>
+                </value>
+              </block>
+            </value>
+            <statement name="DO0">
+              <block type="controls_if" id="LyMynUsOr(dV0xz3zNpI">
+                <value name="IF0">
+                  <block type="logic_compare" id="4A,P9#QN#j;uS6xtl{{4">
+                    <field name="OP">EQ</field>
+                    <value name="A">
+                      <block type="get_value" id="NRWhq@t?EDvgbww,bSgU">
+                        <field name="ATTR">val</field>
+                        <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_1&gt;.wallwasher_enabled</field>
+                      </block>
+                    </value>
+                    <value name="B">
+                      <block type="logic_boolean" id="ZtY5ucs~3=C)zj_R_l/r">
+                        <field name="BOOL">FALSE</field>
+                      </block>
+                    </value>
+                  </block>
+                </value>
+                <statement name="DO0">
+                  <block type="control" id=";|.k@dECjlVL!sAK_?lA">
+                    <mutation xmlns="http://www.w3.org/1999/xhtml" delay_input="false"></mutation>
+                    <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_1&gt;.wallwasher_enabled</field>
+                    <field name="WITH_DELAY">FALSE</field>
+                    <value name="VALUE">
+                      <block type="logic_boolean" id="_;DiNQE@ArrTMc~{VOt)">
+                        <field name="BOOL">TRUE</field>
+                      </block>
+                    </value>
+                  </block>
+                </statement>
+                <next>
+                  <block type="controls_if" id="|6PNnKkp{WlF`e4W/0rw">
+                    <value name="IF0">
+                      <block type="logic_compare" id="()8R59JC*KuIa_Ypq|]U">
+                        <field name="OP">EQ</field>
+                        <value name="A">
+                          <block type="get_value" id="z`^wxKo[KM@CLR%jmjQ2">
+                            <field name="ATTR">val</field>
+                            <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_2&gt;.wallwasher_enabled</field>
+                          </block>
+                        </value>
+                        <value name="B">
+                          <block type="logic_boolean" id="wU^yJ/.m59D}$,DrFg~E">
+                            <field name="BOOL">FALSE</field>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                    <statement name="DO0">
+                      <block type="control" id="jVu3$x`(IgW0bAVR6qb^">
+                        <mutation xmlns="http://www.w3.org/1999/xhtml" delay_input="false"></mutation>
+                        <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_2&gt;.wallwasher_enabled</field>
+                        <field name="WITH_DELAY">FALSE</field>
+                        <value name="VALUE">
+                          <block type="logic_boolean" id="A,N}bFH0x7J;DJ(I,;;Q">
+                            <field name="BOOL">TRUE</field>
+                          </block>
+                        </value>
+                      </block>
+                    </statement>
+                    <next>
+                      <block type="controls_if" id="T2!5]mwgNOg.FA6?{02`">
+                        <value name="IF0">
+                          <block type="logic_compare" id="-YNKw^kF)SBeK)cJ$6@W">
+                            <field name="OP">EQ</field>
+                            <value name="A">
+                              <block type="get_value" id="hS.8ornn|)Y2TGCA=^Vs">
+                                <field name="ATTR">val</field>
+                                <field name="OID">&lt;HUE_FLOODLIGHT&gt;</field>
+                              </block>
+                            </value>
+                            <value name="B">
+                              <block type="logic_boolean" id="IP!eYHX2G*;@UPy8*+gQ">
+                                <field name="BOOL">FALSE</field>
+                              </block>
+                            </value>
+                          </block>
+                        </value>
+                        <statement name="DO0">
+                          <block type="control" id="a61DmLRxzOj)z]Kw:]_8">
+                            <mutation xmlns="http://www.w3.org/1999/xhtml" delay_input="false"></mutation>
+                            <field name="OID">&lt;HUE_SCENE_DIMMED&gt;</field>
+                            <field name="WITH_DELAY">FALSE</field>
+                            <value name="VALUE">
+                              <block type="logic_boolean" id="i6^~{0s#A,A{-y!u47ui">
+                                <field name="BOOL">TRUE</field>
+                              </block>
+                            </value>
+                          </block>
+                        </statement>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </statement>
+            <value name="IF1">
+              <block type="logic_compare" id="|EJCK,9z}0c~+4q=$I#q">
+                <field name="OP">GT</field>
+                <value name="A">
+                  <block type="on_source" id="^*MQ-;j!!J}+yt/xH53]">
+                    <field name="ATTR">state.val</field>
+                  </block>
+                </value>
+                <value name="B">
+                  <block type="math_number" id="c^e`6xtCR.-)sA*uTg1M">
+                    <field name="NUM">40</field>
+                  </block>
+                </value>
+              </block>
+            </value>
+            <statement name="DO1">
+              <block type="control" id="yh2K32fEeH8Xg~/;h;oC">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" delay_input="false"></mutation>
+                <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_1&gt;.wallwasher_enabled</field>
+                <field name="WITH_DELAY">FALSE</field>
+                <value name="VALUE">
+                  <block type="logic_boolean" id="Dd[vucg^jek@j4+!s1}0">
+                    <field name="BOOL">FALSE</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="control" id="_7M1=RPMHX3MHTtg.+Sd">
+                    <mutation xmlns="http://www.w3.org/1999/xhtml" delay_input="false"></mutation>
+                    <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_2&gt;.wallwasher_enabled</field>
+                    <field name="WITH_DELAY">FALSE</field>
+                    <value name="VALUE">
+                      <block type="logic_boolean" id="V;nZeSgG]Qwn%vDl(RL-">
+                        <field name="BOOL">FALSE</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="control" id="%k^V|i|00f0bs.=hxEhn">
+                        <mutation xmlns="http://www.w3.org/1999/xhtml" delay_input="false"></mutation>
+                        <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_1&gt;.front_light_enabled</field>
+                        <field name="WITH_DELAY">FALSE</field>
+                        <value name="VALUE">
+                          <block type="logic_boolean" id="picEx[,YR^;pmWq!g5+n">
+                            <field name="BOOL">FALSE</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="control" id="i_Q_N1NgSk?m4KTMna-9">
+                            <mutation xmlns="http://www.w3.org/1999/xhtml" delay_input="false"></mutation>
+                            <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_2&gt;.front_light_enabled</field>
+                            <field name="WITH_DELAY">FALSE</field>
+                            <value name="VALUE">
+                              <block type="logic_boolean" id="?Vk+Nm6v94!2/%IjC|ed">
+                                <field name="BOOL">FALSE</field>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="control" id="WSW5KQPYY*/0t@EZm?}Q">
+                                <mutation xmlns="http://www.w3.org/1999/xhtml" delay_input="false"></mutation>
+                                <field name="OID">&lt;HUE_FLOODLIGHT&gt;</field>
+                                <field name="WITH_DELAY">FALSE</field>
+                                <value name="VALUE">
+                                  <block type="logic_boolean" id="#T8,Sirf~PPZfWN8[DFb">
+                                    <field name="BOOL">FALSE</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </statement>
+          </block>
+        </statement>
+        <next>
+          <block type="comment" id="SjMiWJK/3X!h_d*6DLAD">
+            <field name="COMMENT">Kamera Frontlicht und Flutlicht an bei Bewegung</field>
+            <next>
+              <block type="on_ext" id="jVq;Z}iO0|U2E0VbpAkW">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" items="4"></mutation>
+                <field name="CONDITION">ne</field>
+                <field name="ACK_CONDITION"></field>
+                <value name="OID0">
+                  <shadow type="field_oid" id="p48[W,+_lv/%Tw(f^{|C">
+                    <field name="oid">&lt;HUE_PIR_1&gt;</field>
+                  </shadow>
+                </value>
+                <value name="OID1">
+                  <shadow type="field_oid" id=".9mb/uIKMW(M{UW!VBwo">
+                    <field name="oid">&lt;HUE_PIR_2&gt;</field>
+                  </shadow>
+                </value>
+                <value name="OID2">
+                  <shadow type="field_oid" id="~vsuZ@Wew!{M8Zg9GU@D">
+                    <field name="oid">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_1&gt;.motion_active</field>
+                  </shadow>
+                </value>
+                <value name="OID3">
+                  <shadow type="field_oid" id="//y;1?`0}.D,,8#{5s#?">
+                    <field name="oid">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_2&gt;.motion_active</field>
+                  </shadow>
+                </value>
+                <statement name="STATEMENT">
+                  <block type="controls_if" id="P7Cn`p.!+.pE[ap5P3SN">
+                    <value name="IF0">
+                      <block type="on_source" id="h6.yp{1(@BQ+D?ngcE+m">
+                        <field name="ATTR">state.val</field>
+                      </block>
+                    </value>
+                    <statement name="DO0">
+                      <block type="controls_if" id="*P[ThWOOF6q469=@E/YY">
+                        <value name="IF0">
+                          <block type="get_value" id="zu*yWLC}mil*?k$3=|`2">
+                            <field name="ATTR">val</field>
+                            <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_1&gt;.wallwasher_enabled</field>
+                          </block>
+                        </value>
+                        <statement name="DO0">
+                          <block type="control" id="(pkCeupRzK!m2bM5d|%M">
+                            <mutation xmlns="http://www.w3.org/1999/xhtml" delay_input="false"></mutation>
+                            <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_1&gt;.front_light_enabled</field>
+                            <field name="WITH_DELAY">FALSE</field>
+                            <value name="VALUE">
+                              <block type="logic_boolean" id=";Hr2;_GPQO|Ho^7.l|tZ">
+                                <field name="BOOL">TRUE</field>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="timeouts_cleartimeout" id="[V{`2NflH=uP5t{8IBx_">
+                                <field name="NAME">timeout</field>
+                                <next>
+                                  <block type="timeouts_settimeout" id="Yxn-6bj@B,HVnPcV;iwA">
+                                    <field name="NAME">timeout</field>
+                                    <field name="DELAY">2</field>
+                                    <field name="UNIT">min</field>
+                                    <statement name="STATEMENT">
+                                      <block type="control" id="lzO:p-Vk).v)^-{eH`gl">
+                                        <mutation xmlns="http://www.w3.org/1999/xhtml" delay_input="false"></mutation>
+                                        <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_1&gt;.front_light_enabled</field>
+                                        <field name="WITH_DELAY">FALSE</field>
+                                        <value name="VALUE">
+                                          <block type="logic_boolean" id="/Q3jQy(#5OJslA*p!ruh">
+                                            <field name="BOOL">FALSE</field>
+                                          </block>
+                                        </value>
+                                      </block>
+                                    </statement>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </statement>
+                        <next>
+                          <block type="controls_if" id="^NtS!_;G`7Rw3P:b8.4D">
+                            <value name="IF0">
+                              <block type="get_value" id=".yI.6q$Nh)xbA@5`JqLn">
+                                <field name="ATTR">val</field>
+                                <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_2&gt;.wallwasher_enabled</field>
+                              </block>
+                            </value>
+                            <statement name="DO0">
+                              <block type="control" id="Wy8g$.T;93I|2t[5*/+6">
+                                <mutation xmlns="http://www.w3.org/1999/xhtml" delay_input="false"></mutation>
+                                <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_2&gt;.front_light_enabled</field>
+                                <field name="WITH_DELAY">FALSE</field>
+                                <value name="VALUE">
+                                  <block type="logic_boolean" id="E:gS6y{PS|k%+-O$WZ9y">
+                                    <field name="BOOL">TRUE</field>
+                                  </block>
+                                </value>
+                                <next>
+                                  <block type="timeouts_cleartimeout" id=")k3IMmQq#,=G~rYfuOgM">
+                                    <field name="NAME">timeout2</field>
+                                    <next>
+                                      <block type="timeouts_settimeout" id="tFVFRnllT;|vE0g}E|ju">
+                                        <field name="NAME">timeout2</field>
+                                        <field name="DELAY">2</field>
+                                        <field name="UNIT">min</field>
+                                        <statement name="STATEMENT">
+                                          <block type="control" id="K(1GG-tW+ZskF8xs_lA@">
+                                            <mutation xmlns="http://www.w3.org/1999/xhtml" delay_input="false"></mutation>
+                                            <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_2&gt;.front_light_enabled</field>
+                                            <field name="WITH_DELAY">FALSE</field>
+                                            <value name="VALUE">
+                                              <block type="logic_boolean" id="b|_DD:BOM$t$WT2)ym0N">
+                                                <field name="BOOL">FALSE</field>
+                                              </block>
+                                            </value>
+                                          </block>
+                                        </statement>
+                                      </block>
+                                    </next>
+                                  </block>
+                                </next>
+                              </block>
+                            </statement>
+                            <next>
+                              <block type="controls_if" id="M8b?zAc)^JLdM-;?2jQ`">
+                                <value name="IF0">
+                                  <block type="get_value" id="D-Y9*Eo?A}H78aWI+x.=">
+                                    <field name="ATTR">val</field>
+                                    <field name="OID">&lt;HUE_FLOODLIGHT&gt;</field>
+                                  </block>
+                                </value>
+                                <statement name="DO0">
+                                  <block type="control" id=",_6]oD!7{Mok@vkJ*SV7">
+                                    <mutation xmlns="http://www.w3.org/1999/xhtml" delay_input="false"></mutation>
+                                    <field name="OID">&lt;HUE_SCENE_BRIGHT&gt;</field>
+                                    <field name="WITH_DELAY">FALSE</field>
+                                    <value name="VALUE">
+                                      <block type="logic_boolean" id="r?k{P{k/|Z|L:@XbU|bv">
+                                        <field name="BOOL">TRUE</field>
+                                      </block>
+                                    </value>
+                                    <next>
+                                      <block type="timeouts_cleartimeout" id="}6r1.MPh(++%;p~In|l6">
+                                        <field name="NAME">timeout3</field>
+                                        <next>
+                                          <block type="timeouts_settimeout" id="^p@MNi,MsX8NOxip{US*">
+                                            <field name="NAME">timeout3</field>
+                                            <field name="DELAY">2</field>
+                                            <field name="UNIT">min</field>
+                                            <statement name="STATEMENT">
+                                              <block type="control" id="$4s(rURse(:O5.6S{Q2c">
+                                                <mutation xmlns="http://www.w3.org/1999/xhtml" delay_input="false"></mutation>
+                                                <field name="OID">&lt;HUE_SCENE_DIMMED&gt;</field>
+                                                <field name="WITH_DELAY">FALSE</field>
+                                                <value name="VALUE">
+                                                  <block type="logic_boolean" id="5R;(=]%NVt.XD.$63s!S">
+                                                    <field name="BOOL">TRUE</field>
+                                                  </block>
+                                                </value>
+                                              </block>
+                                            </statement>
+                                          </block>
+                                        </next>
+                                      </block>
+                                    </next>
+                                  </block>
+                                </statement>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </statement>
+                  </block>
+                </statement>
+                <next>
+                  <block type="on" id="Ic)aNJLsHYQYSCx5{Up$">
+                    <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_1&gt;.livestream_enabled</field>
+                    <field name="CONDITION">any</field>
+                    <field name="ACK_CONDITION"></field>
+                    <statement name="STATEMENT">
+                      <block type="controls_if" id="ICMOBB8BB`:Ml?LS4*OP">
+                        <value name="IF0">
+                          <block type="logic_negate" id="}!flDry:2!YcxU*eA/xJ">
+                            <value name="BOOL">
+                              <block type="on_source" id="Ja$4_1~h)t1av,k`)2}e">
+                                <field name="ATTR">state.val</field>
+                              </block>
+                            </value>
+                          </block>
+                        </value>
+                        <statement name="DO0">
+                          <block type="control_ex" id="qZ4Wzi;Pi1[Q(O:xot`(">
+                            <field name="TYPE">false</field>
+                            <field name="CLEAR_RUNNING">FALSE</field>
+                            <value name="OID">
+                              <shadow type="field_oid" id="*8%*?TujOX5iF?xOd~[@">
+                                <field name="oid">ID auswählen</field>
+                              </shadow>
+                              <block type="on_source" id="7HV*l[zrS=%#%$i0f$(%">
+                                <field name="ATTR">id</field>
+                              </block>
+                            </value>
+                            <value name="VALUE">
+                              <shadow type="logic_boolean" id="2T5DI{?;#pA?H+uYcJXu">
+                                <field name="BOOL">TRUE</field>
+                              </shadow>
+                              <block type="logic_boolean" id="Dl.[PYg_H7e;RZl:m##T">
+                                <field name="BOOL">TRUE</field>
+                              </block>
+                            </value>
+                            <value name="DELAY_MS">
+                              <shadow type="math_number" id="*aIheZGp5*SCe%4EfgwO">
+                                <field name="NUM">0</field>
+                              </shadow>
+                            </value>
+                            <value name="EXPIRE">
+                              <shadow type="math_number" id="e_CbgHB#2^AUWj=|BL9o">
+                                <field name="NUM">0</field>
+                              </shadow>
+                            </value>
+                          </block>
+                        </statement>
+                      </block>
+                    </statement>
+                    <next>
+                      <block type="on" id="OjN`j2xK~jVg`x#qSiZb">
+                        <field name="OID">bosch-smart-home-camera.0.cameras.&lt;CAM_UUID_2&gt;.livestream_enabled</field>
+                        <field name="CONDITION">any</field>
+                        <field name="ACK_CONDITION"></field>
+                        <statement name="STATEMENT">
+                          <block type="controls_if" id="DQzK,M^.MeSr[uvT2(t(">
+                            <value name="IF0">
+                              <block type="logic_negate" id="Eon[^;DM[(t/wQJ/d]hw">
+                                <value name="BOOL">
+                                  <block type="on_source" id="I/b4GG*;M#`uHoa(P.Iw">
+                                    <field name="ATTR">state.val</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </value>
+                            <statement name="DO0">
+                              <block type="control_ex" id="^szbXdzk_qBus_5dd]C=">
+                                <field name="TYPE">false</field>
+                                <field name="CLEAR_RUNNING">FALSE</field>
+                                <value name="OID">
+                                  <shadow type="field_oid" id="*8%*?TujOX5iF?xOd~[@">
+                                    <field name="oid">ID auswählen</field>
+                                  </shadow>
+                                  <block type="on_source" id="Aqw:%qx^I{NoAzyrcb@.">
+                                    <field name="ATTR">id</field>
+                                  </block>
+                                </value>
+                                <value name="VALUE">
+                                  <shadow type="logic_boolean" id="2T5DI{?;#pA?H+uYcJXu">
+                                    <field name="BOOL">TRUE</field>
+                                  </shadow>
+                                  <block type="logic_boolean" id="NQxb!%s7{m27))FH-KD?">
+                                    <field name="BOOL">TRUE</field>
+                                  </block>
+                                </value>
+                                <value name="DELAY_MS">
+                                  <shadow type="math_number" id="/#L)UbS2UiK-8BZ}Gt|l">
+                                    <field name="NUM">0</field>
+                                  </shadow>
+                                </value>
+                                <value name="EXPIRE">
+                                  <shadow type="math_number" id="2q9(LilFxexr|t8)_TIt">
+                                    <field name="NUM">0</field>
+                                  </shadow>
+                                </value>
+                              </block>
+                            </statement>
+                          </block>
+                        </statement>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+</xml>
