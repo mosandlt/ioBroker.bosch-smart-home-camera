@@ -748,7 +748,14 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 const endMs = new Date(mw.scheduled_end).getTime();
                 // Format as Europe/Berlin (approximate: just use ISO local-time slices)
                 const fmt = (ms) => new Date(ms)
-                    .toLocaleString("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit", weekday: "short", day: "2-digit", month: "2-digit" })
+                    .toLocaleString("de-DE", {
+                    timeZone: "Europe/Berlin",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    weekday: "short",
+                    day: "2-digit",
+                    month: "2-digit",
+                })
                     .replace(",", "");
                 when = `${fmt(startMs)}–${new Date(endMs).toLocaleString("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" })}`;
             }
@@ -3142,7 +3149,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
         }
         this.log.info(`[camera-status] ${title}`);
         try {
-            const payload = JSON.stringify({ title, message, status: newStatus, ts: new Date().toISOString() });
+            const payload = JSON.stringify({
+                title,
+                message,
+                status: newStatus,
+                ts: new Date().toISOString(),
+            });
             await this.upsertState(`cameras.${camId}.last_status_notification`, payload);
         }
         catch (err) {

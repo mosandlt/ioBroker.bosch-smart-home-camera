@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "0.7.2",
+    "version": "0.7.3",
     "news": {
+      "0.7.3": {
+        "en": "Hotfix: 2 Prettier formatting violations in main.ts (Intl.DateTimeFormat options + JSON payload object literal) blocked the v0.7.2 CI release. No runtime behaviour change.",
+        "de": "Hotfix: 2 Prettier-Formatierungsfehler in main.ts (Intl.DateTimeFormat-Optionen + JSON-Payload Object-Literal) haben den v0.7.2 CI-Release blockiert. Keine Verhaltensänderung zur Laufzeit.",
+        "ru": "Hotfix: 2 нарушения форматирования Prettier в main.ts блокировали CI-релиз v0.7.2. Поведение во время выполнения не изменилось.",
+        "pt": "Hotfix: 2 violações de formatação Prettier em main.ts bloquearam o release CI v0.7.2. Sem mudança de comportamento em execução.",
+        "nl": "Hotfix: 2 Prettier-opmaakfouten in main.ts blokkeerden de v0.7.2 CI-release. Geen runtime-gedragsverandering.",
+        "fr": "Correctif: 2 violations de formatage Prettier dans main.ts bloquaient la release CI v0.7.2. Aucun changement de comportement.",
+        "it": "Hotfix: 2 violazioni di formattazione Prettier in main.ts hanno bloccato il rilascio CI v0.7.2. Nessun cambio di comportamento.",
+        "es": "Hotfix: 2 violaciones de formato Prettier en main.ts bloquearon la release CI v0.7.2. Sin cambio de comportamiento.",
+        "pl": "Hotfix: 2 naruszenia formatowania Prettier w main.ts zablokowały wydanie CI v0.7.2. Bez zmiany zachowania.",
+        "uk": "Hotfix: 2 порушення форматування Prettier у main.ts блокували CI-реліз v0.7.2. Поведінка не змінилася.",
+        "zh-cn": "热修复：main.ts 中的 2 个 Prettier 格式问题阻塞了 v0.7.2 CI 发布。运行时行为无变化。"
+      },
       "0.7.2": {
         "en": "Maintenance lifecycle notifications (scheduled/active/past) + per-camera online/offline notifications. Deduped by (link, state); past fires only after active. Writes JSON to info.maintenance.last_notification and cameras.<id>.last_status_notification for Blockly hooks.",
         "de": "Wartungs-Lifecycle-Benachrichtigungen (scheduled/active/past) + Kamera-Online-/Offline-Benachrichtigungen. Dedupliziert nach (Link, State); past nur nach active. Schreibt JSON in info.maintenance.last_notification und cameras.<id>.last_status_notification für Blockly.",
