@@ -84,6 +84,14 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via three sibling 
 
 ## Changelog
 
+### 0.7.2 (2026-05-19)
+Notification hooks for maintenance lifecycle and camera availability changes — mirrors the HA integration's v12.4.8 feature.
+
+- **Maintenance lifecycle notifications** (scheduled → active → past): when the RSS-derived `info.maintenance.state` enters `scheduled`, `active`, or `past`, the adapter writes a JSON payload to the new `info.maintenance.last_notification` DP. Three notifications per window: announcement when first seen as scheduled, "läuft" when the window opens, "beendet" when it closes. Deduped by `(RSS link, state)` so a poll tick during the same phase stays silent. The `past` notification only fires if `active` was announced first for the same link — prevents spam from stale historical windows discovered after an adapter restart. Non-actionable states (recent / unknown / idle) stay silent.
+- **Per-camera offline / online transition notifications**: when `cameras.<id>.online` flips, a JSON payload is written to the new `cameras.<id>.last_status_notification` DP. The first observation after adapter start is silent (baseline recording) — reboots inside an outage do not re-announce. Transitions involving `unknown` are also silent (transient cloud flap). Payload: `{ title, message, status, ts }`.
+- Both notification DPs are writable via Blockly `on-change` triggers: parse the JSON, extract `title` + `message`, and forward to Telegram, Pushover, or any other notification adapter.
+- **+9 unit tests** in `test/unit/main_maintenance_announce.spec.ts` + `test/unit/main_camera_status_announce.spec.ts` covering the full transition matrix, dedupe, stale-past suppression, unknown-flap silence, per-camera isolation, and notify-failure containment.
+
 ### 0.7.0 (2026-05-19)
 Cloud maintenance / outage discovery: when Bosch announces a maintenance window in their community forum, the adapter fetches the RSS feeds and surfaces the state in `info.maintenance.*` data points — so automations can react before users notice a cloud outage.
 
@@ -388,7 +396,7 @@ This adapter is part of a 3-implementation family for Bosch Smart Home Cameras:
 |---|---|---|
 | 🏆 Home Assistant Integration | [Bosch-Smart-Home-Camera-Tool-HomeAssistant](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | v12.4.7 · HA Quality Scale **Platinum** · production-ready |
 | 🐍 Python CLI | [Bosch-Smart-Home-Camera-Tool-Python](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | v10.7.1 · Mini-NVR + SMB upload (BETA) · capture / research / no-HA standalone |
-| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.0 · beta · npm |
+| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.2 · beta · npm |
 | 🤖 MCP Server | [Bosch-Smart-Home-Camera-Tool-MCP](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) | v1.0.0 · Claude Code / Claude Desktop integration |
 
 HA stays the **reference implementation** — features land there first; the Python CLI and this adapter catch up over time.

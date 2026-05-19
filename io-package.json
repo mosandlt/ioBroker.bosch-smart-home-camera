@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "0.7.1",
+    "version": "0.7.2",
     "news": {
+      "0.7.2": {
+        "en": "Maintenance lifecycle notifications (scheduled/active/past) + per-camera online/offline notifications. Deduped by (link, state); past fires only after active. Writes JSON to info.maintenance.last_notification and cameras.<id>.last_status_notification for Blockly hooks.",
+        "de": "Wartungs-Lifecycle-Benachrichtigungen (scheduled/active/past) + Kamera-Online-/Offline-Benachrichtigungen. Dedupliziert nach (Link, State); past nur nach active. Schreibt JSON in info.maintenance.last_notification und cameras.<id>.last_status_notification für Blockly.",
+        "ru": "Уведомления о жизненном цикле обслуживания (scheduled/active/past) + уведомления онлайн/офлайн для каждой камеры. Дедупликация по (link, state); past только после active. JSON в info.maintenance.last_notification и cameras.<id>.last_status_notification для Blockly.",
+        "pt": "Notificações de ciclo de vida de manutenção (scheduled/active/past) + notificações online/offline por câmera. Deduplicadas por (link, state); past apenas após active. JSON em info.maintenance.last_notification e cameras.<id>.last_status_notification para Blockly.",
+        "nl": "Lifecycle-meldingen voor onderhoud (scheduled/active/past) + online/offline-meldingen per camera. Dedup per (link, state); past alleen na active. JSON naar info.maintenance.last_notification en cameras.<id>.last_status_notification voor Blockly.",
+        "fr": "Notifications de cycle de vie de maintenance (scheduled/active/past) + notifications en ligne/hors ligne par caméra. Dédupliquées par (link, state); past uniquement après active. JSON dans info.maintenance.last_notification et cameras.<id>.last_status_notification pour Blockly.",
+        "it": "Notifiche del ciclo di vita della manutenzione (scheduled/active/past) + notifiche online/offline per camera. Deduplicate per (link, state); past solo dopo active. JSON in info.maintenance.last_notification e cameras.<id>.last_status_notification per Blockly.",
+        "es": "Notificaciones del ciclo de vida de mantenimiento (scheduled/active/past) + notificaciones online/offline por cámara. Deduplicadas por (link, state); past solo tras active. JSON en info.maintenance.last_notification y cameras.<id>.last_status_notification para Blockly.",
+        "pl": "Powiadomienia cyklu życia konserwacji (scheduled/active/past) + powiadomienia online/offline dla każdej kamery. Deduplikowane wg (link, state); past tylko po active. JSON do info.maintenance.last_notification i cameras.<id>.last_status_notification dla Blockly.",
+        "uk": "Сповіщення про життєвий цикл обслуговування (scheduled/active/past) + сповіщення онлайн/офлайн для кожної камери. Дедублікація за (link, state); past тільки після active. JSON у info.maintenance.last_notification та cameras.<id>.last_status_notification для Blockly.",
+        "zh-cn": "维护生命周期通知（scheduled/active/past）及每摄像头在线/离线通知。按 (link, state) 去重；past 仅在 active 之后触发。JSON 写入 info.maintenance.last_notification 和 cameras.<id>.last_status_notification 供 Blockly 使用。"
+      },
       "0.7.1": {
         "en": "Hotfix: ESLint/Prettier formatting violations in maintenance.ts blocked the v0.7.0 CI release. No runtime behaviour change.",
         "de": "Hotfix: ESLint/Prettier-Formatierungsfehler in maintenance.ts haben den v0.7.0-CI-Release blockiert. Keine Verhaltensänderung zur Laufzeit.",

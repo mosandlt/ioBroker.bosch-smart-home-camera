@@ -178,6 +178,20 @@ class BoschSmartHomeCamera extends utils.Adapter {
      */
     _maintenanceLastFetchMs = 0;
     /**
+     * v0.7.2: dedupe key for maintenance lifecycle notifications.
+     * Stores the last `[link, state]` pair we actually fired a notification for.
+     * The `past` state only fires when `active` for the same link was previously
+     * announced — prevents spam from stale historical windows on adapter restart.
+     * null = no notification sent yet this adapter session.
+     */
+    _maintenanceNotifiedKey = null;
+    /**
+     * v0.7.2: last-known online/offline status per camera ID.
+     * null (missing key) = first observation since adapter start → silent baseline.
+     * Transitions involving "unknown" are also silent (transient cloud flap).
+     */
+    _lastCameraStatus = {};
+    /**
      * Sticky TLS-proxy port per camera ID. Set on first proxy start
      * (ephemeral free port from the OS), then reused across session renewals
      * and adapter restarts so external recorders (BlueIris) keep working
@@ -618,6 +632,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 type: "string",
                 def: "",
             },
+            {
+                id: "info.maintenance.last_notification",
+                role: "text",
+                name: "Last maintenance lifecycle notification (JSON: title + message + state + ts)",
+                type: "string",
+                def: "",
+            },
         ];
         for (const s of states) {
             await this.setObjectNotExistsAsync(s.id, {
@@ -664,11 +685,101 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 this.upsertState("info.maintenance.last_fetched", active !== null ? new Date().toISOString() : ""),
             ]);
             this.log.debug(`Maintenance status: state=${state}${active ? ` source=${active.source} title="${active.title.slice(0, 60)}"` : ""}`);
+            // v0.7.2: lifecycle notifications (scheduled → active → past)
+            if (active !== null) {
+                await this._maybeAnnounceMaintenanceState(active, state);
+            }
         }
         catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             this.log.debug(`Maintenance fetch error (non-fatal): ${msg}`);
         }
+    }
+    /**
+     * Fire a user notification when the maintenance window enters a new lifecycle state.
+     *
+     * Mirrors `_async_maybe_announce_maintenance` from the HA integration exactly:
+     * - Only `scheduled`, `active`, `past` trigger notifications.
+     * - Each (link, state) pair fires at most once (deduped in-memory).
+     * - `past` only fires if we previously announced `active` for the same link,
+     *   suppressing stale historical windows discovered after an adapter restart.
+     * - Non-actionable states (recent / unknown / idle) stay silent.
+     *
+     * Notification delivery: writes a JSON string to `info.maintenance.last_notification`
+     * (hookable via Blockly/scripts) and calls `this.log.info` for the log.
+     * Non-fatal — a misconfigured notification consumer must not break maintenance discovery.
+     *
+     * @param mw  The active MaintenanceWindow (camera_relevant already checked at caller).
+     * @param state  Pre-computed state for `mw` (avoids a second classifyState call).
+     */
+    async _maybeAnnounceMaintenanceState(mw, state) {
+        if (!mw.camera_relevant) {
+            return;
+        }
+        if (state !== "scheduled" && state !== "active" && state !== "past") {
+            return;
+        }
+        // `past` only announces when we already announced `active` for this link.
+        // Suppresses stale past-window discovery (e.g. adapter restart after window closed).
+        if (state === "past") {
+            const prior = this._maintenanceNotifiedKey;
+            if (prior === null || prior[0] !== mw.link || prior[1] !== "active") {
+                this._maintenanceNotifiedKey = [mw.link, state];
+                return;
+            }
+        }
+        const notifyKey = [mw.link, state];
+        if (this._maintenanceNotifiedKey !== null &&
+            this._maintenanceNotifiedKey[0] === notifyKey[0] &&
+            this._maintenanceNotifiedKey[1] === notifyKey[1]) {
+            return;
+        }
+        const verbMap = {
+            scheduled: "geplant",
+            active: "läuft",
+            past: "beendet",
+        };
+        const verb = verbMap[state] ?? state;
+        const title = `Bosch Cloud-Wartung ${verb}`;
+        let when = "";
+        if (mw.scheduled_start !== null && mw.scheduled_end !== null) {
+            try {
+                const startMs = new Date(mw.scheduled_start).getTime();
+                const endMs = new Date(mw.scheduled_end).getTime();
+                // Format as Europe/Berlin (approximate: just use ISO local-time slices)
+                const fmt = (ms) => new Date(ms)
+                    .toLocaleString("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit", weekday: "short", day: "2-digit", month: "2-digit" })
+                    .replace(",", "");
+                when = `${fmt(startMs)}–${new Date(endMs).toLocaleString("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" })}`;
+            }
+            catch {
+                when = "";
+            }
+        }
+        const bodyParts = [mw.title || "Wartungsmeldung"];
+        if (when) {
+            bodyParts.push(when);
+        }
+        if (state === "active") {
+            bodyParts.push("Live-Bild und Snapshots ggf. eingeschränkt.");
+        }
+        else if (state === "past") {
+            bodyParts.push("Cloud-Dienste sollten wieder normal funktionieren.");
+        }
+        if (mw.link) {
+            bodyParts.push(mw.link);
+        }
+        const message = bodyParts.join("\n");
+        this.log.info(`[maintenance] ${title}: ${message.split("\n")[0]}`);
+        try {
+            const payload = JSON.stringify({ title, message, state, ts: new Date().toISOString() });
+            await this.upsertState("info.maintenance.last_notification", payload);
+        }
+        catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.log.debug(`Maintenance notification DP write failed (non-fatal): ${msg}`);
+        }
+        this._maintenanceNotifiedKey = notifyKey;
     }
     /**
      * Start the hourly maintenance poll.
@@ -1218,6 +1329,20 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 common: {
                     name: "Sub-stream RTSP URL (inst=2, lower bitrate) — experimental, depends on camera firmware",
                     role: "text.url",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "",
+                },
+                native: {},
+            });
+            // v0.7.2: last online/offline notification payload (JSON string).
+            // Hookable via Blockly on-change triggers for push notifications.
+            await this.setObjectNotExistsAsync(`${prefix}.last_status_notification`, {
+                type: "state",
+                common: {
+                    name: "Last camera online/offline notification (JSON: title + message + status + ts)",
+                    role: "text",
                     type: "string",
                     read: true,
                     write: false,
@@ -2941,6 +3066,8 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 this._snapshotFailCount.delete(camId);
             }
             await this.setStateAsync(`cameras.${camId}.online`, true, true);
+            // v0.7.2: notify on online/offline transition
+            await this._maybeannounceCameraStatus(camId, "online");
             return;
         }
         // v0.5.4: privacy_enabled=true makes the camera refuse snapshots — that is
@@ -2963,6 +3090,64 @@ class BoschSmartHomeCamera extends utils.Adapter {
         this._snapshotFailCount.set(camId, failures);
         if (failures >= BoschSmartHomeCamera.OFFLINE_THRESHOLD) {
             await this.setStateAsync(`cameras.${camId}.online`, false, true);
+            // v0.7.2: notify on offline threshold reached
+            await this._maybeannounceCameraStatus(camId, "offline");
+        }
+    }
+    /**
+     * Fire a user notification when a camera flips between online and offline.
+     *
+     * Mirrors `_async_maybe_announce_camera_status` from the HA integration exactly:
+     * - The first observation per camera is silent (records baseline without notifying).
+     * - Only `online → offline` and `offline → online` transitions notify.
+     * - Transitions involving `unknown` are silent (transient coordinator flap).
+     *
+     * Notification delivery: writes a JSON string to `cameras.<id>.last_status_notification`
+     * (hookable via Blockly/scripts) and calls `this.log.info`.
+     * Non-fatal — notification failures must not break reachability tracking.
+     *
+     * @param camId       Camera ID.
+     * @param newStatus   "online" | "offline" | "unknown".
+     */
+    async _maybeannounceCameraStatus(camId, newStatus) {
+        const last = this._lastCameraStatus[camId];
+        if (last === undefined) {
+            // First tick after startup — record baseline silently.
+            this._lastCameraStatus[camId] = newStatus;
+            return;
+        }
+        if (newStatus === last) {
+            return;
+        }
+        // Skip transitions involving "unknown" — transient cloud hickups can flap
+        // status to unknown for one tick; do not convert that into notification spam.
+        if (newStatus === "unknown" || last === "unknown") {
+            this._lastCameraStatus[camId] = newStatus;
+            return;
+        }
+        this._lastCameraStatus[camId] = newStatus;
+        // Resolve camera display name from the _cameras map.
+        const camName = this._cameras.get(camId)?.name || camId.slice(0, 8);
+        let title;
+        let message;
+        if (newStatus === "offline") {
+            title = `Bosch Kamera ${camName} offline`;
+            message =
+                `Bosch Kamera ${camName} ist offline. ` +
+                    "Live-Bild und Snapshots sind bis zur Wiederverbindung nicht verfügbar.";
+        }
+        else {
+            title = `Bosch Kamera ${camName} wieder online`;
+            message = `Bosch Kamera ${camName} ist wieder erreichbar.`;
+        }
+        this.log.info(`[camera-status] ${title}`);
+        try {
+            const payload = JSON.stringify({ title, message, status: newStatus, ts: new Date().toISOString() });
+            await this.upsertState(`cameras.${camId}.last_status_notification`, payload);
+        }
+        catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.log.debug(`Camera status notification DP write failed (non-fatal): ${msg}`);
         }
     }
     /**

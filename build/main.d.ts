@@ -126,6 +126,20 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _maintenanceLastFetchMs;
     /**
+     * v0.7.2: dedupe key for maintenance lifecycle notifications.
+     * Stores the last `[link, state]` pair we actually fired a notification for.
+     * The `past` state only fires when `active` for the same link was previously
+     * announced — prevents spam from stale historical windows on adapter restart.
+     * null = no notification sent yet this adapter session.
+     */
+    private _maintenanceNotifiedKey;
+    /**
+     * v0.7.2: last-known online/offline status per camera ID.
+     * null (missing key) = first observation since adapter start → silent baseline.
+     * Transitions involving "unknown" are also silent (transient cloud flap).
+     */
+    private _lastCameraStatus;
+    /**
      * Sticky TLS-proxy port per camera ID. Set on first proxy start
      * (ephemeral free port from the OS), then reused across session renewals
      * and adapter restarts so external recorders (BlueIris) keep working
@@ -243,6 +257,24 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * maintenance state.
      */
     private _refreshMaintenanceStatus;
+    /**
+     * Fire a user notification when the maintenance window enters a new lifecycle state.
+     *
+     * Mirrors `_async_maybe_announce_maintenance` from the HA integration exactly:
+     * - Only `scheduled`, `active`, `past` trigger notifications.
+     * - Each (link, state) pair fires at most once (deduped in-memory).
+     * - `past` only fires if we previously announced `active` for the same link,
+     *   suppressing stale historical windows discovered after an adapter restart.
+     * - Non-actionable states (recent / unknown / idle) stay silent.
+     *
+     * Notification delivery: writes a JSON string to `info.maintenance.last_notification`
+     * (hookable via Blockly/scripts) and calls `this.log.info` for the log.
+     * Non-fatal — a misconfigured notification consumer must not break maintenance discovery.
+     *
+     * @param mw  The active MaintenanceWindow (camera_relevant already checked at caller).
+     * @param state  Pre-computed state for `mw` (avoids a second classifyState call).
+     */
+    private _maybeAnnounceMaintenanceState;
     /**
      * Start the hourly maintenance poll.
      * Idempotent — a second call while the timer is already armed is a no-op.
@@ -707,6 +739,22 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private static normaliseBoschTimestamp;
     private markCameraReachability;
+    /**
+     * Fire a user notification when a camera flips between online and offline.
+     *
+     * Mirrors `_async_maybe_announce_camera_status` from the HA integration exactly:
+     * - The first observation per camera is silent (records baseline without notifying).
+     * - Only `online → offline` and `offline → online` transitions notify.
+     * - Transitions involving `unknown` are silent (transient coordinator flap).
+     *
+     * Notification delivery: writes a JSON string to `cameras.<id>.last_status_notification`
+     * (hookable via Blockly/scripts) and calls `this.log.info`.
+     * Non-fatal — notification failures must not break reachability tracking.
+     *
+     * @param camId       Camera ID.
+     * @param newStatus   "online" | "offline" | "unknown".
+     */
+    private _maybeannounceCameraStatus;
     /**
      * Called when the adapter is stopped.
      * Cleans up TLS proxies, FCM listener, live sessions, and the refresh timer.
