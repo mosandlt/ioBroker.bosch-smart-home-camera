@@ -17,6 +17,8 @@
  *   9. [maintenance.ts]  RSS-based cloud maintenance / outage discovery (v0.7.0)
  */
 
+import * as net from "node:net";
+
 import * as utils from "@iobroker/adapter-core";
 // adapter-config.d.ts augments ioBroker.AdapterConfig — included via tsconfig src/**/*.ts,
 // no runtime import needed (import would fail: .d.ts files produce no .js output)
@@ -246,6 +248,44 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * address (→ tear down + restart).
      */
     private _sessionRemote = new Map<string, string>();
+
+    /**
+     * v0.7.4: last known LAN IP (host only, no port) per camera ID.
+     * Seeded at onReady from persisted `cameras.<id>.lan_ip` states so
+     * the TCP-ping path has a working address book even before the first
+     * successful cloud refresh.
+     */
+    private _lanIpMap = new Map<string, string>();
+
+    /**
+     * v0.7.4: result of the last TCP-connect probe to port 443 per camera.
+     * Tuple: [reachable, performance.now()-equivalent via Date.now()].
+     */
+    private _lanReachable = new Map<string, [boolean, number]>();
+
+    /**
+     * v0.7.4: monotonic-style timestamp (Date.now()) of the last
+     * `_pingAllCamsDuringOutage` sweep. float(-Infinity) semantics via
+     * -Infinity so the first outage tick always runs immediately.
+     */
+    private _lastOutagePingAt = -Infinity;
+
+    /**
+     * v0.7.4: timestamp (Date.now()) of the last successful local RCP write
+     * per camera. Used by `_inLocalWriteGrace()` to suppress a brief
+     * "LAN offline" blip that follows every privacy / light toggle (the
+     * camera tears down its HTTPS endpoint while Digest creds rotate, ~5–15 s).
+     */
+    private _localWriteAt = new Map<string, number>();
+
+    /** v0.7.4: post-write grace window (ms). Mirrors HA's _LOCAL_WRITE_GRACE_S. */
+    private static readonly LOCAL_WRITE_GRACE_MS = 30_000;
+
+    /** v0.7.4: outage-ping throttle (ms). */
+    private static readonly OUTAGE_PING_THROTTLE_MS = 30_000;
+
+    /** v0.7.4: TCP-connect timeout for LAN-reachability probe (ms). */
+    private static readonly LAN_PING_TIMEOUT_MS = 1_500;
 
     /**
      * Desired siren (panic_alarm) state per Gen2 camera. The Bosch cloud has
@@ -1518,6 +1558,33 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 native: {},
             });
 
+            // v0.7.4: LAN IP + reachability (always readable, survives cloud outage).
+            await this.setObjectNotExistsAsync(`${prefix}.lan_ip`, {
+                type: "state",
+                common: {
+                    name: "Last known LAN IP of camera (persisted for offline fallback)",
+                    role: "text",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "",
+                },
+                native: {},
+            });
+
+            await this.setObjectNotExistsAsync(`${prefix}.lan_reachable`, {
+                type: "state",
+                common: {
+                    name: "LAN reachability — TCP-connect port 443 (always available, honors grace period)",
+                    role: "indicator.connected",
+                    type: "boolean",
+                    read: true,
+                    write: false,
+                    def: false,
+                },
+                native: {},
+            });
+
             // Set initial values
             await this.upsertState(`${prefix}.name`, cam.name);
             await this.upsertState(`${prefix}.firmware_version`, cam.firmwareVersion);
@@ -1820,6 +1887,16 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 this._sessionRemote.set(camId, `${remoteHost}:${remotePort}`);
                 this._stickyProxyPort.set(camId, proxyHandle.port);
 
+                // v0.7.4: persist the LAN IP so cloud-degraded startups can
+                // ping cameras without first needing a cloud round-trip.
+                // Only write when the IP actually changes (throttle DB writes).
+                if (remoteHost && this._lanIpMap.get(camId) !== remoteHost) {
+                    this._lanIpMap.set(camId, remoteHost);
+                    void this.upsertState(`cameras.${camId}.lan_ip`, remoteHost).catch(
+                        () => undefined,
+                    );
+                }
+
                 // Persist sticky port so it survives adapter restart
                 await this.setObjectNotExistsAsync(`cameras.${camId}._proxy_port`, {
                     type: "state",
@@ -2059,6 +2136,174 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * 6. Arm token refresh loop
      * 7. Start FCM listener (real push via @aracna/fcm, sets info.fcm_active = "healthy")
      */
+    // ── v0.7.4 LAN-fallback helpers ─────────────────────────────────────────
+
+    /**
+     * True if a successful local RCP write happened within LOCAL_WRITE_GRACE_MS.
+     * During that window a TCP-connect failure is suppressed — the camera
+     * briefly tears down its HTTPS endpoint while rotating Digest creds.
+     *
+     * @param camId
+     * @param now
+     */
+    _inLocalWriteGrace(camId: string, now: number = Date.now()): boolean {
+        const last = this._localWriteAt.get(camId) ?? -Infinity;
+        return now - last < BoschSmartHomeCamera.LOCAL_WRITE_GRACE_MS;
+    }
+
+    /**
+     * Most recent LAN-TCP reachability for `camId`, or null if not yet probed.
+     * Honors the post-write grace period so the UI does not flip to offline
+     * for a few seconds after every privacy / light toggle.
+     *
+     * @param camId
+     */
+    isLanReachable(camId: string): boolean | null {
+        const entry = this._lanReachable.get(camId);
+        const now = Date.now();
+        if (entry === undefined) {
+            return this._inLocalWriteGrace(camId, now) ? true : null;
+        }
+        const [reachable] = entry;
+        if (!reachable && this._inLocalWriteGrace(camId, now)) {
+            return true;
+        }
+        return reachable;
+    }
+
+    /**
+     * TCP-connect probe to the camera's LAN port 443.
+     * Writes the result to `_lanReachable` and updates the `cameras.<id>.lan_reachable` DP.
+     *
+     * @param camId
+     */
+    private async _tcpPing(camId: string): Promise<boolean> {
+        const ip = this._lanIpMap.get(camId);
+        if (!ip) {
+            return false;
+        }
+        const result = await new Promise<boolean>((resolve) => {
+            const sock = net.createConnection({ host: ip, port: 443 });
+            const timer = setTimeout(() => {
+                sock.destroy();
+                resolve(false);
+            }, BoschSmartHomeCamera.LAN_PING_TIMEOUT_MS);
+            sock.once("connect", () => {
+                clearTimeout(timer);
+                sock.destroy();
+                resolve(true);
+            });
+            sock.once("error", () => {
+                clearTimeout(timer);
+                resolve(false);
+            });
+        });
+        this._lanReachable.set(camId, [result, Date.now()]);
+        // Update the persistent DP so automations can read it
+        void this.upsertState(`cameras.${camId}.lan_reachable`, result).catch(() => undefined);
+        return result;
+    }
+
+    /**
+     * Ping every known camera concurrently during a cloud outage.
+     * Throttled to once per OUTAGE_PING_THROTTLE_MS so a flapping cloud
+     * does not hammer the LAN. Mirrors HA's `_async_outage_ping_all`.
+     */
+    async _pingAllCamsDuringOutage(): Promise<void> {
+        const now = Date.now();
+        if (now - this._lastOutagePingAt < BoschSmartHomeCamera.OUTAGE_PING_THROTTLE_MS) {
+            return;
+        }
+        this._lastOutagePingAt = now;
+
+        // Collect known cam IDs: from _cameras map + _lanIpMap (edge case: first
+        // startup mid-outage, _cameras may not yet be populated).
+        const camIds = new Set<string>([...this._cameras.keys(), ...this._lanIpMap.keys()]);
+        if (camIds.size === 0) {
+            return;
+        }
+        const results = await Promise.allSettled([...camIds].map((id) => this._tcpPing(id)));
+        const ok = results.filter((r) => r.status === "fulfilled" && r.value === true).length;
+        this.log.info(
+            `Outage LAN-ping: ${ok}/${camIds.size} cam(s) reachable (${[...camIds]
+                .map((id, i) => {
+                    const r = results[i];
+                    return `${id.slice(0, 8)}=${r.status === "fulfilled" ? (r.value ? "on" : "off") : "err"}`;
+                })
+                .join(", ")})`,
+        );
+    }
+
+    /**
+     * Write the front-light brightness directly via local RCP (Gen2, unauthenticated).
+     * RCP 0x0c22 (T_WORD, num=1) — brightness 0–100.
+     * Returns true on success.
+     *
+     * @param camIp
+     * @param brightness
+     */
+    private async _localWriteFrontLight(camIp: string, brightness: number): Promise<boolean> {
+        const val = Math.max(0, Math.min(100, Math.round(brightness)));
+        const payload = val.toString(16).padStart(4, "0");
+        const url = new URL(`http://${camIp}/rcp.xml`);
+        url.searchParams.set("command", "0x0c22");
+        url.searchParams.set("direction", "WRITE");
+        url.searchParams.set("type", "T_WORD");
+        url.searchParams.set("payload", `0x${payload}`);
+        url.searchParams.set("num", "1");
+        try {
+            const resp = await fetch(url.toString(), { signal: AbortSignal.timeout(5_000) });
+            if (!resp.ok) {
+                this.log.debug(`_localWriteFrontLight: HTTP ${resp.status} for ${camIp}`);
+                return false;
+            }
+            const text = await resp.text();
+            if (/<err>/i.test(text)) {
+                this.log.debug(`_localWriteFrontLight: RCP error in response from ${camIp}`);
+                return false;
+            }
+            return true;
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.log.debug(`_localWriteFrontLight: ${camIp} ${msg}`);
+            return false;
+        }
+    }
+
+    /**
+     * Write privacy mode directly via local RCP (Gen2, unauthenticated).
+     * RCP 0x0d00 (P_OCTET) — mirrors HA's rcp_local_write_privacy.
+     * Returns true on success.
+     *
+     * @param camIp
+     * @param enabled
+     */
+    private async _localWritePrivacy(camIp: string, enabled: boolean): Promise<boolean> {
+        const payload = enabled ? "0x00010000" : "0x00000000";
+        const url = new URL(`http://${camIp}/rcp.xml`);
+        url.searchParams.set("command", "0x0d00");
+        url.searchParams.set("direction", "WRITE");
+        url.searchParams.set("type", "P_OCTET");
+        url.searchParams.set("payload", payload);
+        try {
+            const resp = await fetch(url.toString(), { signal: AbortSignal.timeout(5_000) });
+            if (!resp.ok) {
+                this.log.debug(`_localWritePrivacy: HTTP ${resp.status} for ${camIp}`);
+                return false;
+            }
+            const text = await resp.text();
+            if (/<err>/i.test(text)) {
+                this.log.debug(`_localWritePrivacy: RCP error in response from ${camIp}`);
+                return false;
+            }
+            return true;
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.log.debug(`_localWritePrivacy: ${camIp} ${msg}`);
+            return false;
+        }
+    }
+
     private async onReady(): Promise<void> {
         this.log.info("Bosch Smart Home Camera adapter starting…");
 
@@ -2198,10 +2443,52 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 }
             } else {
                 const msg = err instanceof Error ? err.message : String(err);
-                this.log.error(`Camera discovery failed: ${msg}`);
+                this.log.warn(
+                    `Camera discovery failed on startup (${msg}) — attempting cloud-degraded startup from persisted state`,
+                );
                 await this.setStateAsync("info.connection", false, true);
                 // v0.7.0: reactive maintenance check on 5xx at startup
                 this._triggerMaintenanceFetchOn5xx();
+
+                // v0.7.4: cloud-degraded startup — rehydrate from persisted ioBroker
+                // object DB. Walk cameras.* channel objects to find previously known
+                // cam IDs, seed the LAN-IP map, and kick an immediate ping sweep so
+                // the lan_reachable DPs have a useful value right away.
+                const allObjs = await this.getAdapterObjectsAsync();
+                // Collect cam IDs from top-level channels matching cameras.<UUID-ish>
+                const rehydratedIds: string[] = [];
+                for (const key of Object.keys(allObjs)) {
+                    // key looks like: bosch-smart-home-camera.0.cameras.<camId>
+                    const m = /^[^.]+\.\d+\.cameras\.([^.]+)$/.exec(key);
+                    if (m) {
+                        rehydratedIds.push(m[1]);
+                    }
+                }
+                if (rehydratedIds.length === 0) {
+                    // Truly first-time install with no persisted data — bail out
+                    this.log.error(
+                        "No persisted camera state found — cannot start in cloud-degraded mode. " +
+                            "Adapter will wait for cloud to recover.",
+                    );
+                    return;
+                }
+                const idPreview = rehydratedIds.map((id) => id.slice(0, 8)).join(", ");
+                this.log.info(
+                    `Cloud-degraded startup: rehydrated ${rehydratedIds.length} camera ID(s) from object DB: ${idPreview}`,
+                );
+                // Seed the LAN-IP map from persisted states
+                for (const camId of rehydratedIds) {
+                    const ipState = await this.getStateAsync(`cameras.${camId}.lan_ip`);
+                    if (typeof ipState?.val === "string" && ipState.val) {
+                        this._lanIpMap.set(camId, ipState.val);
+                    }
+                }
+                // Kick an immediate LAN-ping sweep so the lan_reachable DPs have a
+                // useful state right away (before the next state-poll tick).
+                void this._pingAllCamsDuringOutage().catch(() => undefined);
+                // Stay alive — the state-poll timer will re-try cloud discovery
+                // periodically and the adapter becomes fully operational once the
+                // cloud recovers without needing a restart.
                 return;
             }
         }
@@ -2222,6 +2509,24 @@ class BoschSmartHomeCamera extends utils.Adapter {
             const qState = await this.getStateAsync(`cameras.${cam.id}.stream_quality`);
             const q = typeof qState?.val === "string" ? qState.val : "high";
             this._streamQuality.set(cam.id, q === "low" ? "low" : "high");
+        }
+
+        // v0.7.4: seed the LAN-IP map from persisted states so the TCP-ping
+        // path has a working address book even before the first successful
+        // cloud refresh. The real LAN IP is written on every successful state
+        // poll (see _pollSingleCameraState). Reloaded on every onReady so a
+        // changed IP (e.g. after DHCP reassignment) is picked up on restart.
+        this._lanIpMap.clear();
+        for (const cam of cameras) {
+            const ipState = await this.getStateAsync(`cameras.${cam.id}.lan_ip`);
+            if (typeof ipState?.val === "string" && ipState.val) {
+                this._lanIpMap.set(cam.id, ipState.val);
+            }
+        }
+        if (this._lanIpMap.size > 0) {
+            this.log.info(
+                `Loaded ${this._lanIpMap.size} persisted LAN IP(s) for cloud-degraded LAN ping`,
+            );
         }
 
         // Subscribe to all camera states so onStateChange receives user writes
@@ -2399,6 +2704,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
             // v0.7.0: reactive maintenance re-fetch on 5xx — a sustained cloud
             // outage triggers the community RSS check (with 5 min cooldown).
             this._triggerMaintenanceFetchOn5xx();
+            // v0.7.4: kick an outage ping sweep so the lan_reachable DPs have
+            // a fresh state even though the cloud-driven data loop won't run.
+            void this._pingAllCamsDuringOutage().catch(() => undefined);
             throw err;
         }
         // v0.6.0: poll each camera in parallel. With 4 cameras the per-tick
@@ -3102,23 +3410,61 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * @param enabled
      */
     private async handlePrivacyToggle(camId: string, enabled: boolean): Promise<void> {
-        if (!this._currentAccessToken) {
-            throw new Error(`Cannot set privacy for ${camId} — no access token`);
+        // v0.7.4: attempt cloud first, fall back to local RCP on cloud failure
+        // (mirrors HA's async_cloud_set_privacy_mode + rcp_local_write_privacy chain).
+        let cloudErr: string | null = null;
+        if (this._currentAccessToken) {
+            const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/privacy`;
+            const body = { privacyMode: enabled ? "ON" : "OFF", durationInSeconds: null };
+            try {
+                const resp = await this._httpClient.put(url, body, {
+                    headers: {
+                        Authorization: `Bearer ${this._currentAccessToken}`,
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                    },
+                    validateStatus: () => true,
+                });
+                if ([200, 201, 204].includes(resp.status)) {
+                    this.log.info(
+                        `Privacy mode ${enabled ? "ON" : "OFF"} set via cloud for camera ${camId.slice(0, 8)}`,
+                    );
+                    return;
+                }
+                cloudErr = `HTTP ${resp.status}`;
+            } catch (err: unknown) {
+                cloudErr = err instanceof Error ? err.message : String(err);
+            }
+        } else {
+            cloudErr = "no access token";
         }
-        const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/privacy`;
-        const body = { privacyMode: enabled ? "ON" : "OFF", durationInSeconds: null };
-        const resp = await this._httpClient.put(url, body, {
-            headers: {
-                Authorization: `Bearer ${this._currentAccessToken}`,
-                "Content-Type": "application/json",
-                Accept: "application/json",
-            },
-            validateStatus: () => true,
-        });
-        if (![200, 201, 204].includes(resp.status)) {
-            throw new Error(`Cloud privacy PUT returned HTTP ${resp.status}`);
+
+        // Cloud failed — try Gen2 local RCP fallback (unauthenticated, port 80)
+        const cam = this._cameras.get(camId);
+        const isGen2 = cam?.generation === 2;
+        const lanIp = this._lanIpMap.get(camId);
+        if (isGen2 && lanIp) {
+            this.log.debug(
+                `Privacy cloud failed (${cloudErr}) — trying Gen2 LOCAL RCP for ${camId.slice(0, 8)}`,
+            );
+            const ok = await this._localWritePrivacy(lanIp, enabled);
+            if (ok) {
+                this.log.info(
+                    `Privacy mode ${enabled ? "ON" : "OFF"} set via LOCAL RCP for camera ${camId.slice(0, 8)}`,
+                );
+                // Record write timestamp so is_lan_reachable() suppresses the
+                // transient "offline" blip while creds rotate (~5–15 s).
+                this._localWriteAt.set(camId, Date.now());
+                return;
+            }
+            this.log.debug(
+                `Privacy LOCAL RCP fallback also failed for ${camId.slice(0, 8)} — camera may not accept unauthenticated writes`,
+            );
         }
-        this.log.info(`Privacy mode ${enabled ? "ON" : "OFF"} set for camera ${camId.slice(0, 8)}`);
+
+        throw new Error(
+            `Cloud privacy PUT failed (${cloudErr}) and no working LAN fallback available for ${camId.slice(0, 8)}`,
+        );
     }
 
     /**
@@ -3216,26 +3562,63 @@ class BoschSmartHomeCamera extends utils.Adapter {
             Accept: "application/json",
         };
 
+        let cloudFrontErr: string | null = null;
+        let cloudFrontOk = false;
+
         if (isGen2) {
             const base = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/lighting/switch`;
-            const [r1, r2] = await Promise.all([
-                this._httpClient.put(
-                    `${base}/front`,
-                    { enabled: state.frontLight },
-                    { headers, validateStatus: () => true },
-                ),
-                this._httpClient.put(
-                    `${base}/topdown`,
-                    { enabled: state.wallwasher },
-                    { headers, validateStatus: () => true },
-                ),
-            ]);
-            const ok1 = [200, 201, 204].includes(r1.status);
-            const ok2 = [200, 201, 204].includes(r2.status);
-            if (!ok1 && !ok2) {
-                throw new Error(
-                    `Cloud light PUT Gen2 returned HTTP front=${r1.status} topdown=${r2.status}`,
-                );
+            try {
+                const [r1, r2] = await Promise.all([
+                    this._httpClient.put(
+                        `${base}/front`,
+                        { enabled: state.frontLight },
+                        { headers, validateStatus: () => true },
+                    ),
+                    this._httpClient.put(
+                        `${base}/topdown`,
+                        { enabled: state.wallwasher },
+                        { headers, validateStatus: () => true },
+                    ),
+                ]);
+                const ok1 = [200, 201, 204].includes(r1.status);
+                const ok2 = [200, 201, 204].includes(r2.status);
+                if (ok1 || ok2) {
+                    cloudFrontOk = true;
+                } else {
+                    cloudFrontErr = `HTTP front=${r1.status} topdown=${r2.status}`;
+                }
+            } catch (err: unknown) {
+                cloudFrontErr = err instanceof Error ? err.message : String(err);
+            }
+
+            // v0.7.4: Gen2 front-light local RCP fallback (mirrors HA's
+            // rcp_local_write_front_light). Wallwasher stays cloud-only
+            // (RGB payload too complex for unauthenticated RCP).
+            if (!cloudFrontOk) {
+                const lanIp = this._lanIpMap.get(camId);
+                if (lanIp) {
+                    this.log.debug(
+                        `Light cloud failed (${cloudFrontErr}) — trying Gen2 LOCAL RCP for ${camId.slice(0, 8)}`,
+                    );
+                    const brightness = state.frontLight ? 100 : 0;
+                    const localOk = await this._localWriteFrontLight(lanIp, brightness);
+                    if (localOk) {
+                        this.log.info(
+                            `Front-light ${state.frontLight ? "ON" : "OFF"} set via LOCAL RCP for ${camId.slice(0, 8)}`,
+                        );
+                        this._localWriteAt.set(camId, Date.now());
+                        cloudFrontOk = true; // treat as success for state-sync below
+                    } else {
+                        this.log.debug(
+                            `Light LOCAL RCP fallback also failed for ${camId.slice(0, 8)}`,
+                        );
+                    }
+                }
+                if (!cloudFrontOk) {
+                    throw new Error(
+                        `Cloud light PUT Gen2 failed (${cloudFrontErr}) and no working LAN fallback`,
+                    );
+                }
             }
         } else {
             const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/lighting_override`;

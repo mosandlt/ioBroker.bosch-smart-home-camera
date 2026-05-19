@@ -84,6 +84,18 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via three sibling 
 
 ## Changelog
 
+### 0.7.4 (2026-05-19)
+LAN-fallback feature set — mirrors HA integration v12.4.10.
+
+- **Coordinator outage-ping sweep**: when the state-poll GET returns 5xx or fails, a throttled (once per 30 s) fan-out TCP-connect probe runs against every known camera on port 443 so `cameras.<id>.lan_reachable` has a fresh value during cloud outages.
+- **Persistent LAN-IP map**: `cameras.<id>.lan_ip` is written on every successful live-session open (`upsertSession`). On adapter start the map is reloaded from these states so the TCP-ping path has a working address book even before the first successful cloud refresh.
+- **`cameras.<id>.lan_reachable` state**: boolean DP (read-only), mirrors the HA `binary_sensor.*_lan_reachable`. Always reflects the last TCP-probe result; honors the post-write grace period.
+- **Post-write grace period (30 s)**: after a successful local RCP write the camera briefly rotates Digest creds and tears down its HTTPS endpoint. `_localWriteAt` is stamped on every successful local write; `isLanReachable()` treats the camera as reachable during the 30 s window so the DP does not flap to `false` after every privacy/light toggle.
+- **Cloud-degraded startup**: when `fetchCameras()` fails on startup (Bosch cloud 5xx), the adapter now rehydrates known camera IDs from the ioBroker object DB and kicks an immediate LAN-ping sweep instead of silently returning. Adapter stays alive and becomes fully operational once the cloud recovers.
+- **Front-light Gen2 LOCAL RCP fallback**: `_applyLightingState()` now catches cloud errors and retries via `_localWriteFrontLight()` (RCP `0x0c22`, T_WORD, num=1, brightness 0–100). Wallwasher stays cloud-only (RGB payload too complex for unauthenticated RCP).
+- **Privacy LOCAL RCP fallback**: `handlePrivacyToggle()` now catches cloud errors and retries via `_localWritePrivacy()` (RCP `0x0d00`, P_OCTET) for Gen2 cameras with a known LAN IP.
+- **+16 unit tests** in `test/unit/main_lan_fallback.spec.ts` covering `is_lan_reachable_*`, `grace_period_*`, `outage_ping_throttles`, `outage_ping_runs_after_window`, `outage_ping_no_cams_silent`, `local_write_grace_blocks_offline_flap`, `local_light_write_fallback_fires_on_cloud_5xx`. 572 tests total.
+
 ### 0.7.2 (2026-05-19)
 Notification hooks for maintenance lifecycle and camera availability changes — mirrors the HA integration's v12.4.8 feature.
 
@@ -351,7 +363,7 @@ Image rotation (v0.3.0) is a client-side display flag — Bosch's Cloud API has 
 npm install
 npm run build        # tsc → build/
 npm run watch        # auto-rebuild on save
-npm test             # unit tests (310 passing)
+npm test             # unit tests (572 passing)
 npm run lint
 ```
 
@@ -396,7 +408,7 @@ This adapter is part of a 3-implementation family for Bosch Smart Home Cameras:
 |---|---|---|
 | 🏆 Home Assistant Integration | [Bosch-Smart-Home-Camera-Tool-HomeAssistant](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | v12.4.10 · HA Quality Scale **Platinum** · production-ready |
 | 🐍 Python CLI | [Bosch-Smart-Home-Camera-Tool-Python](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | v10.7.3 · Mini-NVR + SMB upload (BETA) · LAN-fallback (ping / --local) · capture / research / no-HA standalone |
-| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.3 · beta · npm |
+| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.4 · beta · npm |
 | 🤖 MCP Server | [Bosch-Smart-Home-Camera-Tool-MCP](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) | v1.0.0 · Claude Code / Claude Desktop integration |
 
 HA stays the **reference implementation** — features land there first; the Python CLI and this adapter catch up over time.

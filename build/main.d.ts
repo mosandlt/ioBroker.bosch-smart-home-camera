@@ -154,6 +154,37 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _sessionRemote;
     /**
+     * v0.7.4: last known LAN IP (host only, no port) per camera ID.
+     * Seeded at onReady from persisted `cameras.<id>.lan_ip` states so
+     * the TCP-ping path has a working address book even before the first
+     * successful cloud refresh.
+     */
+    private _lanIpMap;
+    /**
+     * v0.7.4: result of the last TCP-connect probe to port 443 per camera.
+     * Tuple: [reachable, performance.now()-equivalent via Date.now()].
+     */
+    private _lanReachable;
+    /**
+     * v0.7.4: monotonic-style timestamp (Date.now()) of the last
+     * `_pingAllCamsDuringOutage` sweep. float(-Infinity) semantics via
+     * -Infinity so the first outage tick always runs immediately.
+     */
+    private _lastOutagePingAt;
+    /**
+     * v0.7.4: timestamp (Date.now()) of the last successful local RCP write
+     * per camera. Used by `_inLocalWriteGrace()` to suppress a brief
+     * "LAN offline" blip that follows every privacy / light toggle (the
+     * camera tears down its HTTPS endpoint while Digest creds rotate, ~5–15 s).
+     */
+    private _localWriteAt;
+    /** v0.7.4: post-write grace window (ms). Mirrors HA's _LOCAL_WRITE_GRACE_S. */
+    private static readonly LOCAL_WRITE_GRACE_MS;
+    /** v0.7.4: outage-ping throttle (ms). */
+    private static readonly OUTAGE_PING_THROTTLE_MS;
+    /** v0.7.4: TCP-connect timeout for LAN-reachability probe (ms). */
+    private static readonly LAN_PING_TIMEOUT_MS;
+    /**
      * Desired siren (panic_alarm) state per Gen2 camera. The Bosch cloud has
      * no GET for this state — the iOS/Android apps keep their own copy and
      * we do the same. Wiped on adapter restart (camera also auto-stops the
@@ -423,6 +454,54 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * 6. Arm token refresh loop
      * 7. Start FCM listener (real push via @aracna/fcm, sets info.fcm_active = "healthy")
      */
+    /**
+     * True if a successful local RCP write happened within LOCAL_WRITE_GRACE_MS.
+     * During that window a TCP-connect failure is suppressed — the camera
+     * briefly tears down its HTTPS endpoint while rotating Digest creds.
+     *
+     * @param camId
+     * @param now
+     */
+    _inLocalWriteGrace(camId: string, now?: number): boolean;
+    /**
+     * Most recent LAN-TCP reachability for `camId`, or null if not yet probed.
+     * Honors the post-write grace period so the UI does not flip to offline
+     * for a few seconds after every privacy / light toggle.
+     *
+     * @param camId
+     */
+    isLanReachable(camId: string): boolean | null;
+    /**
+     * TCP-connect probe to the camera's LAN port 443.
+     * Writes the result to `_lanReachable` and updates the `cameras.<id>.lan_reachable` DP.
+     *
+     * @param camId
+     */
+    private _tcpPing;
+    /**
+     * Ping every known camera concurrently during a cloud outage.
+     * Throttled to once per OUTAGE_PING_THROTTLE_MS so a flapping cloud
+     * does not hammer the LAN. Mirrors HA's `_async_outage_ping_all`.
+     */
+    _pingAllCamsDuringOutage(): Promise<void>;
+    /**
+     * Write the front-light brightness directly via local RCP (Gen2, unauthenticated).
+     * RCP 0x0c22 (T_WORD, num=1) — brightness 0–100.
+     * Returns true on success.
+     *
+     * @param camIp
+     * @param brightness
+     */
+    private _localWriteFrontLight;
+    /**
+     * Write privacy mode directly via local RCP (Gen2, unauthenticated).
+     * RCP 0x0d00 (P_OCTET) — mirrors HA's rcp_local_write_privacy.
+     * Returns true on success.
+     *
+     * @param camIp
+     * @param enabled
+     */
+    private _localWritePrivacy;
     private onReady;
     /**
      * Periodic refetch of `/v11/video_inputs` to mirror app-side state changes

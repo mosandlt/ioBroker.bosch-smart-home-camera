@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "0.7.3",
+    "version": "0.7.4",
     "news": {
+      "0.7.4": {
+        "en": "LAN-fallback: outage-ping sweep on cloud 5xx; cameras.<id>.lan_ip + lan_reachable DPs; 30 s post-write grace; cloud-degraded startup rehydrates from object DB; front-light local RCP fallback (Gen2) on cloud failure; privacy local RCP fallback.",
+        "de": "LAN-Fallback: Outage-Ping bei Cloud-5xx; cameras.<id>.lan_ip + lan_reachable DPs; 30 s Post-Write-Grace; Cloud-degradierter Start rehydriert aus Object-DB; Front-Licht lokaler RCP-Fallback (Gen2) bei Cloud-Ausfall; Privacy lokaler RCP-Fallback.",
+        "ru": "LAN-fallback: пинг при 5xx от облака; cameras.<id>.lan_ip + lan_reachable; 30 с grace после записи; запуск при недоступном облаке из object DB; локальный RCP fallback front-light (Gen2); локальный RCP fallback privacy.",
+        "pt": "LAN-fallback: ping de outage em 5xx cloud; DPs cameras.<id>.lan_ip + lan_reachable; grace 30 s pós-escrita; startup degradado rehydrata do object DB; fallback RCP local front-light (Gen2); fallback RCP local privacy.",
+        "nl": "LAN-fallback: outage-ping bij cloud 5xx; cameras.<id>.lan_ip + lan_reachable DPs; 30 s post-write grace; cloud-degraded start herlaadt uit object DB; front-light lokale RCP fallback (Gen2); privacy lokale RCP fallback.",
+        "fr": "LAN-fallback: ping outage sur 5xx cloud; DPs cameras.<id>.lan_ip + lan_reachable; grace 30 s post-écriture; démarrage dégradé recharge depuis object DB; fallback RCP local front-light (Gen2); fallback RCP local privacy.",
+        "it": "LAN-fallback: ping outage su 5xx cloud; DP cameras.<id>.lan_ip + lan_reachable; grace 30 s post-scrittura; avvio degradato ricarica da object DB; fallback RCP locale front-light (Gen2); fallback RCP locale privacy.",
+        "es": "LAN-fallback: ping outage en 5xx cloud; DPs cameras.<id>.lan_ip + lan_reachable; grace 30 s post-escritura; inicio degradado rehidrata desde object DB; fallback RCP local front-light (Gen2); fallback RCP local privacy.",
+        "pl": "LAN-fallback: ping outage przy 5xx cloud; DP cameras.<id>.lan_ip + lan_reachable; 30 s grace po zapisie; zdegradowany start rehydruje z object DB; lokalny fallback RCP front-light (Gen2); lokalny fallback RCP privacy.",
+        "uk": "LAN-fallback: ping outage при 5xx хмари; DP cameras.<id>.lan_ip + lan_reachable; grace 30 с після запису; деградований старт перезавантажує з object DB; локальний RCP fallback front-light (Gen2); локальний RCP fallback privacy.",
+        "zh-cn": "LAN 回退：云端 5xx 时执行 outage-ping；cameras.<id>.lan_ip + lan_reachable 状态；写入后 30 秒 grace 期；云端降级启动从 object DB 恢复；Gen2 前灯本地 RCP 回退；隐私模式本地 RCP 回退。"
+      },
       "0.7.3": {
         "en": "Hotfix: 2 Prettier formatting violations in main.ts (Intl.DateTimeFormat options + JSON payload object literal) blocked the v0.7.2 CI release. No runtime behaviour change.",
         "de": "Hotfix: 2 Prettier-Formatierungsfehler in main.ts (Intl.DateTimeFormat-Optionen + JSON-Payload Object-Literal) haben den v0.7.2 CI-Release blockiert. Keine Verhaltensänderung zur Laufzeit.",
