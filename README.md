@@ -197,7 +197,7 @@ Older releases (0.0.1 – 0.3.3) are archived in [CHANGELOG_OLD.md](./CHANGELOG_
 
 ## Status
 
-**Beta (v0.5.1)** — verified live against 4 cameras (Gen1 + Gen2, FW 7.91.56 / 9.40.25) on a real ioBroker instance. Cloud API contracts confirmed against the iOS app via mitmproxy.
+**Beta (v0.7.4)** — verified live against 4 cameras (Gen1 + Gen2, FW 7.91.56 / 9.40.25) on a real ioBroker instance. Cloud API contracts confirmed against the iOS app via mitmproxy.
 
 What works:
 - Browser-based OAuth2 PKCE login via Bosch SingleKey ID (no programmatic password handling — captcha/MFA happen in the browser)
@@ -406,10 +406,10 @@ This adapter is part of a 3-implementation family for Bosch Smart Home Cameras:
 
 | Implementation | Repo | Status |
 |---|---|---|
-| 🏆 Home Assistant Integration | [Bosch-Smart-Home-Camera-Tool-HomeAssistant](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | v12.4.10 · HA Quality Scale **Platinum** · production-ready |
+| 🏆 Home Assistant Integration | [Bosch-Smart-Home-Camera-Tool-HomeAssistant](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | v12.4.11 · HA Quality Scale **Platinum** · production-ready |
 | 🐍 Python CLI | [Bosch-Smart-Home-Camera-Tool-Python](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | v10.7.3 · Mini-NVR + SMB upload (BETA) · LAN-fallback (ping / --local) · capture / research / no-HA standalone |
 | 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.4 · beta · npm |
-| 🤖 MCP Server | [Bosch-Smart-Home-Camera-Tool-MCP](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) | v1.0.0 · Claude Code / Claude Desktop integration |
+| 🤖 MCP Server | [Bosch-Smart-Home-Camera-Tool-MCP](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) | v1.3.0 · LAN-ping + prefer_local · Claude Code / Claude Desktop integration |
 
 HA stays the **reference implementation** — features land there first; the Python CLI and this adapter catch up over time.
 
