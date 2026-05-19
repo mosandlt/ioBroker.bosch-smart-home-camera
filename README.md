@@ -45,7 +45,7 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via three sibling 
 
 | Feature | [Home Assistant Integration](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | [Python CLI Tool](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | [ioBroker Adapter](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) |
 |---|---|---|---|
-| **Maturity** | v12+ — HA Quality Scale **Platinum** | v10.7+ stable | v0.6+ beta |
+| **Maturity** | v12+ — HA Quality Scale **Platinum** | v10.7+ stable | v0.7+ beta |
 | **Platform** | Home Assistant (HACS) | Standalone Python 3.10+ CLI | ioBroker (npm) |
 | **Login** | OAuth2 PKCE (browser) | OAuth2 PKCE (browser) | OAuth2 PKCE (browser) |
 | **Snapshots** | ✅ Native `Camera.image` | ✅ `snapshot` command | ✅ File-store + base64 DP |
@@ -83,6 +83,17 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via three sibling 
 ---
 
 ## Changelog
+
+### 0.7.0 (2026-05-19)
+Cloud maintenance / outage discovery: when Bosch announces a maintenance window in their community forum, the adapter fetches the RSS feeds and surfaces the state in `info.maintenance.*` data points — so automations can react before users notice a cloud outage.
+
+- **`info.maintenance.state`** — string DP: `active` / `scheduled` / `past` / `recent` / `unknown` / `idle`. Classifies the latest announcement relative to the current time.
+- **`info.maintenance.title`, `.link`, `.scheduled_start`, `.scheduled_end`, `.summary`, `.source`, `.camera_relevant`** — full parsed announcement fields.
+- **`info.maintenance.last_fetched`** — ISO 8601 timestamp of the last successful community site contact.
+- **Fetch cadence**: one immediate fetch at adapter startup, then every 3 600 s. Reactive re-fetch (5 min cooldown) on any 5xx from the camera cloud API.
+- **Fallback chain**: primary RSS (Wartungsarbeiten → Statusmeldungen) → HTML board page. If all sources fail, the last cached state is kept — a community site outage does not destroy the known maintenance status.
+- **Berlin TZ** (MEZ/MESZ, DST-aware) parsed from German DD.MM.YYYY HH:MM–HH:MM text.
+- **+39 unit tests** covering RSS parser, Atom format, MEZ/MESZ DST, fallback chain, camera-relevance filter, all state classifier branches. 481 tests total.
 
 ### 0.6.2 (2026-05-18)
 Resilience fix: FCM push channel now self-heals after transient socket drops. `@aracna/fcm`'s `FcmClient` does not auto-reconnect on socket close, so any transient MTalk drop (e.g. Google server rotation) would have left the adapter on the 30 s event-polling fallback until the next restart.
@@ -377,7 +388,7 @@ This adapter is part of a 3-implementation family for Bosch Smart Home Cameras:
 |---|---|---|
 | 🏆 Home Assistant Integration | [Bosch-Smart-Home-Camera-Tool-HomeAssistant](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | v12.4.7 · HA Quality Scale **Platinum** · production-ready |
 | 🐍 Python CLI | [Bosch-Smart-Home-Camera-Tool-Python](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | v10.7.1 · Mini-NVR + SMB upload (BETA) · capture / research / no-HA standalone |
-| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.6.2 · beta · npm |
+| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.0 · beta · npm |
 | 🤖 MCP Server | [Bosch-Smart-Home-Camera-Tool-MCP](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) | v1.0.0 · Claude Code / Claude Desktop integration |
 
 HA stays the **reference implementation** — features land there first; the Python CLI and this adapter catch up over time.

@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "0.6.2",
+    "version": "0.7.0",
     "news": {
+      "0.7.0": {
+        "en": "Cloud maintenance banner: adapter fetches Bosch community RSS (Wartungsarbeiten + Statusmeldungen) hourly; exposes state active/scheduled/past/recent/unknown/idle in info.maintenance.* DPs; reactive re-fetch on 5xx; HTML fallback if RSS unreachable.",
+        "de": "Cloud-Wartungs-Banner: Adapter holt stündlich Bosch-Community-RSS (Wartungsarbeiten + Statusmeldungen); Status active/scheduled/past/recent/unknown/idle in info.maintenance.*; reaktiver Re-Fetch bei 5xx; HTML-Fallback wenn RSS nicht erreichbar.",
+        "ru": "Баннер обслуживания: адаптер каждый час получает RSS Bosch (Wartungsarbeiten + Statusmeldungen); состояние active/scheduled/past/recent/unknown/idle в info.maintenance.*; реактивный перезапрос при 5xx; HTML-fallback если RSS недоступен.",
+        "pt": "Banner de manutenção: adaptador busca RSS Bosch a cada hora; estado active/scheduled/past/recent/unknown/idle em info.maintenance.*; re-busca reativa em 5xx; fallback HTML se RSS inacessível.",
+        "nl": "Cloud-onderhoudsbanner: adapter haalt elk uur Bosch-community RSS op; status active/scheduled/past/recent/unknown/idle in info.maintenance.*; reactieve re-fetch bij 5xx; HTML-fallback als RSS onbereikbaar.",
+        "fr": "Bannière de maintenance: l'adaptateur récupère le RSS Bosch toutes les heures; état active/scheduled/past/recent/unknown/idle dans info.maintenance.*; re-fetch réactif sur 5xx; fallback HTML si RSS inaccessible.",
+        "it": "Banner manutenzione: l'adapter recupera il RSS Bosch ogni ora; stato active/scheduled/past/recent/unknown/idle in info.maintenance.*; re-fetch reattivo su 5xx; fallback HTML se RSS irraggiungibile.",
+        "es": "Banner de mantenimiento: el adaptador obtiene el RSS de Bosch cada hora; estado active/scheduled/past/recent/unknown/idle en info.maintenance.*; re-fetch reactivo en 5xx; fallback HTML si RSS no disponible.",
+        "pl": "Baner konserwacji: adapter pobiera RSS Bosch co godzinę; stan active/scheduled/past/recent/unknown/idle w info.maintenance.*; reaktywne ponowne pobieranie przy 5xx; fallback HTML gdy RSS niedostępny.",
+        "uk": "Банер обслуговування: адаптер щогодини отримує RSS Bosch; стан active/scheduled/past/recent/unknown/idle в info.maintenance.*; реактивний перезапит при 5xx; HTML-fallback якщо RSS недоступний.",
+        "zh-cn": "维护横幅：适配器每小时抓取 Bosch 社区 RSS；info.maintenance.* 状态为 active/scheduled/past/recent/unknown/idle；5xx 时主动重取；RSS 不可用时 HTML 回退。"
+      },
       "0.6.2": {
         "en": "Beta release; FCM auto-reconnect on MTalk disconnect; exponential backoff 5 → 30 → 120 → 600 s; info.fcm_active reverts to 'healthy' on success; previously transient drops left adapter on 30 s polling until restart.",
         "de": "Beta-Release; FCM Auto-Reconnect bei MTalk-Disconnect; Exponential-Backoff 5 → 30 → 120 → 600 s; info.fcm_active zurück auf 'healthy' bei Erfolg; vorher blieb Adapter nach transientem Drop bis Restart auf 30-s-Polling.",

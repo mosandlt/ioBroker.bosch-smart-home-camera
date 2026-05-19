@@ -14,6 +14,7 @@
  *   6. [fcm.ts]          FCM push registration → motion/audio/person events (stub → v0.3.0)
  *   7. [rcp.ts]          RCP+ protocol helpers (unused since v0.3.0 — all commands use Cloud API)
  *   8. [snapshot.ts]     Snapshot fetch + write to adapter file-store (v0.2.0)
+ *   9. [maintenance.ts]  RSS-based cloud maintenance / outage discovery (v0.7.0)
  */
 import * as utils from "@iobroker/adapter-core";
 /**
@@ -104,6 +105,26 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _statePollTimer;
     /** Camera-state poll interval (ms). */
     private static readonly STATE_POLL_INTERVAL_MS;
+    /**
+     * v0.7.0: periodic timer for cloud maintenance / outage discovery.
+     * Fetches Bosch community RSS feeds every hour and surfaces the latest
+     * maintenance window in `info.maintenance.*` state objects.
+     */
+    private _maintenanceTimer;
+    /** Maintenance poll interval (ms). */
+    private static readonly MAINTENANCE_POLL_INTERVAL_MS;
+    /**
+     * Last-known maintenance window. Cached here so a transient community-site
+     * outage does not destroy the state — we keep the previous value until we
+     * get a fresh successful parse.
+     */
+    private _lastMaintenanceWindow;
+    /**
+     * Epoch ms of the last maintenance fetch that actually contacted the
+     * community site (successful or 503). Used to enforce a 5-min cooldown
+     * on reactive re-fetches triggered by 5xx API responses.
+     */
+    private _maintenanceLastFetchMs;
     /**
      * Sticky TLS-proxy port per camera ID. Set on first proxy start
      * (ephemeral free port from the OS), then reused across session renewals
@@ -207,6 +228,33 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private upsertState;
     /** Ensure the info channel + connection/token states exist. */
     private ensureInfoObjects;
+    /**
+     * Ensure `info.maintenance.*` state objects exist.
+     * Called once in onReady before the first maintenance fetch.
+     */
+    private ensureMaintenanceObjects;
+    /**
+     * Fetch maintenance status, update `_lastMaintenanceWindow`, and write all
+     * `info.maintenance.*` state objects atomically.
+     *
+     * If the community site is unreachable (fetchMaintenance returns null), the
+     * previous cached window is kept — the states are NOT overwritten with idle/empty
+     * values, because a transient community outage should not destroy a known
+     * maintenance state.
+     */
+    private _refreshMaintenanceStatus;
+    /**
+     * Start the hourly maintenance poll.
+     * Idempotent — a second call while the timer is already armed is a no-op.
+     */
+    private _startMaintenancePolling;
+    /**
+     * Reactive maintenance re-fetch triggered by a 5xx response on a cloud API call.
+     *
+     * Enforces a 5-minute cooldown so a sustained cloud outage (which causes every
+     * camera state-poll to 5xx) doesn't hammer the community RSS feeds once per 30 s.
+     */
+    private _triggerMaintenanceFetchOn5xx;
     private static readonly SECRET_PREFIX;
     private _encryptSecret;
     private _decryptSecret;

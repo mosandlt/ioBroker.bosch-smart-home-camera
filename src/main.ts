@@ -14,6 +14,7 @@
  *   6. [fcm.ts]          FCM push registration → motion/audio/person events (stub → v0.3.0)
  *   7. [rcp.ts]          RCP+ protocol helpers (unused since v0.3.0 — all commands use Cloud API)
  *   8. [snapshot.ts]     Snapshot fetch + write to adapter file-store (v0.2.0)
+ *   9. [maintenance.ts]  RSS-based cloud maintenance / outage discovery (v0.7.0)
  */
 
 import * as utils from "@iobroker/adapter-core";
@@ -61,6 +62,13 @@ import {
     DEFAULT_LIGHTING_STATE,
     type LightingState,
 } from "./lib/alarm_light";
+
+import {
+    fetchMaintenance,
+    classifyState,
+    type MaintenanceWindow,
+    type MaintenanceState,
+} from "./lib/maintenance";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -182,6 +190,30 @@ class BoschSmartHomeCamera extends utils.Adapter {
 
     /** Camera-state poll interval (ms). */
     private static readonly STATE_POLL_INTERVAL_MS = 30_000;
+
+    /**
+     * v0.7.0: periodic timer for cloud maintenance / outage discovery.
+     * Fetches Bosch community RSS feeds every hour and surfaces the latest
+     * maintenance window in `info.maintenance.*` state objects.
+     */
+    private _maintenanceTimer: ReturnType<typeof setInterval> | null = null;
+
+    /** Maintenance poll interval (ms). */
+    private static readonly MAINTENANCE_POLL_INTERVAL_MS = 3_600_000; // 1 hour
+
+    /**
+     * Last-known maintenance window. Cached here so a transient community-site
+     * outage does not destroy the state — we keep the previous value until we
+     * get a fresh successful parse.
+     */
+    private _lastMaintenanceWindow: MaintenanceWindow | null = null;
+
+    /**
+     * Epoch ms of the last maintenance fetch that actually contacted the
+     * community site (successful or 503). Used to enforce a 5-min cooldown
+     * on reactive re-fetches triggered by 5xx API responses.
+     */
+    private _maintenanceLastFetchMs = 0;
 
     /**
      * Sticky TLS-proxy port per camera ID. Set on first proxy start
@@ -585,6 +617,189 @@ class BoschSmartHomeCamera extends utils.Adapter {
             },
             native: {},
         });
+    }
+
+    // ── Maintenance state objects (v0.7.0) ───────────────────────────────────
+
+    /**
+     * Ensure `info.maintenance.*` state objects exist.
+     * Called once in onReady before the first maintenance fetch.
+     */
+    private async ensureMaintenanceObjects(): Promise<void> {
+        await this.setObjectNotExistsAsync("info.maintenance", {
+            type: "channel",
+            common: { name: "Cloud maintenance / outage status" },
+            native: {},
+        });
+
+        const states: Array<{
+            id: string;
+            role: string;
+            name: string;
+            type: "string" | "boolean" | "number";
+            def: string | boolean | number;
+        }> = [
+            {
+                id: "info.maintenance.state",
+                role: "indicator.state",
+                name: "Maintenance state (active/scheduled/past/recent/unknown/idle)",
+                type: "string",
+                def: "idle",
+            },
+            {
+                id: "info.maintenance.title",
+                role: "text",
+                name: "Maintenance announcement title",
+                type: "string",
+                def: "",
+            },
+            {
+                id: "info.maintenance.link",
+                role: "url",
+                name: "Link to the community board post",
+                type: "string",
+                def: "",
+            },
+            {
+                id: "info.maintenance.scheduled_start",
+                role: "date",
+                name: "Scheduled maintenance start (ISO 8601 UTC)",
+                type: "string",
+                def: "",
+            },
+            {
+                id: "info.maintenance.scheduled_end",
+                role: "date",
+                name: "Scheduled maintenance end (ISO 8601 UTC)",
+                type: "string",
+                def: "",
+            },
+            {
+                id: "info.maintenance.summary",
+                role: "text",
+                name: "Short summary from the announcement body",
+                type: "string",
+                def: "",
+            },
+            {
+                id: "info.maintenance.source",
+                role: "text",
+                name: "Source feed (rss:Wartungsarbeiten / html:Statusmeldungen / …)",
+                type: "string",
+                def: "",
+            },
+            {
+                id: "info.maintenance.camera_relevant",
+                role: "indicator",
+                name: "True if the announcement mentions cameras/video/CBS/cloud",
+                type: "boolean",
+                def: false,
+            },
+            {
+                id: "info.maintenance.last_fetched",
+                role: "date",
+                name: "Timestamp of last successful maintenance feed fetch (ISO 8601 UTC)",
+                type: "string",
+                def: "",
+            },
+        ];
+
+        for (const s of states) {
+            await this.setObjectNotExistsAsync(s.id, {
+                type: "state",
+                common: {
+                    role: s.role,
+                    name: s.name,
+                    type: s.type,
+                    read: true,
+                    write: false,
+                    def: s.def,
+                },
+                native: {},
+            });
+        }
+    }
+
+    /**
+     * Fetch maintenance status, update `_lastMaintenanceWindow`, and write all
+     * `info.maintenance.*` state objects atomically.
+     *
+     * If the community site is unreachable (fetchMaintenance returns null), the
+     * previous cached window is kept — the states are NOT overwritten with idle/empty
+     * values, because a transient community outage should not destroy a known
+     * maintenance state.
+     */
+    private async _refreshMaintenanceStatus(): Promise<void> {
+        this._maintenanceLastFetchMs = Date.now();
+        try {
+            const mw = await fetchMaintenance();
+            if (mw !== null) {
+                this._lastMaintenanceWindow = mw;
+            }
+            const active = this._lastMaintenanceWindow;
+            const state: MaintenanceState = active !== null ? classifyState(active) : "idle";
+
+            await Promise.all([
+                this.upsertState("info.maintenance.state", state),
+                this.upsertState("info.maintenance.title", active?.title ?? ""),
+                this.upsertState("info.maintenance.link", active?.link ?? ""),
+                this.upsertState(
+                    "info.maintenance.scheduled_start",
+                    active?.scheduled_start ?? "",
+                ),
+                this.upsertState("info.maintenance.scheduled_end", active?.scheduled_end ?? ""),
+                this.upsertState("info.maintenance.summary", active?.summary ?? ""),
+                this.upsertState("info.maintenance.source", active?.source ?? ""),
+                this.upsertState(
+                    "info.maintenance.camera_relevant",
+                    active?.camera_relevant ?? false,
+                ),
+                this.upsertState(
+                    "info.maintenance.last_fetched",
+                    active !== null ? new Date().toISOString() : "",
+                ),
+            ]);
+
+            this.log.debug(
+                `Maintenance status: state=${state}` +
+                    (active ? ` source=${active.source} title="${active.title.slice(0, 60)}"` : ""),
+            );
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.log.debug(`Maintenance fetch error (non-fatal): ${msg}`);
+        }
+    }
+
+    /**
+     * Start the hourly maintenance poll.
+     * Idempotent — a second call while the timer is already armed is a no-op.
+     */
+    private _startMaintenancePolling(): void {
+        if (this._maintenanceTimer) {
+            return;
+        }
+        const timer = setInterval(() => {
+            void this._refreshMaintenanceStatus().catch((err: unknown) => {
+                const msg = err instanceof Error ? err.message : String(err);
+                this.log.debug(`Maintenance poll tick error: ${msg}`);
+            });
+        }, BoschSmartHomeCamera.MAINTENANCE_POLL_INTERVAL_MS);
+        timer.unref();
+        this._maintenanceTimer = timer;
+    }
+
+    /**
+     * Reactive maintenance re-fetch triggered by a 5xx response on a cloud API call.
+     *
+     * Enforces a 5-minute cooldown so a sustained cloud outage (which causes every
+     * camera state-poll to 5xx) doesn't hammer the community RSS feeds once per 30 s.
+     */
+    private _triggerMaintenanceFetchOn5xx(): void {
+        const COOLDOWN_MS = 5 * 60_000;
+        if (Date.now() - this._maintenanceLastFetchMs < COOLDOWN_MS) {
+            return;
+        }
+        void this._refreshMaintenanceStatus().catch(() => undefined);
     }
 
     // ── Secret encryption (v0.6.0) ───────────────────────────────────────────
@@ -1705,6 +1920,8 @@ class BoschSmartHomeCamera extends utils.Adapter {
 
         // Ensure object tree for info/token states
         await this.ensureInfoObjects();
+        // v0.7.0: ensure maintenance state objects exist before the first fetch
+        await this.ensureMaintenanceObjects();
 
         // v0.6.0: one-shot re-encrypt of any plaintext token/PKCE secret left
         // behind by an upgrade from <=v0.5.x.
@@ -1839,6 +2056,8 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 const msg = err instanceof Error ? err.message : String(err);
                 this.log.error(`Camera discovery failed: ${msg}`);
                 await this.setStateAsync("info.connection", false, true);
+                // v0.7.0: reactive maintenance check on 5xx at startup
+                this._triggerMaintenanceFetchOn5xx();
                 return;
             }
         }
@@ -1981,6 +2200,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // the next GET /v11/video_inputs. Forum #84538.
         this._startStatePolling();
 
+        // ── Step 7: Cloud maintenance / outage discovery (v0.7.0) ────────────
+        // Kick off an immediate fetch so the state is populated on the first
+        // adapter start, then refresh every hour. Fire-and-forget — a community
+        // site outage must never block adapter startup.
+        void this._refreshMaintenanceStatus().catch(() => undefined);
+        this._startMaintenancePolling();
+
         this.log.info(`Bosch Smart Home Camera adapter ready — ${cameras.length} camera(s) active`);
     }
 
@@ -2026,6 +2252,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 this.log.debug("State poll: 401 — token refresh will recover");
                 return;
             }
+            // v0.7.0: reactive maintenance re-fetch on 5xx — a sustained cloud
+            // outage triggers the community RSS check (with 5 min cooldown).
+            this._triggerMaintenanceFetchOn5xx();
             throw err;
         }
         // v0.6.0: poll each camera in parallel. With 4 cameras the per-tick
@@ -3170,6 +3399,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 if (this._statePollTimer) {
                     clearInterval(this._statePollTimer);
                     this._statePollTimer = null;
+                }
+
+                // v0.7.0: stop maintenance poll timer
+                if (this._maintenanceTimer) {
+                    clearInterval(this._maintenanceTimer);
+                    this._maintenanceTimer = null;
                 }
 
                 // v0.6.2: cancel any pending FCM reconnect timer BEFORE
