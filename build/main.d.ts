@@ -237,13 +237,11 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _motionActiveTimers;
     /**
      * How long `cameras.<id>.motion_active` stays true after the last
-     * motion event before auto-clearing (ms). Mirrors the HA integration's
-     * EVENT_ACTIVE_WINDOW (90 s) — long enough that a person walking
-     * through the frame keeps the boolean high through the whole pass,
-     * short enough that a real motion gap (no events for >90 s) flips it
-     * back to false.
+     * motion event before auto-clearing (ms). Default 90 s, configurable
+     * via adapter option `motion_active_window` (10–300 s). Mirrors the HA
+     * integration's EVENT_ACTIVE_WINDOW.
      */
-    private static readonly MOTION_ACTIVE_WINDOW_MS;
+    private get _motionActiveWindowMs();
     /**
      *
      * @param options
@@ -550,6 +548,15 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _pollSingleCameraState;
     /**
+     * Fetch WiFi info for one camera and update DPs.
+     * GET /v11/video_inputs/{id}/wifiinfo — 200 with body, 404 on Ethernet.
+     * Best-effort: errors are logged at debug level and ignored.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private _pollWifiInfo;
+    /**
      * Called whenever a subscribed state changes.
      * Only acts on ack=false states (user commands, not adapter-reported values).
      * Routes writes to the appropriate per-camera handler.
@@ -579,6 +586,25 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param camId Camera UUID
      */
     private _onMotionFired;
+    /**
+     * Write microphone or speaker level to the Bosch cloud API.
+     * PUT /v11/video_inputs/{id}/audio body: {microphoneLevel, speakerLevel}
+     * Gen2 only.
+     *
+     * @param camId  Camera UUID (must be Gen2)
+     * @param field  "microphone" | "speaker"
+     * @param level  0–100
+     */
+    private _handleAudioLevelWrite;
+    /**
+     * Write intrusion detection config to the Bosch cloud API.
+     * PUT /v11/video_inputs/{id}/intrusionDetectionConfig
+     * Gen2 only.
+     *
+     * @param camId  Camera UUID (must be Gen2)
+     * @param delta  {sensitivity?, distance?}
+     */
+    private _handleIntrusionWrite;
     /**
      * Inject a synthetic motion event for a camera.
      *

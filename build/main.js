@@ -292,13 +292,17 @@ class BoschSmartHomeCamera extends utils.Adapter {
     _motionActiveTimers = new Map();
     /**
      * How long `cameras.<id>.motion_active` stays true after the last
-     * motion event before auto-clearing (ms). Mirrors the HA integration's
-     * EVENT_ACTIVE_WINDOW (90 s) — long enough that a person walking
-     * through the frame keeps the boolean high through the whole pass,
-     * short enough that a real motion gap (no events for >90 s) flips it
-     * back to false.
+     * motion event before auto-clearing (ms). Default 90 s, configurable
+     * via adapter option `motion_active_window` (10–300 s). Mirrors the HA
+     * integration's EVENT_ACTIVE_WINDOW.
      */
-    static MOTION_ACTIVE_WINDOW_MS = 90_000;
+    get _motionActiveWindowMs() {
+        const cfg = this.config.motion_active_window;
+        if (typeof cfg === "number" && cfg >= 10 && cfg <= 300) {
+            return cfg * 1000;
+        }
+        return 90_000; // default
+    }
     /**
      *
      * @param options
@@ -1355,12 +1359,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
             });
             // v0.5.3: edge-trigger boolean for automations. Goes true on every
             // motion/person/audio_alarm event and auto-clears after
-            // MOTION_ACTIVE_WINDOW_MS (default 90 s) so Blockly etc. can
-            // listen for the rising edge instead of having to diff timestamps.
+            // _motionActiveWindowMs (default 90 s, configurable via
+            // motion_active_window option) so Blockly etc. can listen for
+            // the rising edge instead of having to diff timestamps.
             await this.setObjectNotExistsAsync(`${prefix}.motion_active`, {
                 type: "state",
                 common: {
-                    name: "True while a motion/person/audio event is recent (auto-clears after ~90 s)",
+                    name: "True while a motion/person/audio event is recent (auto-clears after configured window, default 90 s)",
                     role: "sensor.motion",
                     type: "boolean",
                     read: true,
@@ -1454,6 +1459,111 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     read: true,
                     write: false,
                     def: false,
+                },
+                native: {},
+            });
+            // v0.7.7: audio-level DPs (Gen2 only — microphone + speaker present
+            // on both Eyes Outdoor II and Eyes Indoor II).
+            if (cam.generation >= 2) {
+                await this.setObjectNotExistsAsync(`${prefix}.microphone_level`, {
+                    type: "state",
+                    common: {
+                        name: "Microphone sensitivity 0–100 (Gen2) — write to change",
+                        role: "level",
+                        type: "number",
+                        min: 0,
+                        max: 100,
+                        read: true,
+                        write: true,
+                        def: 50,
+                    },
+                    native: {},
+                });
+                await this.setObjectNotExistsAsync(`${prefix}.speaker_level`, {
+                    type: "state",
+                    common: {
+                        name: "Speaker volume 0–100 (Gen2) — write to change",
+                        role: "level.volume",
+                        type: "number",
+                        min: 0,
+                        max: 100,
+                        read: true,
+                        write: true,
+                        def: 50,
+                    },
+                    native: {},
+                });
+            }
+            // v0.7.7: intrusion detection DPs (Gen2 only).
+            if (cam.generation >= 2) {
+                await this.setObjectNotExistsAsync(`${prefix}.intrusion_sensitivity`, {
+                    type: "state",
+                    common: {
+                        name: "Intrusion detection sensitivity 0–7 (Gen2) — write to change",
+                        role: "level",
+                        type: "number",
+                        min: 0,
+                        max: 7,
+                        read: true,
+                        write: true,
+                        def: 3,
+                    },
+                    native: {},
+                });
+                await this.setObjectNotExistsAsync(`${prefix}.intrusion_distance`, {
+                    type: "state",
+                    common: {
+                        name: "Intrusion detection distance 1–10 m (Gen2) — write to change",
+                        role: "level",
+                        type: "number",
+                        min: 1,
+                        max: 10,
+                        unit: "m",
+                        read: true,
+                        write: true,
+                        def: 5,
+                    },
+                    native: {},
+                });
+            }
+            // v0.7.7: WiFi info DPs (read-only, refreshed from cloud poll).
+            await this.setObjectNotExistsAsync(`${prefix}.wifi_signal_strength`, {
+                type: "state",
+                common: {
+                    name: "WiFi signal strength (dBm)",
+                    role: "value",
+                    type: "number",
+                    unit: "dBm",
+                    read: true,
+                    write: false,
+                    def: 0,
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.wifi_ssid`, {
+                type: "state",
+                common: {
+                    name: "WiFi SSID",
+                    role: "text",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "",
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.wifi_signal_pct`, {
+                type: "state",
+                common: {
+                    name: "WiFi signal strength percentage 0–100",
+                    role: "value.signal",
+                    type: "number",
+                    min: 0,
+                    max: 100,
+                    unit: "%",
+                    read: true,
+                    write: false,
+                    def: 0,
                 },
                 native: {},
             });
@@ -2518,6 +2628,10 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     `${current?.val ? "ON" : "OFF"} → ${desired ? "ON" : "OFF"} (from cloud)`);
             }
         }
+        // ── v0.7.7 WiFi info — GET /v11/video_inputs/{id}/wifiinfo ─────────
+        // Read-only; best-effort (camera may be on Ethernet → 404).
+        // Fetched for all cameras in the coordinator poll cycle.
+        await this._pollWifiInfo(token, cam.id);
         // ── Gen2 lighting/switch — seed cache + sync wallwasher DPs ────────
         // /lighting/switch is a separate endpoint (not in /v11/video_inputs),
         // so we fetch it per-camera. Only Gen2 cams with featureSupport.light
@@ -2564,6 +2678,49 @@ class BoschSmartHomeCamera extends utils.Adapter {
             writes.push(this.upsertState(`cameras.${cam.id}.wallwasher_enabled`, wallOn));
         }
         await Promise.all(writes);
+    }
+    // ── v0.7.7 WiFi info poll ───────────────────────────────────────────────
+    /**
+     * Fetch WiFi info for one camera and update DPs.
+     * GET /v11/video_inputs/{id}/wifiinfo — 200 with body, 404 on Ethernet.
+     * Best-effort: errors are logged at debug level and ignored.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    async _pollWifiInfo(token, camId) {
+        try {
+            const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/wifiinfo`;
+            const resp = await this._httpClient.get(url, {
+                headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 404,
+            });
+            if (resp.status === 404) {
+                // Camera on Ethernet — no WiFi data, leave DPs as-is
+                return;
+            }
+            const data = resp.data;
+            const dbm = typeof data.signalStrength === "number" ? data.signalStrength : undefined;
+            const ssid = typeof data.ssid === "string" ? data.ssid : undefined;
+            const pct = typeof data.signalStrengthPercentage === "number"
+                ? data.signalStrengthPercentage
+                : undefined;
+            const writes = [];
+            if (dbm !== undefined) {
+                writes.push(this.upsertState(`cameras.${camId}.wifi_signal_strength`, dbm));
+            }
+            if (ssid !== undefined) {
+                writes.push(this.upsertState(`cameras.${camId}.wifi_ssid`, ssid));
+            }
+            if (pct !== undefined) {
+                writes.push(this.upsertState(`cameras.${camId}.wifi_signal_pct`, pct));
+            }
+            await Promise.all(writes);
+        }
+        catch (err) {
+            this.log.debug(`WiFi info poll for ${camId.slice(0, 8)} failed: ` +
+                `${err instanceof Error ? err.message : String(err)}`);
+        }
     }
     /**
      * Called whenever a subscribed state changes.
@@ -2691,6 +2848,50 @@ class BoschSmartHomeCamera extends utils.Adapter {
                             : parseInt(String(state.val), 10),
                     });
                     break;
+                case "microphone_level": {
+                    // v0.7.7: audio level — PUT /v11/video_inputs/{id}/audio (Gen2)
+                    const camAudio = this._cameras.get(camId);
+                    if (!camAudio || camAudio.generation < 2) {
+                        this.log.warn(`microphone_level write for ${camId.slice(0, 8)} ignored — Gen2 only`);
+                        return; // skip ack — not a supported state on this camera
+                    }
+                    await this._handleAudioLevelWrite(camId, "microphone", Number(state.val));
+                    break;
+                }
+                case "speaker_level": {
+                    // v0.7.7: audio level — PUT /v11/video_inputs/{id}/audio (Gen2)
+                    const camSpk = this._cameras.get(camId);
+                    if (!camSpk || camSpk.generation < 2) {
+                        this.log.warn(`speaker_level write for ${camId.slice(0, 8)} ignored — Gen2 only`);
+                        return; // skip ack
+                    }
+                    await this._handleAudioLevelWrite(camId, "speaker", Number(state.val));
+                    break;
+                }
+                case "intrusion_sensitivity": {
+                    // v0.7.7: intrusion detection config (Gen2)
+                    const camIs = this._cameras.get(camId);
+                    if (!camIs || camIs.generation < 2) {
+                        this.log.warn(`intrusion_sensitivity write for ${camId.slice(0, 8)} ignored — Gen2 only`);
+                        return; // skip ack
+                    }
+                    await this._handleIntrusionWrite(camId, {
+                        sensitivity: Math.round(Number(state.val)),
+                    });
+                    break;
+                }
+                case "intrusion_distance": {
+                    // v0.7.7: intrusion detection config (Gen2)
+                    const camId2 = this._cameras.get(camId);
+                    if (!camId2 || camId2.generation < 2) {
+                        this.log.warn(`intrusion_distance write for ${camId.slice(0, 8)} ignored — Gen2 only`);
+                        return; // skip ack
+                    }
+                    await this._handleIntrusionWrite(camId, {
+                        distance: Math.round(Number(state.val)),
+                    });
+                    break;
+                }
                 default:
                     return; // unknown writable state — no-op
             }
@@ -2745,7 +2946,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 this.log.debug(`motion_active auto-clear for ${camId.slice(0, 8)} threw: ` +
                     `${err instanceof Error ? err.message : String(err)}`);
             });
-        }, BoschSmartHomeCamera.MOTION_ACTIVE_WINDOW_MS);
+        }, this._motionActiveWindowMs);
         if (clearTimer) {
             this._motionActiveTimers.set(camId, clearTimer);
         }
@@ -2759,6 +2960,65 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     `${err instanceof Error ? err.message : String(err)}`);
             });
         }
+    }
+    // ── v0.7.7 audio-level handler ──────────────────────────────────────────
+    /**
+     * Write microphone or speaker level to the Bosch cloud API.
+     * PUT /v11/video_inputs/{id}/audio body: {microphoneLevel, speakerLevel}
+     * Gen2 only.
+     *
+     * @param camId  Camera UUID (must be Gen2)
+     * @param field  "microphone" | "speaker"
+     * @param level  0–100
+     */
+    async _handleAudioLevelWrite(camId, field, level) {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const clamped = Math.max(0, Math.min(100, Math.round(level)));
+        const body = field === "microphone" ? { microphoneLevel: clamped } : { speakerLevel: clamped };
+        const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/audio`;
+        const resp = await this._httpClient.put(url, body, {
+            headers: {
+                Authorization: `Bearer ${this._currentAccessToken}`,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+            validateStatus: (s) => s >= 200 && s < 300,
+        });
+        this.log.info(`Audio ${field} level set to ${clamped} for ${camId.slice(0, 8)} (HTTP ${resp.status})`);
+    }
+    // ── v0.7.7 intrusion-detection handler ─────────────────────────────────
+    /**
+     * Write intrusion detection config to the Bosch cloud API.
+     * PUT /v11/video_inputs/{id}/intrusionDetectionConfig
+     * Gen2 only.
+     *
+     * @param camId  Camera UUID (must be Gen2)
+     * @param delta  {sensitivity?, distance?}
+     */
+    async _handleIntrusionWrite(camId, delta) {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const body = {};
+        if (delta.sensitivity !== undefined) {
+            body.sensitivity = Math.max(0, Math.min(7, delta.sensitivity));
+        }
+        if (delta.distance !== undefined) {
+            body.detectionDistance = Math.max(1, Math.min(10, delta.distance));
+        }
+        const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/intrusionDetectionConfig`;
+        const resp = await this._httpClient.put(url, body, {
+            headers: {
+                Authorization: `Bearer ${this._currentAccessToken}`,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+            validateStatus: (s) => s >= 200 && s < 300,
+        });
+        this.log.info(`Intrusion config updated for ${camId.slice(0, 8)} (HTTP ${resp.status}): ` +
+            JSON.stringify(body));
     }
     /**
      * Inject a synthetic motion event for a camera.

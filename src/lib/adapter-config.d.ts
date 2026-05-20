@@ -34,6 +34,12 @@ declare global {
              * Telegram/Signal/Matrix push consumption.
              */
             auto_snapshot_on_motion?: boolean;
+            /**
+             * v0.7.7: how long (in seconds) `cameras.<id>.motion_active` stays
+             * true after the last motion event before auto-clearing.
+             * Range 10–300 s. Default 90 s (matches HA EVENT_ACTIVE_WINDOW).
+             */
+            motion_active_window?: number;
         }
     }
 }

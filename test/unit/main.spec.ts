@@ -1674,6 +1674,8 @@ describe("main adapter — v0.2.0 command handlers", () => {
             fetchSnapshot: sinon.stub().resolves(Buffer.from([0xff, 0xd8, 0xff, 0xe0])),
             extraAxiosResponses: [
                 { status: 200, data: cameraListResponse }, // GET /v11/video_inputs (re-poll)
+                // v0.7.7: _pollWifiInfo runs before lighting; 404 = Ethernet cam (no-op)
+                { status: 404, data: null }, // GET /v11/video_inputs/{id}/wifiinfo
                 { status: 200, data: lightingResponse }, // GET /v11/video_inputs/{id}/lighting/switch
             ],
         });
@@ -1739,6 +1741,8 @@ describe("main adapter — v0.2.0 command handlers", () => {
             fetchSnapshot: sinon.stub().resolves(Buffer.from([0xff, 0xd8, 0xff, 0xe0])),
             extraAxiosResponses: [
                 { status: 200, data: cameraListResponse },
+                // v0.7.7: _pollWifiInfo runs before lighting; 404 = Ethernet cam (no-op)
+                { status: 404, data: null }, // GET /v11/video_inputs/{id}/wifiinfo
                 { status: 200, data: lightingResponse },
             ],
         });

@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "0.7.6",
+    "version": "0.7.7",
     "news": {
+      "0.7.7": {
+        "en": "New: Gen2 audio (mic/speaker) + intrusion (sensitivity/distance) DPs; WiFi info DPs; configurable motion-active window.",
+        "de": "Neu: Gen2 Audio (Mikrofon/Lautsprecher) + Intrusion (Empfindlichkeit/Distanz) DPs; WLAN-Info-DPs; konfigurierbares Motion-Active-Fenster.",
+        "ru": "Новое: Gen2 аудио (микрофон/динамик) + вторжение (чувствительность/дистанция) DP; WiFi DP; настраиваемое окно motion-active.",
+        "pt": "Novo: Gen2 DPs áudio (mic/altifalante) + intrusão (sensibilidade/distância); DPs WiFi; janela motion-active configurável.",
+        "nl": "Nieuw: Gen2 audio (mic/luidspreker) + inbraak (gevoeligheid/afstand) DPs; WiFi DPs; instelbaar motion-active venster.",
+        "fr": "Nouveau: Gen2 DPs audio (micro/haut-parleur) + intrusion (sensibilité/distance); DPs WiFi; fenêtre motion-active configurable.",
+        "it": "Nuovo: Gen2 DP audio (mic/altoparlante) + intrusione (sensibilità/distanza); DP WiFi; finestra motion-active configurabile.",
+        "es": "Nuevo: Gen2 DPs audio (mic/altavoz) + intrusión (sensibilidad/distancia); DPs WiFi; ventana motion-active configurable.",
+        "pl": "Nowe: Gen2 DP audio (mik/głośnik) + wtargnięcie (czułość/odległość); DP WiFi; konfigurowalny czas motion-active.",
+        "uk": "Нове: Gen2 DP аудіо (мікрофон/динамік) + вторгнення (чутливість/відстань); DP WiFi; налаштовуване вікно motion-active.",
+        "zh-cn": "新增：Gen2 音频 DP（麦克风/扬声器）+入侵检测 DP；WiFi 信息 DP；可配置 motion-active 窗口。"
+      },
       "0.7.6": {
         "en": "Fix: Indoor II (Gen2, no LEDs) no longer gets light DPs; handler writes blocked; orphaned DPs removed on restart.",
         "de": "Fix: Indoor II (Gen2, keine LEDs) erhält keine Licht-DPs; Handler-Writes geblockt; verwaiste DPs beim Neustart entfernt.",

@@ -187,6 +187,21 @@
           "md": 6,
           "lg": 6,
           "xl": 6
+        },
+        "motion_active_window": {
+          "type": "number",
+          "label": "Motion-active window (s)",
+          "help": "How long cameras.<id>.motion_active stays true after the last motion event before auto-clearing. Range: 10–300 s. Default: 90 s.",
+          "default": 90,
+          "min": 10,
+          "max": 300,
+          "unit": "s",
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 6,
+          "lg": 6,
+          "xl": 6
         }
       }
     }
