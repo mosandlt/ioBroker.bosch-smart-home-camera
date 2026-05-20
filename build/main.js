@@ -3017,8 +3017,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
             },
             validateStatus: (s) => s >= 200 && s < 300,
         });
-        this.log.info(`Intrusion config updated for ${camId.slice(0, 8)} (HTTP ${resp.status}): ` +
-            JSON.stringify(body));
+        this.log.info(`Intrusion config updated for ${camId.slice(0, 8)} (HTTP ${resp.status}): ${JSON.stringify(body)}`);
     }
     /**
      * Inject a synthetic motion event for a camera.
