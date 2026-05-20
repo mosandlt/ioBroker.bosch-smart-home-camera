@@ -329,6 +329,18 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _migrateLegacySecrets;
     /**
+     * v0.7.6: remove light DPs for Gen2 cameras that have no LED hardware
+     * (featureLight=false, e.g. Eyes Indoor II). These DPs were created
+     * unconditionally by <=v0.7.5 — clean them up on first adapter-restart
+     * after upgrade so users don't see phantom switches in their object tree.
+     *
+     * Safe to call repeatedly: delObjectAsync is a no-op when the object
+     * doesn't exist.
+     *
+     * @param cameras  camera list fetched from Bosch Cloud
+     */
+    private _migrateLightDps;
+    /**
      * Read + decrypt + JSON-parse the persisted FCM credentials. Returns null
      * if the state is empty, the ciphertext is unusable, or the payload is
      * not the expected shape — the caller falls back to a fresh registration.

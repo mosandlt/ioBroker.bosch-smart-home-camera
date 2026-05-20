@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "0.7.5",
+    "version": "0.7.6",
     "news": {
+      "0.7.6": {
+        "en": "Fix: Indoor II (Gen2, no LEDs) no longer gets light DPs; handler writes blocked; orphaned DPs removed on restart.",
+        "de": "Fix: Indoor II (Gen2, keine LEDs) erhält keine Licht-DPs; Handler-Writes geblockt; verwaiste DPs beim Neustart entfernt.",
+        "ru": "Fix: Indoor II (Gen2, нет LED) не получает DP света; записи handler заблокированы; устарелые DP удаляются при перезапуске.",
+        "pt": "Fix: Indoor II (Gen2, sem LED) não recebe DPs de luz; escritas bloqueadas; DPs obsoletos removidos no reinício.",
+        "nl": "Fix: Indoor II (Gen2, geen LED) krijgt geen licht-DPs; handler-writes geblokkeerd; verouderde DPs bij herstart verwijderd.",
+        "fr": "Correction: Indoor II (Gen2, sans LED) ne reçoit plus de DP lumière; écritures bloquées; DP obsolètes supprimés au redémarrage.",
+        "it": "Fix: Indoor II (Gen2, senza LED) non riceve DP luce; scritture bloccate; DP obsoleti rimossi al riavvio.",
+        "es": "Fix: Indoor II (Gen2, sin LED) no recibe DPs de luz; escritas bloqueadas; DPs obsoletos eliminados al reiniciar.",
+        "pl": "Fix: Indoor II (Gen2, bez LED) nie dostaje DP świateł; zapisy zablokowane; przestarzałe DP usuwane przy restarcie.",
+        "uk": "Виправлення: Indoor II (Gen2, без LED) не отримує DP світла; записи заблоковано; застарілі DP видаляються при перезапуску.",
+        "zh-cn": "修复：Indoor II（Gen2，无 LED）不再创建灯光 DP；写入被屏蔽；重启时清除遗留 DP。"
+      },
       "0.7.5": {
         "en": "Fix: local RCP fallback (privacy/light) now uses HTTPS port 443 + HTTP Digest auth; HTTP port 80 → connection refused on Gen2 cameras.",
         "de": "Fix: Lokaler RCP-Fallback (Privacy/Licht) nutzt jetzt HTTPS Port 443 + HTTP Digest Auth; HTTP Port 80 → Connection refused bei Gen2-Kameras.",

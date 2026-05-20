@@ -1056,6 +1056,47 @@ class BoschSmartHomeCamera extends utils.Adapter {
     }
 
     /**
+     * v0.7.6: remove light DPs for Gen2 cameras that have no LED hardware
+     * (featureLight=false, e.g. Eyes Indoor II). These DPs were created
+     * unconditionally by <=v0.7.5 — clean them up on first adapter-restart
+     * after upgrade so users don't see phantom switches in their object tree.
+     *
+     * Safe to call repeatedly: delObjectAsync is a no-op when the object
+     * doesn't exist.
+     *
+     * @param cameras  camera list fetched from Bosch Cloud
+     */
+    private async _migrateLightDps(cameras: BoschCamera[]): Promise<void> {
+        const LIGHT_DPS = ["light_enabled", "front_light_enabled", "wallwasher_enabled"];
+        let removed = 0;
+        for (const cam of cameras) {
+            if (cam.generation !== 2 || cam.featureLight === true) {
+                continue; // Gen1 always has light; Gen2 with light=true keeps DPs
+            }
+            for (const dp of LIGHT_DPS) {
+                const fullId = `cameras.${cam.id}.${dp}`;
+                try {
+                    const obj = await this.getObjectAsync(fullId);
+                    if (obj) {
+                        await this.delObjectAsync(fullId);
+                        removed++;
+                        this.log.info(
+                            `v0.7.6 migration: removed obsolete DP ${fullId} (Indoor II has no light hardware)`,
+                        );
+                    }
+                } catch {
+                    // Object may not exist — ignore silently
+                }
+            }
+        }
+        if (removed > 0) {
+            this.log.info(
+                `v0.7.6 migration: removed ${removed} orphaned light DP(s) from Gen2 no-light camera(s)`,
+            );
+        }
+    }
+
+    /**
      * Read + decrypt + JSON-parse the persisted FCM credentials. Returns null
      * if the state is empty, the ciphertext is unusable, or the payload is
      * not the expected shape — the caller falls back to a fresh registration.
@@ -1211,48 +1252,54 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 native: {},
             });
 
-            await this.setObjectNotExistsAsync(`${prefix}.light_enabled`, {
-                type: "state",
-                common: {
-                    name: "Camera light (legacy — toggles both front_light + wallwasher)",
-                    role: "switch.light",
-                    type: "boolean",
-                    read: true,
-                    write: true,
-                    def: false,
-                },
-                native: {},
-            });
+            // v0.7.6: gate light DPs on featureLight — Indoor II (Gen2, no LEDs)
+            // must not get DPs that can never work. Gen1 always has light hardware
+            // (lighting_override endpoint); Gen2 only when featureSupport.light=true.
+            const hasLight = cam.generation < 2 ? true : cam.featureLight === true;
+            if (hasLight) {
+                await this.setObjectNotExistsAsync(`${prefix}.light_enabled`, {
+                    type: "state",
+                    common: {
+                        name: "Camera light (legacy — toggles both front_light + wallwasher)",
+                        role: "switch.light",
+                        type: "boolean",
+                        read: true,
+                        write: true,
+                        def: false,
+                    },
+                    native: {},
+                });
 
-            // v0.4.0: separate front light + wallwasher datapoints so external
-            // sensors (dusk script, motion → wallwasher-only, etc.) can drive
-            // each light source individually. Mirrors Bosch's own /lighting_override
-            // (Gen1) and /lighting/switch/{front,topdown} (Gen2) split.
-            await this.setObjectNotExistsAsync(`${prefix}.front_light_enabled`, {
-                type: "state",
-                common: {
-                    name: "Front spotlight (Gen1 frontLight / Gen2 front)",
-                    role: "switch.light",
-                    type: "boolean",
-                    read: true,
-                    write: true,
-                    def: false,
-                },
-                native: {},
-            });
+                // v0.4.0: separate front light + wallwasher datapoints so external
+                // sensors (dusk script, motion → wallwasher-only, etc.) can drive
+                // each light source individually. Mirrors Bosch's own /lighting_override
+                // (Gen1) and /lighting/switch/{front,topdown} (Gen2) split.
+                await this.setObjectNotExistsAsync(`${prefix}.front_light_enabled`, {
+                    type: "state",
+                    common: {
+                        name: "Front spotlight (Gen1 frontLight / Gen2 front)",
+                        role: "switch.light",
+                        type: "boolean",
+                        read: true,
+                        write: true,
+                        def: false,
+                    },
+                    native: {},
+                });
 
-            await this.setObjectNotExistsAsync(`${prefix}.wallwasher_enabled`, {
-                type: "state",
-                common: {
-                    name: "Wallwasher / top-down LED strip (Gen1 wallwasher / Gen2 topdown)",
-                    role: "switch.light",
-                    type: "boolean",
-                    read: true,
-                    write: true,
-                    def: false,
-                },
-                native: {},
-            });
+                await this.setObjectNotExistsAsync(`${prefix}.wallwasher_enabled`, {
+                    type: "state",
+                    common: {
+                        name: "Wallwasher / top-down LED strip (Gen1 wallwasher / Gen2 topdown)",
+                        role: "switch.light",
+                        type: "boolean",
+                        read: true,
+                        write: true,
+                        def: false,
+                    },
+                    native: {},
+                });
+            }
 
             // v0.5.1: integrated 75 dB siren (Gen2 only). Backed by
             // PUT /v11/video_inputs/{id}/panic_alarm body {"status": "ON"|"OFF"} (204).
@@ -2552,6 +2599,8 @@ class BoschSmartHomeCamera extends utils.Adapter {
         }
 
         // ── Step 3: Create state tree ──────────────────────────────────────
+        // v0.7.6: remove orphaned light DPs from Gen2 no-light cameras (upgrade migration)
+        await this._migrateLightDps(cameras);
         await this.ensureCameraObjects(cameras);
 
         // Populate in-memory camera cache (used by handlers for Gen1/Gen2 dispatch)
@@ -2898,7 +2947,17 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     }
                     break;
                 }
-                case "light_enabled":
+                case "light_enabled": {
+                    // v0.7.6: Indoor II (Gen2, featureLight=false) has no LEDs —
+                    // ignore writes that may arrive from old automations on existing installs.
+                    const camLight = this._cameras.get(camId);
+                    const hasLightHw = camLight?.generation !== 2 || camLight.featureLight === true;
+                    if (!hasLightHw) {
+                        this.log.warn(
+                            `light_enabled write for ${camId.slice(0, 8)} ignored — camera has no light hardware`,
+                        );
+                        break;
+                    }
                     await this.handleLightToggle(camId, Boolean(state.val));
                     // Refresh snapshot so the dashboard reflects the new lighting.
                     void this.handleSnapshotTrigger(camId).catch((err: unknown) => {
@@ -2908,7 +2967,16 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         );
                     });
                     break;
-                case "front_light_enabled":
+                }
+                case "front_light_enabled": {
+                    const camFront = this._cameras.get(camId);
+                    const hasFrontHw = camFront?.generation !== 2 || camFront.featureLight === true;
+                    if (!hasFrontHw) {
+                        this.log.warn(
+                            `front_light_enabled write for ${camId.slice(0, 8)} ignored — camera has no light hardware`,
+                        );
+                        break;
+                    }
                     await this.handleFrontLightToggle(camId, Boolean(state.val));
                     void this.handleSnapshotTrigger(camId).catch((err: unknown) => {
                         const msg = err instanceof Error ? err.message : String(err);
@@ -2917,7 +2985,16 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         );
                     });
                     break;
-                case "wallwasher_enabled":
+                }
+                case "wallwasher_enabled": {
+                    const camWW = this._cameras.get(camId);
+                    const hasWwHw = camWW?.generation !== 2 || camWW.featureLight === true;
+                    if (!hasWwHw) {
+                        this.log.warn(
+                            `wallwasher_enabled write for ${camId.slice(0, 8)} ignored — camera has no light hardware`,
+                        );
+                        break;
+                    }
                     await this.handleWallwasherToggle(camId, Boolean(state.val));
                     void this.handleSnapshotTrigger(camId).catch((err: unknown) => {
                         const msg = err instanceof Error ? err.message : String(err);
@@ -2926,6 +3003,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         );
                     });
                     break;
+                }
                 case "image_rotation_180":
                     await this.handleImageRotationToggle(camId, Boolean(state.val));
                     break;
@@ -3618,6 +3696,14 @@ class BoschSmartHomeCamera extends utils.Adapter {
             throw new Error(`Cannot set light for ${camId} — no access token`);
         }
         const cam = this._cameras.get(camId);
+        // v0.7.6: Indoor II is Gen2 but has no LED hardware (featureLight=false).
+        // Sending PUT /lighting/switch to it returns 4xx — bail early with a clear log.
+        if (cam?.generation === 2 && cam.featureLight !== true) {
+            this.log.warn(
+                `Light request for ${camId.slice(0, 8)} ignored — Gen2 camera has no light hardware (featureLight=false)`,
+            );
+            return;
+        }
         const isGen2 = cam?.generation === 2;
         const headers = {
             Authorization: `Bearer ${this._currentAccessToken}`,
