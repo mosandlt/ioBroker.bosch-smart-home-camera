@@ -40,6 +40,21 @@ declare global {
              * Range 10–300 s. Default 90 s (matches HA EVENT_ACTIVE_WINDOW).
              */
             motion_active_window?: number;
+            // ── v0.7.9 MQTT Bridge ───────────────────────────────────────────
+            /** Enable the MQTT event bridge. Default false. */
+            mqtt_enabled?: boolean;
+            /** MQTT broker hostname or IP. Required when mqtt_enabled=true. */
+            mqtt_broker_host?: string;
+            /** MQTT broker port. Range 1–65535. Default 1883. */
+            mqtt_broker_port?: number;
+            /** MQTT username (optional). */
+            mqtt_username?: string;
+            /** MQTT password (optional, stored encrypted). */
+            mqtt_password?: string;
+            /** Topic prefix for published events. Default "bosch/cameras". */
+            mqtt_topic_prefix?: string;
+            /** Use TLS (mqtts://) for the broker connection. Default false. */
+            mqtt_tls?: boolean;
         }
     }
 }

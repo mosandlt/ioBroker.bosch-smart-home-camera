@@ -32,6 +32,12 @@ easier to share / version-control.
 | [`vacation-deterrent-lights.xml`](./vacation-deterrent-lights.xml) | When `<VACATION_MODE>` is on and Astro reports night: toggles `front_light_enabled` on a configurable cadence to create a "house is occupied" appearance. Default 30-minute interval, with header notes on swapping in `math_random_int` for randomised timing. |
 | [`driveway-light-automation.xml`](./driveway-light-automation.xml) | Full outdoor scene: dim Hue floodlight + camera wallwashers at dusk based on a lux sensor, then ramp to bright scene + camera frontlights when either a Hue PIR or a Bosch camera detects motion, with a configurable cool-down. Contributed by [Jaschkopf](https://forum.iobroker.net/topic/84538/adapter-bosch-smart-home-kameras/29) via the ioBroker forum. |
 
+### Snapshot scheduler & time-lapse — 1 guide
+
+| File | Purpose |
+| --- | --- |
+| [`snapshot-blockly.md`](./snapshot-blockly.md) | Hourly snapshot scheduler in two flavours: Blockly XML (visual import) and plain JavaScript. Writes `snapshot_trigger`, reads `snapshot_path`. Includes a motion-triggered variant with 15-minute throttle, a datapoint reference table, and an ffmpeg one-liner to assemble collected JPEGs into an mp4 time-lapse. |
+
 ### JavaScript (scripted) — 12 examples
 
 | File | Purpose |

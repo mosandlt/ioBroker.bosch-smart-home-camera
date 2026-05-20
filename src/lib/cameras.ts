@@ -64,6 +64,12 @@ export interface BoschCamera {
      * tree doesn't grow useless nodes on Gen1 cams.
      */
     featureLight?: boolean;
+    /**
+     * Maximum pan angle in degrees as reported by `featureSupport.panLimit`.
+     * Non-zero only for the Gen1 360° Indoor camera (CAMERA_360).
+     * Gates `pan_position` and `pan_preset` DPs.
+     */
+    panLimit: number;
 }
 
 /** Raw camera object returned by GET /v11/video_inputs */
@@ -157,9 +163,11 @@ function mapCamera(raw: RawCameraItem): BoschCamera | null {
     const privacyMode: "ON" | "OFF" | undefined =
         rawPrivacy === "ON" || rawPrivacy === "OFF" ? rawPrivacy : undefined;
     let featureLight: boolean | undefined;
+    let panLimit = 0;
     if (raw.featureSupport && typeof raw.featureSupport === "object") {
         const fs = raw.featureSupport as Record<string, unknown>;
         featureLight = typeof fs.light === "boolean" ? fs.light : undefined;
+        panLimit = typeof fs.panLimit === "number" && fs.panLimit > 0 ? fs.panLimit : 0;
     }
     return {
         id,
@@ -170,6 +178,7 @@ function mapCamera(raw: RawCameraItem): BoschCamera | null {
         online: false, // list endpoint does not include connection state
         privacyMode,
         featureLight,
+        panLimit,
     };
 }
 

@@ -67,10 +67,15 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via four sibling p
 | **SMB / NAS clip upload** | ✅ | ✅ *(v10.7.0 BETA)* | ❌ | ❌ |
 | **Audio-alarm sensitivity (Gen2)** | ✅ select | ✅ command | ❌ | ❌ |
 | **Camera sharing (friends)** | ❌ | ✅ command | ❌ | ❌ *(intentionally not exposed — needs user-driven flow)* |
-| **Pan / tilt (360° Gen1)** | ✅ services | ✅ command | ❌ | ✅ `bosch_camera_pan` |
+| **Pan / tilt (360° Gen1)** | ✅ services | ✅ command | ✅ `pan_position` DP | ✅ `bosch_camera_pan` |
+| **Named pan presets (home / left / right / back-left / back-right)** | ✅ opt-in select entity | ✅ `pan --preset` flag | ✅ `pan_preset` DP | ✅ `bosch_camera_pan preset=` |
 | **Two-way audio / intercom** | ❌ | ✅ command | ❌ | ❌ *(intentionally not exposed — timing-sensitive)* |
+| **Webhook delivery on events** | ✅ service + opt-in options | ✅ `watch --webhook URL` | ✅ via MQTT bridge | ❌ *(request-response model)* |
+| **MQTT event bridge (motion / audio / person)** | n/a *(HA event bus native)* | n/a *(single-run)* | ✅ admin-config | n/a |
+| **Apple HomeKit (via HA Core bridge)** | ✅ documented | n/a | n/a | n/a |
+| **Snapshot scheduler / time-lapse** | ✅ examples/ YAML | ✅ cron + ffmpeg examples | ✅ Blockly example | n/a |
 | **Custom Lovelace card** | ✅ 2 cards (single + grid) | n/a | n/a | n/a |
-| **ioBroker VIS dashboard** | n/a | n/a | ✅ via `snapshot_path` + `stream_url` | n/a |
+| **ioBroker VIS dashboard** | n/a | n/a | ✅ via `snapshot_path` + `stream_url` + VIS-2 widget (alpha) | n/a |
 | **Cloud-relay REMOTE fallback** | ✅ auto-switch when LAN unreachable | ✅ remote mode | ❌ *(LOCAL-only by design)* | ❌ *(media LAN-only; status/events via cloud)* |
 | **Browser-based admin / config UI** | ✅ HA Config Flow | n/a (CLI) | ✅ JSON-config tabs | n/a (LLM-mediated; config via CLI / MCP client) |
 | **UI languages** | EN · DE · FR · ES · IT · NL · PL · PT · RU · UK · ZH-Hans *(v12.4.0)* | EN · DE · FR · ES · IT · NL · PL · PT · RU · UK · ZH-Hans *(v10.3.0)* | EN · DE · FR · ES · IT · NL · PL · PT · RU · UK · ZH-CN | n/a *(no UI — LLM is the front-end)* |
@@ -83,6 +88,21 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via four sibling p
 ---
 
 ## Changelog
+
+### 0.7.9 (2026-05-20)
+MQTT Bridge.
+
+- **MQTT Bridge** (`src/lib/mqtt_bridge.ts`): optional publisher that connects to any MQTT broker on adapter ready and publishes `motion` / `person` / `audio_alarm` events as JSON payloads under configurable topic prefixes. Supports plain MQTT and TLS (`mqtts://`), optional username/password auth. Wired into all three event paths: FCM push, polling fallback, synthetic triggers.
+- **Admin UI tab "MQTT Bridge"**: 6 config fields — enable toggle, broker host, port, TLS, username, password, topic prefix. All broker-detail fields hidden when bridge is disabled.
+- **npm dep `mqtt@^5.15.1`** added to `dependencies`.
+- **+13 tests** in `test/unit/main_mqtt_bridge.spec.ts`: Layer 1 (MqttBridge class direct — disabled=no-op, missing host=warn, valid=connect, per-type topic routing, publish-no-op-when-disconnected, disconnect); Layer 2 (adapter integration — onReady wires connect, onUnload calls disconnect, disabled skips both).
+- **VIS-2 Camera Tile widget (alpha)**: custom `bosch-camera-tile` widget for VIS-2 dashboards — displays `snapshot_path` image with auto-refresh, privacy-mode overlay badge, and stream URL copy button. See `widgets/bosch-camera-tile/` and [`## VIS-2 Camera Tile widget (alpha)`](#vis-2-camera-tile-widget-alpha) section.
+
+### 0.7.8 (2026-05-20)
+Emergency LiveSession fix + PTZ pan presets.
+
+- **Emergency LiveSession restart**: if a live-session open fails with 503 / timeout, the adapter now immediately retries once with a fresh Digest auth challenge instead of waiting for the next poll tick. Prevents a 30 s dead-stream window after transient cloud hiccups.
+- **PTZ pan presets** (`pan_preset` DP): new string data point alongside `pan_position`. Accepts named presets: `home`, `left`, `right`, `back-left`, `back-right`. Writing a preset name triggers the same RCP pan command as the numeric position DP. Mirrors HA integration's opt-in select entity.
 
 ### 0.7.4 (2026-05-19)
 LAN-fallback feature set — mirrors HA integration v12.4.10.
@@ -324,6 +344,37 @@ See [`docs/vis-2-example/README.md`](./docs/vis-2-example/README.md) for the
 walkthrough, including how to swap the camera UUIDs and how to wire go2rtc /
 HLS for low-latency live video instead of the default snapshot refresh.
 
+### VIS-2 Camera Tile widget (alpha)
+
+Starting with v0.7.9 the adapter ships a built-in **VIS-2 widget** that can be
+dropped onto any VIS-2 view without importing a JSON file.
+
+**Requirements:** VIS-2 adapter installed and running.
+
+**How to use:**
+
+1. Open the VIS-2 editor (`http://HOST:8082/vis-2/index.html?edit=1`).
+2. In the widget panel, find the **Bosch Smart Home Camera** widget set.
+3. Drag **Bosch Camera Tile** onto your view.
+4. In the widget properties, set **Camera ID datapoint** to any DP under
+   `bosch-smart-home-camera.0.cameras.<UUID>` (e.g. `.name`) — the adapter
+   extracts the UUID automatically.
+5. Optionally: adjust **Snapshot refresh** (default 30 s), toggle the light
+   button visibility, and set a fixed tile width.
+
+**What the tile shows:**
+
+- Camera name + Online/Offline badge
+- Live snapshot image (auto-refreshed at the configured interval)
+- Motion and Privacy badges when active
+- Privacy toggle button (reads/writes `privacy_enabled`)
+- Light toggle button (reads/writes `front_light_enabled`; hide via settings
+  for cameras without LEDs such as the Indoor II)
+
+> **Alpha status:** the widget registers via a vanilla-JS bundle without React.
+> It works with VIS-2 >= 2.0 but has not been stress-tested across all VIS-2
+> versions. Feedback welcome via GitHub Issues.
+
 ### Motion / event flow (camera → DP → automation)
 
 ```mermaid
@@ -361,6 +412,12 @@ A growing library of 20 ready-to-import scripts lives in
 - **Status & safety** — camera-offline alert, FCM-push degradation
   monitor, panic-siren trigger, weather-suppressed alerts, sleep-mode
   mute, garage-door coordination, night-mode schedule.
+- **Snapshot scheduler / time-lapse** —
+  [`examples/snapshot-blockly.md`](./examples/snapshot-blockly.md):
+  hourly Blockly XML + JavaScript scheduler (06:00–22:00 cron), plus a
+  motion-triggered variant with 15-minute throttle. Writes
+  `snapshot_trigger`, reads back `snapshot_path`. Includes an ffmpeg
+  one-liner to assemble the collected JPEGs into an mp4 time-lapse.
 
 Open javascript adapter → Scripts → new Blockly (or JavaScript) → paste.
 Replace the `<CAM_UUID>` / `<PRESENCE_OID>` / lux-sensor / Telegram-bot
@@ -417,6 +474,54 @@ another configured class — dog, cat, vehicle, license plate, face) does
 BlueIris flip to mainstream recording, with a few seconds of pre-roll. Cuts
 storage and false-positive alerts dramatically while keeping the rich
 mainstream footage for events that matter.
+
+## MQTT Bridge
+
+When enabled, the adapter publishes every motion / person / audio\_alarm event
+as a JSON message to an MQTT broker of your choice — making Bosch camera events
+available to any MQTT consumer without ioBroker-specific bindings.
+
+**Admin UI → "MQTT Bridge" tab:**
+
+| Field | Default | Description |
+|---|---|---|
+| Enable MQTT Bridge | `false` | Master switch |
+| Broker host / IP | — | Hostname or IP, e.g. `192.168.1.10` |
+| Broker port | `1883` | 1–65535 |
+| Use TLS (mqtts://) | `false` | Encrypted connection |
+| Username | — | Optional |
+| Password | — | Optional, stored encrypted |
+| Topic prefix | `bosch/cameras` | All topics live under this prefix |
+
+**Topic layout:**
+
+```
+<prefix>/<cam-uuid>/motion      motion or unclassified movement
+<prefix>/<cam-uuid>/person      person detected
+<prefix>/<cam-uuid>/audio       audio_alarm event
+```
+
+**Payload (JSON):**
+
+```json
+{
+  "timestamp": "2026-05-20T10:00:00.000Z",
+  "cam_name":  "Terrasse",
+  "event_id":  "evt-uuid-or-empty",
+  "event_type": "motion"
+}
+```
+
+**Compatible consumers:** Node-RED, openHAB, Home Assistant (MQTT integration),
+Frigate, Zigbee2MQTT sidecars, any standard MQTT subscriber.
+
+**Example Node-RED subscription:**
+```
+bosch/cameras/EF791764-.../motion
+```
+
+Wire it to a Telegram notification, a Frigate alert, or a Home Assistant
+`mqtt.sensor` — no ioBroker adapter required on the subscriber side.
 
 ## Roadmap
 
@@ -477,10 +582,11 @@ This adapter is part of a 3-implementation family for Bosch Smart Home Cameras:
 
 | Implementation | Repo | Status |
 |---|---|---|
-| 🏆 Home Assistant Integration | [Bosch-Smart-Home-Camera-Tool-HomeAssistant](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | **v12.6.0** · HA Quality Scale **Platinum** · production-ready |
-| 🐍 Python CLI | [Bosch-Smart-Home-Camera-Tool-Python](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | v10.7.4 · Mini-NVR + SMB upload (BETA) · LAN-fallback (ping / --local) · capture / research / no-HA standalone |
-| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.7 · beta · npm |
-| 🤖 MCP Server | [Bosch-Smart-Home-Camera-Tool-MCP](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) | v1.3.3 · LAN-ping + prefer_local · Claude Code / Claude Desktop integration |
+| 🏆 Home Assistant Integration | [Bosch-Smart-Home-Camera-Tool-HomeAssistant](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | **v12.7.0** · HA Quality Scale **Platinum** · production-ready |
+| 🐍 Python CLI | [Bosch-Smart-Home-Camera-Tool-Python](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | v10.7.5 · Mini-NVR + SMB upload (BETA) · LAN-fallback (ping / --local) · capture / research / no-HA standalone |
+| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.9 · beta · npm |
+| 🤖 MCP Server | [Bosch-Smart-Home-Camera-Tool-MCP](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) | v1.3.4 · LAN-ping + prefer_local · Claude Code / Claude Desktop integration |
+| 🔴 Node-RED nodes (alpha) | [Bosch-Smart-Home-Camera-Tool-NodeRED](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-NodeRED) | v0.1.0-alpha · skeleton |
 
 HA stays the **reference implementation** — features land there first; the Python CLI and this adapter catch up over time.
 

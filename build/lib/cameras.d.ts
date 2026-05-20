@@ -59,6 +59,12 @@ export interface BoschCamera {
      * tree doesn't grow useless nodes on Gen1 cams.
      */
     featureLight?: boolean;
+    /**
+     * Maximum pan angle in degrees as reported by `featureSupport.panLimit`.
+     * Non-zero only for the Gen1 360° Indoor camera (CAMERA_360).
+     * Gates `pan_position` and `pan_preset` DPs.
+     */
+    panLimit: number;
 }
 /**
  * The cameras API rejected the token (HTTP 401).

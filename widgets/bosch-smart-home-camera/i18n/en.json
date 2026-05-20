@@ -1,0 +1,18 @@
+{
+    "bosch_camera_widget_set_label": "Bosch Smart Home Camera",
+    "Bosch Camera Tile": "Bosch Camera Tile",
+    "Camera ID datapoint": "Camera ID datapoint",
+    "Show light button": "Show light button",
+    "Snapshot refresh (seconds)": "Snapshot refresh (seconds)",
+    "Tile width (px, 0 = 100%)": "Tile width (px, 0 = 100%)",
+    "Privacy ON": "Privacy ON",
+    "Privacy OFF": "Privacy OFF",
+    "Light ON": "Light ON",
+    "Light OFF": "Light OFF",
+    "Online": "Online",
+    "Offline": "Offline",
+    "Motion": "Motion",
+    "Privacy": "Privacy",
+    "Waiting for snapshot…": "Waiting for snapshot…",
+    "Select a camera datapoint": "Select a camera datapoint"
+}

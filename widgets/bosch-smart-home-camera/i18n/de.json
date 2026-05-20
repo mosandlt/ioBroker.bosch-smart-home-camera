@@ -1,0 +1,18 @@
+{
+    "bosch_camera_widget_set_label": "Bosch Smart Home Kamera",
+    "Bosch Camera Tile": "Bosch-Kamera-Kachel",
+    "Camera ID datapoint": "Kamera-Datenpunkt (ID)",
+    "Show light button": "Licht-Schaltfläche anzeigen",
+    "Snapshot refresh (seconds)": "Snapshot-Intervall (Sekunden)",
+    "Tile width (px, 0 = 100%)": "Kachelbreite (px, 0 = 100%)",
+    "Privacy ON": "Privatsphäre EIN",
+    "Privacy OFF": "Privatsphäre AUS",
+    "Light ON": "Licht EIN",
+    "Light OFF": "Licht AUS",
+    "Online": "Online",
+    "Offline": "Offline",
+    "Motion": "Bewegung",
+    "Privacy": "Privatsphäre",
+    "Waiting for snapshot…": "Warte auf Snapshot…",
+    "Select a camera datapoint": "Kamera-Datenpunkt auswählen"
+}

@@ -211,6 +211,11 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _livestreamEnabled;
     /**
+     * v0.7.9: optional MQTT bridge. Null when mqtt_enabled=false.
+     * Wired up in onReady, torn down in onUnload.
+     */
+    private _mqttBridge;
+    /**
      * v0.5.3: pending "idle teardown" timer per camera (livestream OFF mode).
      * After each snapshot the timer is reset; when it finally fires we close
      * the Bosch session + TLS proxy + watchdog. Lets back-to-back
@@ -495,6 +500,24 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     _pingAllCamsDuringOutage(): Promise<void>;
     /**
+     * Emergency LiveSession opener for LAN-RCP writes (v0.7.8).
+     *
+     * Called when `_liveSessions` has no entry for a Gen2 camera just before a
+     * local RCP write — e.g. immediately after adapter start when no stream has
+     * been opened yet.
+     *
+     * Behaviour:
+     *   - Returns Digest credentials {user, password} on success.
+     *   - Returns undefined when no access token is available or when the cloud
+     *     returns an error (CameraOfflineError / LiveSessionError / 503). Callers
+     *     fall through to unauthenticated best-effort fetch.
+     *   - The opened session is stored in `_liveSessions` so subsequent RCP
+     *     writes within the same session window reuse it without a new PUT.
+     *
+     * @param camId  Camera UUID
+     */
+    private _openEmergencySession;
+    /**
      * Write the front-light brightness directly via local RCP (Gen2).
      * RCP 0x0c22 (T_WORD, num=1) — brightness 0–100.
      *
@@ -577,6 +600,16 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private onFcmEvent;
     /**
+     * v0.7.9: publish a camera event to the MQTT bridge (fire-and-forget).
+     * No-op when the bridge is not connected.
+     *
+     * @param camId      Camera UUID
+     * @param eventType  "motion" | "person" | "audio_alarm"
+     * @param timestamp  ISO 8601 timestamp
+     * @param eventId    Event identifier (may be empty string)
+     */
+    private _publishMqttEvent;
+    /**
      * v0.5.3: shared post-event side effects, called by both real FCM
      * events and synthetic motion triggers. Flips motion_active=true with
      * a 90 s auto-clear, and — when auto_snapshot_on_motion is enabled —
@@ -635,6 +668,17 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param enabled  true → trigger siren, false → silence
      */
     private handleSirenToggle;
+    /**
+     * Pan the Gen1 360° camera to an absolute position.
+     *
+     * Gated on `panLimit > 0` — only CAMERA_360 (Gen1 indoor) supports pan.
+     * API: PUT /v11/video_inputs/{id}/pan  body: {absolutePosition: int}
+     * Range: -panLimit to +panLimit degrees.
+     *
+     * @param camId     Camera UUID
+     * @param position  Target angle in degrees (clamped to panLimit range)
+     */
+    private _handlePanWrite;
     /**
      * Apply a wallwasher (top + bottom LED) update to a Gen2 camera.
      *

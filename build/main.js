@@ -69,6 +69,7 @@ const tls_proxy_1 = require("./lib/tls_proxy");
 const fcm_1 = require("./lib/fcm");
 const alarm_light_1 = require("./lib/alarm_light");
 const maintenance_1 = require("./lib/maintenance");
+const mqtt_bridge_1 = require("./lib/mqtt_bridge");
 // ── Adapter class ─────────────────────────────────────────────────────────────
 /**
  *
@@ -263,6 +264,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * down after the idle window so no proxy/watchdog stays running.
      */
     _livestreamEnabled = new Map();
+    /**
+     * v0.7.9: optional MQTT bridge. Null when mqtt_enabled=false.
+     * Wired up in onReady, torn down in onUnload.
+     */
+    _mqttBridge = null;
     /**
      * v0.5.3: pending "idle teardown" timer per camera (livestream OFF mode).
      * After each snapshot the timer is reset; when it finally fires we close
@@ -1165,6 +1171,45 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         read: true,
                         write: true,
                         def: false,
+                    },
+                    native: {},
+                });
+            }
+            // v0.7.8: pan control — Gen1 360° Indoor only (CAMERA_360, panLimit > 0).
+            // Presets: home(0°) / left(-60°) / right(+60°) / back-left(-120°) / back-right(+120°).
+            // API: PUT /v11/video_inputs/{id}/pan  body {absolutePosition: int}
+            if (cam.panLimit > 0) {
+                await this.setObjectNotExistsAsync(`${prefix}.pan_position`, {
+                    type: "state",
+                    common: {
+                        name: `Pan position in degrees (range: -${cam.panLimit} to +${cam.panLimit})`,
+                        role: "value.angle",
+                        type: "number",
+                        min: -cam.panLimit,
+                        max: cam.panLimit,
+                        unit: "°",
+                        read: true,
+                        write: true,
+                        def: 0,
+                    },
+                    native: {},
+                });
+                await this.setObjectNotExistsAsync(`${prefix}.pan_preset`, {
+                    type: "state",
+                    common: {
+                        name: "Pan preset: home (0°) / left (-60°) / right (+60°) / back-left (-120°) / back-right (+120°)",
+                        role: "text",
+                        type: "string",
+                        states: {
+                            home: "home (0°)",
+                            left: "left (-60°)",
+                            right: "right (+60°)",
+                            "back-left": "back-left (-120°)",
+                            "back-right": "back-right (+120°)",
+                        },
+                        read: true,
+                        write: true,
+                        def: "home",
                     },
                     native: {},
                 });
@@ -2124,6 +2169,40 @@ class BoschSmartHomeCamera extends utils.Adapter {
             .join(", ")})`);
     }
     /**
+     * Emergency LiveSession opener for LAN-RCP writes (v0.7.8).
+     *
+     * Called when `_liveSessions` has no entry for a Gen2 camera just before a
+     * local RCP write — e.g. immediately after adapter start when no stream has
+     * been opened yet.
+     *
+     * Behaviour:
+     *   - Returns Digest credentials {user, password} on success.
+     *   - Returns undefined when no access token is available or when the cloud
+     *     returns an error (CameraOfflineError / LiveSessionError / 503). Callers
+     *     fall through to unauthenticated best-effort fetch.
+     *   - The opened session is stored in `_liveSessions` so subsequent RCP
+     *     writes within the same session window reuse it without a new PUT.
+     *
+     * @param camId  Camera UUID
+     */
+    async _openEmergencySession(camId) {
+        if (!this._currentAccessToken) {
+            return undefined;
+        }
+        try {
+            const hq = (this._streamQuality.get(camId) ?? "high") === "high";
+            const session = await (0, live_session_1.openLiveSession)(this._httpClient, this._currentAccessToken, camId, hq);
+            this._liveSessions.set(camId, session);
+            this.log.info(`Emergency LiveSession opened for LAN-RCP write on camera ${camId.slice(0, 8)}`);
+            return { user: session.digestUser, password: session.digestPassword };
+        }
+        catch {
+            // Cloud unavailable (503, LiveSessionError, etc.) — fall through to
+            // unauthenticated best-effort fetch in caller.
+            return undefined;
+        }
+    }
+    /**
      * Write the front-light brightness directly via local RCP (Gen2).
      * RCP 0x0c22 (T_WORD, num=1) — brightness 0–100.
      *
@@ -2549,6 +2628,15 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // site outage must never block adapter startup.
         void this._refreshMaintenanceStatus().catch(() => undefined);
         this._startMaintenancePolling();
+        // ── Step 8: MQTT Bridge (v0.7.9) ─────────────────────────────────────
+        // Optional publish of camera events to an external MQTT broker.
+        // Connection errors are logged but must not block adapter startup.
+        if (this.config.mqtt_enabled) {
+            this._mqttBridge = new mqtt_bridge_1.MqttBridge(this.config, this.log);
+            void this._mqttBridge.connect().catch((err) => {
+                this.log.warn(`MQTT Bridge: initial connect failed — ${err instanceof Error ? err.message : String(err)}`);
+            });
+        }
         this.log.info(`Bosch Smart Home Camera adapter ready — ${cameras.length} camera(s) active`);
     }
     /**
@@ -2892,6 +2980,40 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     });
                     break;
                 }
+                case "pan_position": {
+                    // v0.7.8: absolute pan position — Gen1 CAMERA_360 only (panLimit > 0)
+                    const camPan = this._cameras.get(camId);
+                    if (!camPan || camPan.panLimit <= 0) {
+                        this.log.warn(`pan_position write for ${camId.slice(0, 8)} ignored — camera has no pan hardware`);
+                        return; // skip ack
+                    }
+                    await this._handlePanWrite(camId, Math.round(Number(state.val)));
+                    break;
+                }
+                case "pan_preset": {
+                    // v0.7.8: named pan preset — Gen1 CAMERA_360 only (panLimit > 0)
+                    const camPreset = this._cameras.get(camId);
+                    if (!camPreset || camPreset.panLimit <= 0) {
+                        this.log.warn(`pan_preset write for ${camId.slice(0, 8)} ignored — camera has no pan hardware`);
+                        return; // skip ack
+                    }
+                    const PAN_PRESET_MAP = {
+                        home: 0,
+                        left: -60,
+                        right: 60,
+                        "back-left": -120,
+                        "back-right": 120,
+                    };
+                    const presetName = String(state.val).toLowerCase();
+                    if (!(presetName in PAN_PRESET_MAP)) {
+                        this.log.warn(`pan_preset write for ${camId.slice(0, 8)}: unknown preset "${presetName}" — ignored`);
+                        return; // skip ack
+                    }
+                    await this._handlePanWrite(camId, PAN_PRESET_MAP[presetName]);
+                    // Also ack the position DP so UI stays in sync
+                    await this.setStateAsync(`cameras.${camId}.pan_position`, PAN_PRESET_MAP[presetName], true);
+                    break;
+                }
                 default:
                     return; // unknown writable state — no-op
             }
@@ -2917,10 +3039,29 @@ class BoschSmartHomeCamera extends utils.Adapter {
      */
     async onFcmEvent(ev) {
         const prefix = `cameras.${ev.cameraId}`;
-        await this.setStateAsync(`${prefix}.last_motion_at`, BoschSmartHomeCamera.normaliseBoschTimestamp(ev.timestamp), true);
+        const ts = BoschSmartHomeCamera.normaliseBoschTimestamp(ev.timestamp);
+        await this.setStateAsync(`${prefix}.last_motion_at`, ts, true);
         await this.setStateAsync(`${prefix}.last_motion_event_type`, ev.eventType, true);
         this.log.info(`FCM event [${ev.eventType}] for camera ${ev.cameraId.slice(0, 8)} at ${ev.timestamp}`);
+        this._publishMqttEvent(ev.cameraId, ev.eventType, ts, ev.eventId ?? "");
         await this._onMotionFired(ev.cameraId);
+    }
+    /**
+     * v0.7.9: publish a camera event to the MQTT bridge (fire-and-forget).
+     * No-op when the bridge is not connected.
+     *
+     * @param camId      Camera UUID
+     * @param eventType  "motion" | "person" | "audio_alarm"
+     * @param timestamp  ISO 8601 timestamp
+     * @param eventId    Event identifier (may be empty string)
+     */
+    _publishMqttEvent(camId, eventType, timestamp, eventId) {
+        if (!this._mqttBridge) {
+            return;
+        }
+        const cam = this._cameras.get(camId);
+        const camName = cam?.name ?? camId.slice(0, 8);
+        this._mqttBridge.publish(camId, camName, eventType, timestamp, eventId);
     }
     /**
      * v0.5.3: shared post-event side effects, called by both real FCM
@@ -3043,6 +3184,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         await this.setStateAsync(`${prefix}.last_motion_at`, ts, true);
         await this.setStateAsync(`${prefix}.last_motion_event_type`, eventType, true);
         this.log.info(`Synthetic ${eventType} trigger for camera ${camId.slice(0, 8)}`);
+        this._publishMqttEvent(camId, eventType, ts, "");
         // v0.5.3: same side-effects as a real FCM event so synthetic
         // triggers (Philips Hue motion in the driveway, …) also flip
         // motion_active and refresh last_event_image.
@@ -3073,6 +3215,39 @@ class BoschSmartHomeCamera extends utils.Adapter {
         }
         this._sirenState.set(camId, enabled);
         this.log.info(`Siren ${enabled ? "TRIGGERED" : "stopped"} for camera ${camId.slice(0, 8)}`);
+    }
+    /**
+     * Pan the Gen1 360° camera to an absolute position.
+     *
+     * Gated on `panLimit > 0` — only CAMERA_360 (Gen1 indoor) supports pan.
+     * API: PUT /v11/video_inputs/{id}/pan  body: {absolutePosition: int}
+     * Range: -panLimit to +panLimit degrees.
+     *
+     * @param camId     Camera UUID
+     * @param position  Target angle in degrees (clamped to panLimit range)
+     */
+    async _handlePanWrite(camId, position) {
+        const cam = this._cameras.get(camId);
+        if (!cam || cam.panLimit <= 0) {
+            throw new Error(`Pan not supported for camera ${camId.slice(0, 8)} (panLimit=0)`);
+        }
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const clamped = Math.max(-cam.panLimit, Math.min(cam.panLimit, position));
+        const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/pan`;
+        const resp = await this._httpClient.put(url, {
+            absolutePosition: clamped,
+        }, {
+            headers: {
+                Authorization: `Bearer ${this._currentAccessToken}`,
+                "Content-Type": "application/json",
+            },
+        });
+        if (resp.status !== 200) {
+            throw new Error(`PUT /pan returned HTTP ${resp.status} for camera ${camId.slice(0, 8)}`);
+        }
+        this.log.info(`Pan → ${clamped}° for camera ${camId.slice(0, 8)}`);
     }
     /**
      * Apply a wallwasher (top + bottom LED) update to a Gen2 camera.
@@ -3362,6 +3537,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 await this.setStateAsync(`${prefix}.last_motion_at`, ts, true);
                 await this.setStateAsync(`${prefix}.last_motion_event_type`, eventType, true);
                 this.log.info(`Motion event [${eventType}] for camera ${camId.slice(0, 8)} at ${ts} (id=${newestId.slice(0, 8)})`);
+                this._publishMqttEvent(camId, eventType, ts, newestId);
                 // Same side-effects as the FCM path: flip motion_active=true,
                 // arm the 90 s auto-clear timer, and optionally fire an
                 // auto-snapshot. Without this call, users on the polling
@@ -3422,11 +3598,16 @@ class BoschSmartHomeCamera extends utils.Adapter {
         const lanIp = this._lanIpMap.get(camId);
         if (isGen2 && lanIp) {
             this.log.debug(`Privacy cloud failed (${cloudErr}) — trying Gen2 LOCAL RCP for ${camId.slice(0, 8)}`);
-            // Pass Digest credentials from the active LiveSession (cbs-XXXXXXXX cycling user/pass)
+            // Pass Digest credentials from the active LiveSession (cbs-XXXXXXXX cycling user/pass).
+            // v0.7.8: if no session is open (adapter just started, no stream opened yet),
+            // try to open an emergency session to obtain Digest credentials before the write.
             const session = this._liveSessions.get(camId);
-            const auth = session
+            let auth = session
                 ? { user: session.digestUser, password: session.digestPassword }
                 : undefined;
+            if (!auth) {
+                auth = await this._openEmergencySession(camId);
+            }
             const ok = await this._localWritePrivacy(lanIp, enabled, auth);
             if (ok) {
                 this.log.info(`Privacy mode ${enabled ? "ON" : "OFF"} set via LOCAL RCP for camera ${camId.slice(0, 8)}`);
@@ -3561,11 +3742,16 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 if (lanIp) {
                     this.log.debug(`Light cloud failed (${cloudFrontErr}) — trying Gen2 LOCAL RCP for ${camId.slice(0, 8)}`);
                     const brightness = state.frontLight ? 100 : 0;
-                    // Pass Digest credentials from the active LiveSession (cbs-XXXXXXXX cycling user/pass)
+                    // Pass Digest credentials from the active LiveSession (cbs-XXXXXXXX cycling user/pass).
+                    // v0.7.8: if no session is open (adapter just started, no stream opened yet),
+                    // try to open an emergency session to obtain Digest credentials before the write.
                     const session = this._liveSessions.get(camId);
-                    const auth = session
+                    let auth = session
                         ? { user: session.digestUser, password: session.digestPassword }
                         : undefined;
+                    if (!auth) {
+                        auth = await this._openEmergencySession(camId);
+                    }
                     const localOk = await this._localWriteFrontLight(lanIp, brightness, auth);
                     if (localOk) {
                         this.log.info(`Front-light ${state.frontLight ? "ON" : "OFF"} set via LOCAL RCP for ${camId.slice(0, 8)}`);
@@ -3982,6 +4168,16 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     }
                 }
                 this._liveSessions.clear();
+                // v0.7.9: disconnect MQTT bridge
+                if (this._mqttBridge) {
+                    try {
+                        await this._mqttBridge.disconnect();
+                    }
+                    catch {
+                        /* best-effort */
+                    }
+                    this._mqttBridge = null;
+                }
                 // Best-effort connection flag (async — may not complete if ioBroker kills us)
                 void this.setStateAsync("info.connection", false, true).catch(() => undefined);
                 void this.setStateAsync("info.fcm_active", "stopped", true).catch(() => undefined);

@@ -107,9 +107,11 @@ function mapCamera(raw) {
     const rawPrivacy = typeof raw.privacyMode === "string" ? raw.privacyMode.toUpperCase() : "";
     const privacyMode = rawPrivacy === "ON" || rawPrivacy === "OFF" ? rawPrivacy : undefined;
     let featureLight;
+    let panLimit = 0;
     if (raw.featureSupport && typeof raw.featureSupport === "object") {
         const fs = raw.featureSupport;
         featureLight = typeof fs.light === "boolean" ? fs.light : undefined;
+        panLimit = typeof fs.panLimit === "number" && fs.panLimit > 0 ? fs.panLimit : 0;
     }
     return {
         id,
@@ -120,6 +122,7 @@ function mapCamera(raw) {
         online: false, // list endpoint does not include connection state
         privacyMode,
         featureLight,
+        panLimit,
     };
 }
 /**
