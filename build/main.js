@@ -247,6 +247,32 @@ class BoschSmartHomeCamera extends utils.Adapter {
      */
     _sirenState = new Map();
     /**
+     * v0.7.10: renewal backoff state per camera. Tracks how many consecutive
+     * cloud renewal failures have occurred and when the next retry should fire.
+     * Reset to attempt=0 on a successful renewal.
+     */
+    _renewalBackoff = new Map();
+    /**
+     * v0.7.10: wall-clock epoch (ms) when the Bosch live session was first opened
+     * per camera. Used to detect the 60-min natural session expiry — if the
+     * session has been alive for ≥ SESSION_MAX_AGE_MS AND the latest renewal
+     * is still failing, we tear down rather than retrying indefinitely.
+     */
+    _sessionStartTime = new Map();
+    /**
+     * v0.7.10: consecutive LAN TCP-connect failure count per camera.
+     * Incremented in the renewal-retry path when the LAN probe fails.
+     * Reset to 0 on a successful TCP connect. Teardown is triggered after
+     * LAN_TCP_FAIL_THRESHOLD consecutive failures.
+     */
+    _lanTcpFailCount = new Map();
+    /** v0.7.10: exponential backoff steps (ms) for cloud renewal retries. */
+    static RENEWAL_BACKOFF_MS = [5_000, 15_000, 45_000, 120_000, 300_000];
+    /** v0.7.10: maximum Bosch session lifetime (ms). Matches Bosch 60-min limit. */
+    static SESSION_MAX_AGE_MS = 60 * 60 * 1_000;
+    /** v0.7.10: LAN TCP failures before stream teardown. */
+    static LAN_TCP_FAIL_THRESHOLD = 3;
+    /**
      * Cached lighting state per Gen2 camera (frontLight + topLed + bottomLed
      * brightness/color/whiteBalance). Seeded by the state-poll GET on the
      * `/lighting/switch` endpoint and updated from every PUT response. Used
@@ -727,6 +753,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 this.upsertState("info.maintenance.last_fetched", active !== null ? new Date().toISOString() : ""),
             ]);
             this.log.debug(`Maintenance status: state=${state}${active ? ` source=${active.source} title="${active.title.slice(0, 60)}"` : ""}`);
+            // v0.7.10: mirror maintenance state to per-camera DPs as "active" | "scheduled" | "none"
+            const perCamState = state === "active" ? "active" : state === "scheduled" ? "scheduled" : "none";
+            for (const camId of this._cameras.keys()) {
+                void this.upsertState(`cameras.${camId}.maintenance_state`, perCamState).catch(() => undefined);
+            }
             // v0.7.2: lifecycle notifications (scheduled → active → past)
             if (active !== null) {
                 await this._maybeAnnounceMaintenanceState(active, state);
@@ -1507,6 +1538,19 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 },
                 native: {},
             });
+            // v0.7.10: per-camera maintenance state from global RSS poll.
+            await this.setObjectNotExistsAsync(`${prefix}.maintenance_state`, {
+                type: "state",
+                common: {
+                    name: "Bosch cloud maintenance state — 'active' | 'scheduled' | 'none'",
+                    role: "text",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "none",
+                },
+                native: {},
+            });
             // v0.7.7: audio-level DPs (Gen2 only — microphone + speaker present
             // on both Eyes Outdoor II and Eyes Indoor II).
             if (cam.generation >= 2) {
@@ -1746,6 +1790,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
         await this.upsertSession(camId, session);
         // Arm session watchdog if not already running
         if (!this._sessionWatchdogs.has(camId)) {
+            // v0.7.10: record session start time for 60-min expiry detection
+            this._sessionStartTime.set(camId, Date.now());
+            // Reset backoff and LAN-fail counters on a fresh session open
+            this._renewalBackoff.delete(camId);
+            this._lanTcpFailCount.delete(camId);
             const watchdog = new session_watchdog_1.SessionWatchdog({
                 openSession: () => {
                     if (!this._currentAccessToken) {
@@ -1756,20 +1805,15 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 },
                 onRenew: async (newSession) => {
                     this._liveSessions.set(camId, newSession);
+                    // Reset backoff + LAN-fail on successful renewal
+                    this._renewalBackoff.delete(camId);
+                    this._lanTcpFailCount.delete(camId);
+                    this._sessionStartTime.set(camId, Date.now());
                     await this.upsertSession(camId, newSession);
                 },
                 onError: (err) => {
-                    this.log.warn(`RTSP watchdog: LOCAL renewal failed for camera ${camId.slice(0, 8)} — ` +
-                        `stream will stop: ${err.message}`);
-                    // Stop the TLS proxy and clear both stream URLs (main + sub)
-                    const proxy = this._tlsProxies.get(camId);
-                    if (proxy) {
-                        void proxy.stop().catch(() => undefined);
-                        this._tlsProxies.delete(camId);
-                    }
-                    void this.upsertState(`cameras.${camId}.stream_url`, "");
-                    void this.upsertState(`cameras.${camId}.stream_url_sub`, "");
-                    this._sessionWatchdogs.delete(camId);
+                    // v0.7.10: graceful renewal backoff — keep session alive and retry
+                    void this._handleRenewalFailure(camId, err);
                 },
                 log: (level, msg) => this.log[level](msg),
             });
@@ -1777,6 +1821,187 @@ class BoschSmartHomeCamera extends utils.Adapter {
             this._sessionWatchdogs.set(camId, watchdog);
         }
         return session;
+    }
+    /**
+     * v0.7.10: Route a cloud 5xx log through the appropriate level.
+     *
+     * When the Bosch maintenance feed says a window is active, a 503 is expected
+     * and should be an INFO rather than WARN to avoid alarm fatigue.
+     * When no maintenance is active, keep WARN so the user notices a real outage.
+     *
+     * @param camPrefix  Short camera ID prefix for log context
+     * @param status     HTTP status code (e.g. 503)
+     * @param retryIn    Seconds until the next retry (for WARN message)
+     */
+    _routeCloudErrorLog(camPrefix, status, retryIn) {
+        const mw = this._lastMaintenanceWindow;
+        const isMaintenance = mw !== null && (0, maintenance_1.classifyState)(mw) === "active";
+        if (isMaintenance) {
+            this.log.info(`[bosch-maintenance] Bosch cloud temporarily unavailable (HTTP ${status}) — ` +
+                `current session continues until expiry (camera ${camPrefix})`);
+        }
+        else if (status === 401 || status === 403) {
+            this.log.warn(`LAN session credentials expired (HTTP ${status}), refreshing (camera ${camPrefix})`);
+        }
+        else {
+            this.log.warn(`Bosch cloud returned ${status} for session renewal — will retry in ${retryIn}s (camera ${camPrefix})`);
+        }
+    }
+    /**
+     * v0.7.10: Handle a failed watchdog renewal with graceful backoff.
+     *
+     * Behaviour:
+     *   1. Keep the existing session alive (do NOT tear down immediately).
+     *   2. Retry with exponential backoff: 5 s → 15 s → 45 s → 120 s → 300 s, then every 300 s.
+     *   3. On each retry attempt:
+     *      a. TCP-connect to the camera LAN IP first. Three consecutive TCP failures → teardown.
+     *      b. If TCP succeeds, try cloud renewal. On success → reset backoff, re-arm watchdog.
+     *      c. On 401/403 → call emergency session refresh; on 503 → log with maintenance routing.
+     *   4. Tear down only when:
+     *      (a) Session has naturally expired (≥ 60 min) AND renewal still fails, OR
+     *      (b) LAN TCP connect fails 3 times in a row.
+     *
+     * @param camId  Camera UUID
+     * @param err    Error from the last failed openSession() call
+     */
+    _handleRenewalFailure(camId, err) {
+        const camPrefix = camId.slice(0, 8);
+        const backoffSteps = BoschSmartHomeCamera.RENEWAL_BACKOFF_MS;
+        const backoff = this._renewalBackoff.get(camId) ?? { attempt: 0, nextRetryMs: 0 };
+        const attempt = backoff.attempt;
+        // Determine HTTP status from error name for routing
+        let httpStatus = 503; // default assumption for cloud errors
+        if (err.name === "LiveSessionError") {
+            if (err.message.includes("401")) {
+                httpStatus = 401;
+            }
+            else if (err.message.includes("403")) {
+                httpStatus = 403;
+            }
+        }
+        const retryDelayMs = backoffSteps[Math.min(attempt, backoffSteps.length - 1)];
+        const retryInS = Math.round(retryDelayMs / 1000);
+        this._routeCloudErrorLog(camPrefix, httpStatus, retryInS);
+        this._triggerMaintenanceFetchOn5xx();
+        // Check whether the session has naturally expired (≥ 60 min)
+        const sessionStart = this._sessionStartTime.get(camId) ?? -Infinity;
+        const sessionAge = Date.now() - sessionStart;
+        if (sessionAge >= BoschSmartHomeCamera.SESSION_MAX_AGE_MS) {
+            this.log.warn(`RTSP watchdog: session for camera ${camPrefix} has exceeded 60 min ` +
+                `and cloud renewal is still failing — tearing down`);
+            this._doTeardownStream(camId);
+            return;
+        }
+        // Schedule the next retry
+        this._renewalBackoff.set(camId, {
+            attempt: attempt + 1,
+            nextRetryMs: Date.now() + retryDelayMs,
+        });
+        this.log.debug(`RTSP watchdog: camera ${camPrefix} — scheduling renewal retry #${attempt + 1} in ${retryInS} s`);
+        // Use adapter setTimeout so it's automatically cancelled on unload
+        this.setTimeout(() => {
+            void this._attemptBackoffRenewal(camId).catch((retryErr) => {
+                const msg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+                this.log.debug(`RTSP watchdog: backoff retry threw unexpectedly: ${msg}`);
+            });
+        }, retryDelayMs);
+    }
+    /**
+     * v0.7.10: Perform a single backoff renewal attempt for the given camera.
+     *
+     * 1. TCP-connect to camera LAN IP (port 443). Three consecutive failures → teardown.
+     * 2. If LAN is reachable, try openLiveSession.
+     * 3. On success: reset backoff, replace live session, re-arm watchdog.
+     * 4. On failure: schedule the next retry via _handleRenewalFailure.
+     *
+     * @param camId  Camera UUID
+     */
+    async _attemptBackoffRenewal(camId) {
+        const camPrefix = camId.slice(0, 8);
+        // ── LAN TCP-connect check ─────────────────────────────────────────────
+        if (this._lanIpMap.has(camId)) {
+            const reachable = await this._tcpPing(camId);
+            if (!reachable) {
+                const prev = this._lanTcpFailCount.get(camId) ?? 0;
+                const next = prev + 1;
+                this._lanTcpFailCount.set(camId, next);
+                this.log.warn(`Camera ${camPrefix} LAN unreachable (TCP fail ${next}/${BoschSmartHomeCamera.LAN_TCP_FAIL_THRESHOLD})`);
+                if (next >= BoschSmartHomeCamera.LAN_TCP_FAIL_THRESHOLD) {
+                    this.log.error(`Camera offline or unreachable — ${next} consecutive LAN TCP failures for camera ${camPrefix}`);
+                    this._doTeardownStream(camId);
+                    return;
+                }
+                // Not yet at threshold — schedule next backoff retry
+                const fakeErr = new Error(`LAN TCP connect failed (attempt ${next})`);
+                this._handleRenewalFailure(camId, fakeErr);
+                return;
+            }
+            // LAN TCP succeeded — reset the consecutive failure counter
+            this._lanTcpFailCount.set(camId, 0);
+        }
+        // ── Cloud renewal attempt ─────────────────────────────────────────────
+        if (!this._currentAccessToken) {
+            this.log.warn(`RTSP watchdog: no access token for camera ${camPrefix} — skipping renewal retry`);
+            this._handleRenewalFailure(camId, new Error("No access token for renewal retry"));
+            return;
+        }
+        try {
+            const hq = (this._streamQuality.get(camId) ?? "high") === "high";
+            const newSession = await (0, live_session_1.openLiveSession)(this._httpClient, this._currentAccessToken, camId, hq);
+            // Success — reset state and re-arm watchdog
+            this._liveSessions.set(camId, newSession);
+            this._renewalBackoff.delete(camId);
+            this._lanTcpFailCount.delete(camId);
+            this._sessionStartTime.set(camId, Date.now());
+            await this.upsertSession(camId, newSession);
+            // Re-arm watchdog if it was stopped
+            if (!this._sessionWatchdogs.has(camId)) {
+                const watchdog = new session_watchdog_1.SessionWatchdog({
+                    openSession: () => {
+                        if (!this._currentAccessToken) {
+                            return Promise.reject(new Error(`Cannot renew session for ${camId} — no access token`));
+                        }
+                        const hqInner = (this._streamQuality.get(camId) ?? "high") === "high";
+                        return (0, live_session_1.openLiveSession)(this._httpClient, this._currentAccessToken, camId, hqInner);
+                    },
+                    onRenew: async (renewedSession) => {
+                        this._liveSessions.set(camId, renewedSession);
+                        this._renewalBackoff.delete(camId);
+                        this._lanTcpFailCount.delete(camId);
+                        this._sessionStartTime.set(camId, Date.now());
+                        await this.upsertSession(camId, renewedSession);
+                    },
+                    onError: (renewErr) => {
+                        void this._handleRenewalFailure(camId, renewErr);
+                    },
+                    log: (level, msg) => this.log[level](msg),
+                });
+                watchdog.start(newSession);
+                this._sessionWatchdogs.set(camId, watchdog);
+            }
+            this.log.info(`RTSP watchdog: cloud renewal backoff succeeded for camera ${camPrefix}`);
+        }
+        catch (renewErr) {
+            const error = renewErr instanceof Error ? renewErr : new Error(String(renewErr));
+            this._handleRenewalFailure(camId, error);
+        }
+    }
+    /**
+     * v0.7.10: Synchronous teardown wrapper used by the backoff renewal path.
+     * Kicks off _teardownStream fire-and-forget (stream teardown is always
+     * best-effort; the caller must not await it in the backoff path to avoid
+     * blocking the retry loop).
+     *
+     * @param camId  Camera UUID
+     */
+    _doTeardownStream(camId) {
+        this._renewalBackoff.delete(camId);
+        this._lanTcpFailCount.delete(camId);
+        this._sessionStartTime.delete(camId);
+        void this._teardownStream(camId).catch((err) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.log.debug(`_doTeardownStream: _teardownStream threw: ${msg}`);
+        });
     }
     /**
      * Spawn (or replace) the TLS proxy for the given session and update stream_url.

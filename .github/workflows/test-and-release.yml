@@ -28,6 +28,19 @@ jobs:
           node-version: '20.x'
           lint: true
 
+  # Coverage threshold gate (lines ≥80%, functions ≥80%, branches ≥70%)
+  coverage-check:
+    needs: check-and-lint
+    if: contains(github.event.head_commit.message, '[skip ci]') == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+      - run: npm ci
+      - run: npm run test:coverage:check
+
   # Runs adapter tests on all supported node versions and OSes
   adapter-tests:
     needs: check-and-lint
@@ -53,7 +66,7 @@ jobs:
   # action exchanges the GitHub OIDC token for a short-lived publish token
   # at runtime. id-token: write is required for that exchange.
   deploy:
-    needs: [check-and-lint, adapter-tests]
+    needs: [check-and-lint, adapter-tests, coverage-check]
     if: |
       contains(github.event.head_commit.message, '[skip ci]') == false &&
       github.event_name == 'push' &&

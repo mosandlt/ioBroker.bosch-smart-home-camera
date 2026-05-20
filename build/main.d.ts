@@ -193,6 +193,32 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _sirenState;
     /**
+     * v0.7.10: renewal backoff state per camera. Tracks how many consecutive
+     * cloud renewal failures have occurred and when the next retry should fire.
+     * Reset to attempt=0 on a successful renewal.
+     */
+    private _renewalBackoff;
+    /**
+     * v0.7.10: wall-clock epoch (ms) when the Bosch live session was first opened
+     * per camera. Used to detect the 60-min natural session expiry — if the
+     * session has been alive for ≥ SESSION_MAX_AGE_MS AND the latest renewal
+     * is still failing, we tear down rather than retrying indefinitely.
+     */
+    private _sessionStartTime;
+    /**
+     * v0.7.10: consecutive LAN TCP-connect failure count per camera.
+     * Incremented in the renewal-retry path when the LAN probe fails.
+     * Reset to 0 on a successful TCP connect. Teardown is triggered after
+     * LAN_TCP_FAIL_THRESHOLD consecutive failures.
+     */
+    private _lanTcpFailCount;
+    /** v0.7.10: exponential backoff steps (ms) for cloud renewal retries. */
+    private static readonly RENEWAL_BACKOFF_MS;
+    /** v0.7.10: maximum Bosch session lifetime (ms). Matches Bosch 60-min limit. */
+    private static readonly SESSION_MAX_AGE_MS;
+    /** v0.7.10: LAN TCP failures before stream teardown. */
+    private static readonly LAN_TCP_FAIL_THRESHOLD;
+    /**
      * Cached lighting state per Gen2 camera (frontLight + topLed + bottomLed
      * brightness/color/whiteBalance). Seeded by the state-poll GET on the
      * `/lighting/switch` endpoint and updated from every PUT response. Used
@@ -395,6 +421,56 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param camId
      */
     private ensureLiveSession;
+    /**
+     * v0.7.10: Route a cloud 5xx log through the appropriate level.
+     *
+     * When the Bosch maintenance feed says a window is active, a 503 is expected
+     * and should be an INFO rather than WARN to avoid alarm fatigue.
+     * When no maintenance is active, keep WARN so the user notices a real outage.
+     *
+     * @param camPrefix  Short camera ID prefix for log context
+     * @param status     HTTP status code (e.g. 503)
+     * @param retryIn    Seconds until the next retry (for WARN message)
+     */
+    private _routeCloudErrorLog;
+    /**
+     * v0.7.10: Handle a failed watchdog renewal with graceful backoff.
+     *
+     * Behaviour:
+     *   1. Keep the existing session alive (do NOT tear down immediately).
+     *   2. Retry with exponential backoff: 5 s → 15 s → 45 s → 120 s → 300 s, then every 300 s.
+     *   3. On each retry attempt:
+     *      a. TCP-connect to the camera LAN IP first. Three consecutive TCP failures → teardown.
+     *      b. If TCP succeeds, try cloud renewal. On success → reset backoff, re-arm watchdog.
+     *      c. On 401/403 → call emergency session refresh; on 503 → log with maintenance routing.
+     *   4. Tear down only when:
+     *      (a) Session has naturally expired (≥ 60 min) AND renewal still fails, OR
+     *      (b) LAN TCP connect fails 3 times in a row.
+     *
+     * @param camId  Camera UUID
+     * @param err    Error from the last failed openSession() call
+     */
+    private _handleRenewalFailure;
+    /**
+     * v0.7.10: Perform a single backoff renewal attempt for the given camera.
+     *
+     * 1. TCP-connect to camera LAN IP (port 443). Three consecutive failures → teardown.
+     * 2. If LAN is reachable, try openLiveSession.
+     * 3. On success: reset backoff, replace live session, re-arm watchdog.
+     * 4. On failure: schedule the next retry via _handleRenewalFailure.
+     *
+     * @param camId  Camera UUID
+     */
+    private _attemptBackoffRenewal;
+    /**
+     * v0.7.10: Synchronous teardown wrapper used by the backoff renewal path.
+     * Kicks off _teardownStream fire-and-forget (stream teardown is always
+     * best-effort; the caller must not await it in the backoff path to avoid
+     * blocking the retry loop).
+     *
+     * @param camId  Camera UUID
+     */
+    private _doTeardownStream;
     /**
      * Spawn (or replace) the TLS proxy for the given session and update stream_url.
      * Extracted so both ensureLiveSession and the watchdog onRenew callback can reuse it.

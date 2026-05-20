@@ -89,6 +89,14 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via four sibling p
 
 ## Changelog
 
+### 0.7.10 (2026-05-20)
+Cloud-503 handling — honest error messages, exponential renewal backoff, maintenance-window detection. Closes [#9](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera/issues/9).
+
+- **Honest error messages**: 503 during active Bosch maintenance window → `[bosch-maintenance]` INFO (not WARN). 401/403 → "LAN session credentials expired". "Camera offline or unreachable" only after 3 consecutive LAN TCP failures.
+- **Exponential renewal backoff** (`_handleRenewalFailure`, `_attemptBackoffRenewal`): on watchdog renewal failure the stream stays alive and retries at 5 s → 15 s → 45 s → 120 s → 300 s → every 300 s. Only tears down after (a) session age ≥ 60 min and renewal still failing, or (b) 3 consecutive LAN TCP connect failures.
+- **Per-camera `maintenance_state` DP** (`cameras.<id>.maintenance_state`): string read-only, one of `"active"` / `"scheduled"` / `"none"`. Populated by the existing hourly RSS poll and reactive 5xx re-fetches.
+- **+9 tests** in `test/unit/main_cloud_503_handling.spec.ts` (all passing). Cross-port note in commit: same improvements are due in HA `tls_proxy.py`/`__init__.py`, Python CLI `bosch_camera.py`, MCP `lan_rcp.py`.
+
 ### 0.7.9 (2026-05-20)
 MQTT Bridge.
 
@@ -541,6 +549,8 @@ npm run build        # tsc → build/
 npm run watch        # auto-rebuild on save
 npm test             # unit tests (572 passing)
 npm run lint
+npm run test:coverage          # coverage report → coverage/index.html (HTML) + lcov
+npm run test:coverage:check    # enforce thresholds: 80% lines/functions, 70% branches
 ```
 
 ### Manual deploy to a local ioBroker test instance
@@ -582,10 +592,10 @@ This adapter is part of a 3-implementation family for Bosch Smart Home Cameras:
 
 | Implementation | Repo | Status |
 |---|---|---|
-| 🏆 Home Assistant Integration | [Bosch-Smart-Home-Camera-Tool-HomeAssistant](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | **v12.7.0** · HA Quality Scale **Platinum** · production-ready |
-| 🐍 Python CLI | [Bosch-Smart-Home-Camera-Tool-Python](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | v10.7.5 · Mini-NVR + SMB upload (BETA) · LAN-fallback (ping / --local) · capture / research / no-HA standalone |
-| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.9 · beta · npm |
-| 🤖 MCP Server | [Bosch-Smart-Home-Camera-Tool-MCP](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) | v1.3.4 · LAN-ping + prefer_local · Claude Code / Claude Desktop integration |
+| 🏆 Home Assistant Integration | [Bosch-Smart-Home-Camera-Tool-HomeAssistant](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | **v12.7.2** · HA Quality Scale **Platinum** · production-ready |
+| 🐍 Python CLI | [Bosch-Smart-Home-Camera-Tool-Python](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | v10.7.6 · Mini-NVR + SMB upload (BETA) · LAN-fallback (ping / --local) · capture / research / no-HA standalone |
+| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.10 · beta · npm |
+| 🤖 MCP Server | [Bosch-Smart-Home-Camera-Tool-MCP](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) | v1.3.5 · LAN-ping + prefer_local · Claude Code / Claude Desktop integration |
 | 🔴 Node-RED nodes (alpha) | [Bosch-Smart-Home-Camera-Tool-NodeRED](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-NodeRED) | v0.1.0-alpha · skeleton |
 
 HA stays the **reference implementation** — features land there first; the Python CLI and this adapter catch up over time.

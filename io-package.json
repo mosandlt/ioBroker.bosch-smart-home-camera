@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "0.7.9",
+    "version": "0.7.10",
     "news": {
+      "0.7.10": {
+        "en": "Fix: cloud-503 handling — honest error messages; exponential renewal backoff (5s/15s/45s/120s/300s); Bosch maintenance-window detection. Closes #9.",
+        "de": "Fix: Cloud-503-Handling — ehrliche Fehlermeldungen; Exponential-Backoff bei Erneuerung (5s/15s/45s/120s/300s); Bosch-Wartungsfenster-Erkennung. Schließt #9.",
+        "ru": "Fix: обработка 503 — честные сообщения об ошибках; экспоненциальный backoff продления (5s/15s/45s/120s/300s); обнаружение окон обслуживания Bosch. Closes #9.",
+        "pt": "Fix: tratamento cloud-503 — mensagens de erro honestas; backoff exponencial de renovação (5s/15s/45s/120s/300s); detecção janela manutenção Bosch. Closes #9.",
+        "nl": "Fix: cloud-503 handling — eerlijke foutmeldingen; exponentiële renewal backoff (5s/15s/45s/120s/300s); Bosch onderhoud-venster detectie. Closes #9.",
+        "fr": "Fix: gestion cloud-503 — messages d'erreur honnêtes; backoff exponentiel renouvellement (5s/15s/45s/120s/300s); détection fenêtre maintenance Bosch. Closes #9.",
+        "it": "Fix: gestione cloud-503 — messaggi errore onesti; backoff esponenziale rinnovo (5s/15s/45s/120s/300s); rilevamento finestra manutenzione Bosch. Closes #9.",
+        "es": "Fix: manejo cloud-503 — mensajes de error honestos; backoff exponencial renovación (5s/15s/45s/120s/300s); detección ventana mantenimiento Bosch. Closes #9.",
+        "pl": "Fix: obsługa cloud-503 — uczciwe komunikaty błędów; wykładniczy backoff odnawiania (5s/15s/45s/120s/300s); wykrywanie okna konserwacji Bosch. Closes #9.",
+        "uk": "Fix: обробка cloud-503 — чесні повідомлення про помилки; exponential backoff оновлення (5s/15s/45s/120s/300s); виявлення вікна обслуговування Bosch. Closes #9.",
+        "zh-cn": "修复：cloud-503 处理 — 诚实的错误消息；指数退避续期 (5s/15s/45s/120s/300s)；Bosch 维护窗口检测。关闭 #9。"
+      },
       "0.7.9": {
         "en": "New: MQTT Bridge — publish motion/person/audio_alarm events to any MQTT broker; configurable prefix, TLS, auth; compatible with Node-RED, openHAB, HA, Frigate.",
         "de": "Neu: MQTT-Bridge — motion/person/audio_alarm Events an MQTT-Broker publishen; konfigurierbares Prefix, TLS, Auth; kompatibel mit Node-RED, openHAB, HA, Frigate.",

@@ -1,0 +1,14 @@
+{
+  "include": ["src/**/*.ts", "build/**/*.js"],
+  "exclude": [
+    "test/**",
+    "node_modules/**",
+    "src-widgets/**",
+    "widgets/**",
+    "build/lib/digest.js",
+    "src/lib/digest.ts"
+  ],
+  "extension": [".ts", ".js"],
+  "sourcemap": true,
+  "all": true
+}
