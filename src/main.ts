@@ -2270,7 +2270,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     rejectUnauthorized: false,
                 });
                 if (resp.status !== 200) {
-                    this.log.debug(`_localWriteFrontLight: HTTP ${resp.status} for ${camIp} (digest)`);
+                    this.log.debug(
+                        `_localWriteFrontLight: HTTP ${resp.status} for ${camIp} (digest)`,
+                    );
                     return false;
                 }
                 if (/<err>/i.test(resp.data.toString())) {
