@@ -42,8 +42,8 @@ import { openLiveSession, closeLiveSession, type LiveSession } from "./lib/live_
 
 import { SessionWatchdog } from "./lib/session_watchdog";
 
-// Note: rcp.ts (RCP+ commands) is no longer imported — all camera commands
-// (privacy, light, image rotation) now use the Bosch Cloud API exclusively.
+// digestRequest is used for LOCAL RCP writes (HTTPS + Digest auth, Gen2 port 443)
+import { digestRequest } from "./lib/digest";
 
 import { fetchSnapshot, buildSnapshotUrl } from "./lib/snapshot";
 
@@ -2235,23 +2235,51 @@ class BoschSmartHomeCamera extends utils.Adapter {
     }
 
     /**
-     * Write the front-light brightness directly via local RCP (Gen2, unauthenticated).
+     * Write the front-light brightness directly via local RCP (Gen2).
      * RCP 0x0c22 (T_WORD, num=1) — brightness 0–100.
+     *
+     * v0.7.5: Gen2 cameras listen only on HTTPS port 443 and require HTTP Digest
+     * auth on /rcp.xml (HTTP port 80 → connection refused; verified 2026-05-20).
+     * Credentials (`cbs-XXXXXXXX` cycling user/pass) come from the cloud
+     * PUT /connection response stored in the active LiveSession.
      * Returns true on success.
      *
-     * @param camIp
-     * @param brightness
+     * @param camIp     Camera LAN IP address
+     * @param brightness  Brightness 0–100 (clamped)
+     * @param auth      Optional Digest credentials {user, password}; required for Gen2
      */
-    private async _localWriteFrontLight(camIp: string, brightness: number): Promise<boolean> {
+    private async _localWriteFrontLight(
+        camIp: string,
+        brightness: number,
+        auth?: { user: string; password: string },
+    ): Promise<boolean> {
         const val = Math.max(0, Math.min(100, Math.round(brightness)));
         const payload = val.toString(16).padStart(4, "0");
-        const url = new URL(`http://${camIp}/rcp.xml`);
+        const url = new URL(`https://${camIp}/rcp.xml`);
         url.searchParams.set("command", "0x0c22");
         url.searchParams.set("direction", "WRITE");
         url.searchParams.set("type", "T_WORD");
         url.searchParams.set("payload", `0x${payload}`);
         url.searchParams.set("num", "1");
         try {
+            if (auth) {
+                // Gen2: HTTPS port 443 + HTTP Digest auth (RFC 7616)
+                const resp = await digestRequest(url.toString(), auth.user, auth.password, {
+                    method: "GET",
+                    timeout: 5_000,
+                    rejectUnauthorized: false,
+                });
+                if (resp.status !== 200) {
+                    this.log.debug(`_localWriteFrontLight: HTTP ${resp.status} for ${camIp} (digest)`);
+                    return false;
+                }
+                if (/<err>/i.test(resp.data.toString())) {
+                    this.log.debug(`_localWriteFrontLight: RCP error in response from ${camIp}`);
+                    return false;
+                }
+                return true;
+            }
+            // Fallback: unauthenticated fetch (Gen1 or pre-session Gen2 best-effort)
             const resp = await fetch(url.toString(), { signal: AbortSignal.timeout(5_000) });
             if (!resp.ok) {
                 this.log.debug(`_localWriteFrontLight: HTTP ${resp.status} for ${camIp}`);
@@ -2271,21 +2299,49 @@ class BoschSmartHomeCamera extends utils.Adapter {
     }
 
     /**
-     * Write privacy mode directly via local RCP (Gen2, unauthenticated).
+     * Write privacy mode directly via local RCP (Gen2).
      * RCP 0x0d00 (P_OCTET) — mirrors HA's rcp_local_write_privacy.
+     *
+     * v0.7.5: Gen2 cameras listen only on HTTPS port 443 and require HTTP Digest
+     * auth on /rcp.xml (HTTP port 80 → connection refused; verified 2026-05-20).
+     * Credentials (`cbs-XXXXXXXX` cycling user/pass) come from the cloud
+     * PUT /connection response stored in the active LiveSession.
      * Returns true on success.
      *
-     * @param camIp
-     * @param enabled
+     * @param camIp   Camera LAN IP address
+     * @param enabled  true = privacy ON, false = privacy OFF
+     * @param auth    Optional Digest credentials {user, password}; required for Gen2
      */
-    private async _localWritePrivacy(camIp: string, enabled: boolean): Promise<boolean> {
+    private async _localWritePrivacy(
+        camIp: string,
+        enabled: boolean,
+        auth?: { user: string; password: string },
+    ): Promise<boolean> {
         const payload = enabled ? "0x00010000" : "0x00000000";
-        const url = new URL(`http://${camIp}/rcp.xml`);
+        const url = new URL(`https://${camIp}/rcp.xml`);
         url.searchParams.set("command", "0x0d00");
         url.searchParams.set("direction", "WRITE");
         url.searchParams.set("type", "P_OCTET");
         url.searchParams.set("payload", payload);
         try {
+            if (auth) {
+                // Gen2: HTTPS port 443 + HTTP Digest auth (RFC 7616)
+                const resp = await digestRequest(url.toString(), auth.user, auth.password, {
+                    method: "GET",
+                    timeout: 5_000,
+                    rejectUnauthorized: false,
+                });
+                if (resp.status !== 200) {
+                    this.log.debug(`_localWritePrivacy: HTTP ${resp.status} for ${camIp} (digest)`);
+                    return false;
+                }
+                if (/<err>/i.test(resp.data.toString())) {
+                    this.log.debug(`_localWritePrivacy: RCP error in response from ${camIp}`);
+                    return false;
+                }
+                return true;
+            }
+            // Fallback: unauthenticated fetch (Gen1 or pre-session Gen2 best-effort)
             const resp = await fetch(url.toString(), { signal: AbortSignal.timeout(5_000) });
             if (!resp.ok) {
                 this.log.debug(`_localWritePrivacy: HTTP ${resp.status} for ${camIp}`);
@@ -3439,7 +3495,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
             cloudErr = "no access token";
         }
 
-        // Cloud failed — try Gen2 local RCP fallback (unauthenticated, port 80)
+        // Cloud failed — try Gen2 local RCP fallback (HTTPS port 443 + Digest auth)
         const cam = this._cameras.get(camId);
         const isGen2 = cam?.generation === 2;
         const lanIp = this._lanIpMap.get(camId);
@@ -3447,7 +3503,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
             this.log.debug(
                 `Privacy cloud failed (${cloudErr}) — trying Gen2 LOCAL RCP for ${camId.slice(0, 8)}`,
             );
-            const ok = await this._localWritePrivacy(lanIp, enabled);
+            // Pass Digest credentials from the active LiveSession (cbs-XXXXXXXX cycling user/pass)
+            const session = this._liveSessions.get(camId);
+            const auth = session
+                ? { user: session.digestUser, password: session.digestPassword }
+                : undefined;
+            const ok = await this._localWritePrivacy(lanIp, enabled, auth);
             if (ok) {
                 this.log.info(
                     `Privacy mode ${enabled ? "ON" : "OFF"} set via LOCAL RCP for camera ${camId.slice(0, 8)}`,
@@ -3458,7 +3519,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 return;
             }
             this.log.debug(
-                `Privacy LOCAL RCP fallback also failed for ${camId.slice(0, 8)} — camera may not accept unauthenticated writes`,
+                `Privacy LOCAL RCP fallback also failed for ${camId.slice(0, 8)} — camera may not accept writes`,
             );
         }
 
@@ -3591,9 +3652,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 cloudFrontErr = err instanceof Error ? err.message : String(err);
             }
 
-            // v0.7.4: Gen2 front-light local RCP fallback (mirrors HA's
-            // rcp_local_write_front_light). Wallwasher stays cloud-only
-            // (RGB payload too complex for unauthenticated RCP).
+            // v0.7.5: Gen2 front-light local RCP fallback (HTTPS port 443 + Digest auth;
+            // mirrors HA's rcp_local_write_front_light). Wallwasher stays cloud-only
+            // (RGB payload too complex for RCP).
             if (!cloudFrontOk) {
                 const lanIp = this._lanIpMap.get(camId);
                 if (lanIp) {
@@ -3601,7 +3662,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         `Light cloud failed (${cloudFrontErr}) — trying Gen2 LOCAL RCP for ${camId.slice(0, 8)}`,
                     );
                     const brightness = state.frontLight ? 100 : 0;
-                    const localOk = await this._localWriteFrontLight(lanIp, brightness);
+                    // Pass Digest credentials from the active LiveSession (cbs-XXXXXXXX cycling user/pass)
+                    const session = this._liveSessions.get(camId);
+                    const auth = session
+                        ? { user: session.digestUser, password: session.digestPassword }
+                        : undefined;
+                    const localOk = await this._localWriteFrontLight(lanIp, brightness, auth);
                     if (localOk) {
                         this.log.info(
                             `Front-light ${state.frontLight ? "ON" : "OFF"} set via LOCAL RCP for ${camId.slice(0, 8)}`,

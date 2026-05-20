@@ -1,5 +1,6 @@
 /**
- * Tests for the LAN-reachability / local-fallback paths added in v0.7.4.
+ * Tests for the LAN-reachability / local-fallback paths added in v0.7.4,
+ * extended in v0.7.5 with HTTPS + Digest auth for local RCP writes.
  *
  * Mirrors HA test_lan_fallback.py test names for cross-repo parity.
  *
@@ -10,6 +11,9 @@
  * - `_pingAllCamsDuringOutage` is silent when no cams known
  * - Grace period masks an "offline" blip right after a local write
  * - Light LOCAL RCP fallback fires when cloud returns 5xx
+ * - v0.7.5 regression: _localWriteFrontLight and _localWritePrivacy use
+ *   https:// (not http://) and call digestRequest when auth is provided
+ *   (HTTP port 80 → connection refused on Gen2; verified 2026-05-20)
  */
 
 import { expect } from "chai";
@@ -101,6 +105,7 @@ function loadMethods(): {
     inLocalWriteGrace: AnyFn;
     pingAll: AnyFn;
     localWriteFrontLight: AnyFn;
+    localWritePrivacy: AnyFn;
 } {
     const db = new MockDatabaseCtor();
     let capturedAdapter: MockAdapter | null = null;
@@ -151,11 +156,15 @@ function loadMethods(): {
     if (typeof localWriteFrontLight !== "function") {
         throw new Error("_localWriteFrontLight not found — check method name");
     }
+    const localWritePrivacy = proto._localWritePrivacy as AnyFn | undefined;
+    if (typeof localWritePrivacy !== "function") {
+        throw new Error("_localWritePrivacy not found — check method name");
+    }
 
     // Expose for stub binding
     boundInLocalWriteGrace = inLocalWriteGrace;
 
-    return { isLanReachable, inLocalWriteGrace, pingAll, localWriteFrontLight };
+    return { isLanReachable, inLocalWriteGrace, pingAll, localWriteFrontLight, localWritePrivacy };
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -326,10 +335,10 @@ describe("LAN fallback — v0.7.4", () => {
     // ── local_light_write_fallback_fires_on_cloud_5xx ──────────────────────────
 
     describe("local_light_write_fallback_fires_on_cloud_5xx", () => {
-        it("_localWriteFrontLight builds correct RCP URL and returns false on non-200", async () => {
+        it("_localWriteFrontLight uses https:// URL (no auth path)", async () => {
             const stub = makeStub();
 
-            // Stub global fetch to simulate a 5xx response
+            // Stub global fetch to simulate a 5xx response (no-auth fallback path)
             const fetchStub = sinon.stub().resolves({
                 ok: false,
                 status: 503,
@@ -343,6 +352,9 @@ describe("LAN fallback — v0.7.4", () => {
                 expect(result).to.equal(false);
                 expect(fetchStub.calledOnce).to.equal(true);
                 const calledUrl: string = fetchStub.firstCall.args[0] as string;
+                // v0.7.5 regression: must be https://, not http://
+                expect(calledUrl).to.include("https://");
+                expect(calledUrl).not.to.include("http://192");
                 expect(calledUrl).to.include("0x0c22");
                 expect(calledUrl).to.include("WRITE");
                 expect(calledUrl).to.include("T_WORD");
@@ -351,7 +363,7 @@ describe("LAN fallback — v0.7.4", () => {
             }
         });
 
-        it("_localWriteFrontLight returns true on success", async () => {
+        it("_localWriteFrontLight returns true on success (no-auth path)", async () => {
             const stub = makeStub();
 
             const fetchStub = sinon.stub().resolves({
@@ -368,6 +380,7 @@ describe("LAN fallback — v0.7.4", () => {
                 const calledUrl: string = fetchStub.firstCall.args[0] as string;
                 // brightness 100 → 0x0064
                 expect(calledUrl).to.include("0064");
+                expect(calledUrl).to.include("https://");
             } finally {
                 global.fetch = globalFetchBackup;
             }
@@ -391,6 +404,158 @@ describe("LAN fallback — v0.7.4", () => {
                 expect(calledUrl).to.include("0064");
             } finally {
                 global.fetch = globalFetchBackup;
+            }
+        });
+    });
+
+    // ── v0.7.5: local RCP writes use HTTPS + Digest auth (regression) ──────────
+
+    describe("lan_rcp_https_digest_regression", () => {
+        // Root cause: HTTP port 80 → connection refused on Gen2; HTTPS port 443
+        // with Digest auth required. Verified live 2026-05-20. Mirrors HA v12.4.13.
+
+        it("_localWriteFrontLight with auth calls digestRequest (not fetch)", async () => {
+            const stub = makeStub();
+
+            // We cannot easily stub the internal `digestRequest` import in the
+            // compiled JS, so we verify the no-auth fallback does NOT call
+            // digestRequest-like behavior: the URL passed to fetch is https://.
+            // For the auth path, we verify via a manually-crafted call that
+            // the method returns the digest response status correctly.
+            //
+            // Strategy: stub global.fetch to throw (should not be reached when
+            // auth is provided), and stub digestRequest via a module override.
+            const digestModule = require("../../build/lib/digest");
+            const digestStub = sinon.stub(digestModule, "digestRequest").resolves({
+                status: 200,
+                headers: {},
+                data: Buffer.from("<rcp><payload>0064</payload></rcp>"),
+            });
+            const fetchSpy = sinon.stub().rejects(new Error("fetch must not be called when auth is provided"));
+            const globalFetchBackup = global.fetch;
+            global.fetch = fetchSpy as unknown as typeof fetch;
+
+            try {
+                const result = await methods.localWriteFrontLight.call(
+                    stub,
+                    "192.0.2.10",
+                    100,
+                    { user: "cbs-ABCD1234", password: "test-pass" },
+                );
+                expect(result).to.equal(true);
+                expect(digestStub.calledOnce).to.equal(true);
+                // digestRequest must receive https:// URL
+                const calledUrl: string = digestStub.firstCall.args[0] as string;
+                expect(calledUrl).to.include("https://");
+                expect(calledUrl).not.to.include("http://192");
+                expect(calledUrl).to.include("0x0c22");
+                // fetch must NOT have been called
+                expect(fetchSpy.called).to.equal(false);
+            } finally {
+                digestStub.restore();
+                global.fetch = globalFetchBackup;
+            }
+        });
+
+        it("_localWritePrivacy with auth calls digestRequest and uses https://", async () => {
+            const stub = makeStub();
+
+            const digestModule = require("../../build/lib/digest");
+            const digestStub = sinon.stub(digestModule, "digestRequest").resolves({
+                status: 200,
+                headers: {},
+                data: Buffer.from("<rcp><payload>01</payload></rcp>"),
+            });
+            const fetchSpy = sinon.stub().rejects(new Error("fetch must not be called when auth is provided"));
+            const globalFetchBackup = global.fetch;
+            global.fetch = fetchSpy as unknown as typeof fetch;
+
+            try {
+                const result = await methods.localWritePrivacy.call(
+                    stub,
+                    "192.0.2.10",
+                    true,
+                    { user: "cbs-ABCD1234", password: "test-pass" },
+                );
+                expect(result).to.equal(true);
+                expect(digestStub.calledOnce).to.equal(true);
+                const calledUrl: string = digestStub.firstCall.args[0] as string;
+                expect(calledUrl).to.include("https://");
+                expect(calledUrl).not.to.include("http://192");
+                expect(calledUrl).to.include("0x0d00");
+                expect(fetchSpy.called).to.equal(false);
+            } finally {
+                digestStub.restore();
+                global.fetch = globalFetchBackup;
+            }
+        });
+
+        it("_localWritePrivacy uses https:// URL even without auth", async () => {
+            const stub = makeStub();
+
+            const fetchStub = sinon.stub().resolves({
+                ok: true,
+                status: 200,
+                text: async () => "<rcp><payload>01</payload></rcp>",
+            });
+            const globalFetchBackup = global.fetch;
+            global.fetch = fetchStub as unknown as typeof fetch;
+
+            try {
+                const result = await methods.localWritePrivacy.call(stub, "192.0.2.10", true);
+                expect(result).to.equal(true);
+                const calledUrl: string = fetchStub.firstCall.args[0] as string;
+                // v0.7.5 regression: must be https://, not http://
+                expect(calledUrl).to.include("https://");
+                expect(calledUrl).not.to.include("http://192");
+            } finally {
+                global.fetch = globalFetchBackup;
+            }
+        });
+
+        it("_localWriteFrontLight with auth returns false on Digest 401", async () => {
+            const stub = makeStub();
+
+            const digestModule = require("../../build/lib/digest");
+            const digestStub = sinon.stub(digestModule, "digestRequest").resolves({
+                status: 401,
+                headers: {},
+                data: Buffer.from(""),
+            });
+
+            try {
+                const result = await methods.localWriteFrontLight.call(
+                    stub,
+                    "192.0.2.10",
+                    50,
+                    { user: "cbs-ABCD1234", password: "wrong-pass" },
+                );
+                expect(result).to.equal(false);
+            } finally {
+                digestStub.restore();
+            }
+        });
+
+        it("_localWritePrivacy with auth returns false on Digest 401", async () => {
+            const stub = makeStub();
+
+            const digestModule = require("../../build/lib/digest");
+            const digestStub = sinon.stub(digestModule, "digestRequest").resolves({
+                status: 401,
+                headers: {},
+                data: Buffer.from(""),
+            });
+
+            try {
+                const result = await methods.localWritePrivacy.call(
+                    stub,
+                    "192.0.2.10",
+                    false,
+                    { user: "cbs-ABCD1234", password: "wrong-pass" },
+                );
+                expect(result).to.equal(false);
+            } finally {
+                digestStub.restore();
             }
         });
     });

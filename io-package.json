@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "0.7.4",
+    "version": "0.7.5",
     "news": {
+      "0.7.5": {
+        "en": "Fix: local RCP fallback (privacy/light) now uses HTTPS port 443 + HTTP Digest auth; HTTP port 80 → connection refused on Gen2 cameras.",
+        "de": "Fix: Lokaler RCP-Fallback (Privacy/Licht) nutzt jetzt HTTPS Port 443 + HTTP Digest Auth; HTTP Port 80 → Connection refused bei Gen2-Kameras.",
+        "ru": "Исправление: локальный RCP-fallback (privacy/свет) теперь использует HTTPS порт 443 + HTTP Digest auth; HTTP порт 80 → connection refused на Gen2.",
+        "pt": "Fix: fallback RCP local (privacy/luz) usa agora HTTPS porta 443 + HTTP Digest auth; HTTP porta 80 → connection refused em câmeras Gen2.",
+        "nl": "Fix: lokale RCP-fallback (privacy/licht) gebruikt nu HTTPS poort 443 + HTTP Digest auth; HTTP poort 80 → connection refused op Gen2-camera's.",
+        "fr": "Correction : le fallback RCP local (privacy/lumière) utilise désormais HTTPS port 443 + HTTP Digest auth ; HTTP port 80 → connection refused sur Gen2.",
+        "it": "Fix: il fallback RCP locale (privacy/luce) usa ora HTTPS porta 443 + HTTP Digest auth; HTTP porta 80 → connection refused su Gen2.",
+        "es": "Fix: el fallback RCP local (privacy/luz) usa ahora HTTPS puerto 443 + HTTP Digest auth; HTTP puerto 80 → connection refused en Gen2.",
+        "pl": "Fix: lokalny fallback RCP (privacy/światło) używa teraz HTTPS port 443 + HTTP Digest auth; HTTP port 80 → connection refused na Gen2.",
+        "uk": "Виправлення: локальний RCP-fallback (privacy/світло) тепер використовує HTTPS порт 443 + HTTP Digest auth; HTTP порт 80 → connection refused на Gen2.",
+        "zh-cn": "修复：本地 RCP 回退（隐私/灯光）现在使用 HTTPS 443 端口 + HTTP Digest 认证；HTTP 80 端口在 Gen2 摄像头上 connection refused。"
+      },
       "0.7.4": {
         "en": "LAN-fallback: outage-ping sweep on cloud 5xx; cameras.<id>.lan_ip + lan_reachable DPs; 30 s post-write grace; cloud-degraded startup rehydrates from object DB; front-light local RCP fallback (Gen2) on cloud failure; privacy local RCP fallback.",
         "de": "LAN-Fallback: Outage-Ping bei Cloud-5xx; cameras.<id>.lan_ip + lan_reachable DPs; 30 s Post-Write-Grace; Cloud-degradierter Start rehydriert aus Object-DB; Front-Licht lokaler RCP-Fallback (Gen2) bei Cloud-Ausfall; Privacy lokaler RCP-Fallback.",

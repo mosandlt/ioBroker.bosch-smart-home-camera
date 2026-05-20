@@ -485,21 +485,33 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     _pingAllCamsDuringOutage(): Promise<void>;
     /**
-     * Write the front-light brightness directly via local RCP (Gen2, unauthenticated).
+     * Write the front-light brightness directly via local RCP (Gen2).
      * RCP 0x0c22 (T_WORD, num=1) — brightness 0–100.
+     *
+     * v0.7.5: Gen2 cameras listen only on HTTPS port 443 and require HTTP Digest
+     * auth on /rcp.xml (HTTP port 80 → connection refused; verified 2026-05-20).
+     * Credentials (`cbs-XXXXXXXX` cycling user/pass) come from the cloud
+     * PUT /connection response stored in the active LiveSession.
      * Returns true on success.
      *
-     * @param camIp
-     * @param brightness
+     * @param camIp     Camera LAN IP address
+     * @param brightness  Brightness 0–100 (clamped)
+     * @param auth      Optional Digest credentials {user, password}; required for Gen2
      */
     private _localWriteFrontLight;
     /**
-     * Write privacy mode directly via local RCP (Gen2, unauthenticated).
+     * Write privacy mode directly via local RCP (Gen2).
      * RCP 0x0d00 (P_OCTET) — mirrors HA's rcp_local_write_privacy.
+     *
+     * v0.7.5: Gen2 cameras listen only on HTTPS port 443 and require HTTP Digest
+     * auth on /rcp.xml (HTTP port 80 → connection refused; verified 2026-05-20).
+     * Credentials (`cbs-XXXXXXXX` cycling user/pass) come from the cloud
+     * PUT /connection response stored in the active LiveSession.
      * Returns true on success.
      *
-     * @param camIp
-     * @param enabled
+     * @param camIp   Camera LAN IP address
+     * @param enabled  true = privacy ON, false = privacy OFF
+     * @param auth    Optional Digest credentials {user, password}; required for Gen2
      */
     private _localWritePrivacy;
     private onReady;
