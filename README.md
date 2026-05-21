@@ -298,18 +298,20 @@ sequenceDiagram
 
 ## Setup
 
+> ⚠ **The Bosch auth code in the redirect URL expires in ~60 seconds.** Open the adapter Admin dialog in one tab BEFORE you click the login button, so you can paste the URL back the moment Bosch redirects you. If the code expires, just click "Open Bosch Login in browser" again — a fresh URL is generated each time.
+
 1. **Install** the adapter and create an instance (the adapter starts in "waiting for login" mode).
-2. **Open the adapter log** in ioBroker → Log Inspector and filter by `bosch-smart-home-camera`. Look for the line:
-   ```
-   Login required. Open this URL in your browser and log in to Bosch:
-   https://smarthome.authz.bosch.com/auth/realms/home_auth_provider/protocol/openid-connect/auth?…
-   ```
-3. **Copy that URL** into a browser, log in to your Bosch SingleKey ID (solve captcha/MFA if prompted).
-4. **Bosch redirects** your browser to `https://www.bosch.com/boschcam?code=…&state=…`. The page may show a blank or 404 — that is expected. Copy the full URL from the address bar.
-5. **Paste the URL** into the adapter's Admin UI → "Pasted callback URL" → Save.
+2. **Open the adapter's Admin dialog** (Instances → bosch-smart-home-camera → wrench icon). The Connection tab shows the login flow inline; **keep this dialog open** in one tab.
+3. **Click "Open Bosch Login in browser"** — Bosch SingleKey ID opens in a new tab. Log in (captcha / MFA if prompted).
+4. **Bosch redirects** your browser to `https://www.bosch.com/boschcam?code=…&state=…`. The page may show blank or a 404 — that is expected. **Immediately copy** the full URL from the address bar.
+5. **Switch back to the adapter Admin tab** and paste the URL into "Pasted callback URL", then Save. Do this within ~60 seconds of the redirect, otherwise the auth code expires and you have to start over.
 6. The adapter restarts, exchanges the auth code for tokens, fetches your cameras, and starts the FCM listener. Future restarts skip the browser step as long as the stored refresh token is still valid.
 
-If the refresh token is ever rejected (after a Bosch password change or extended downtime), the adapter logs a new login URL and you repeat steps 2–5.
+**Fallback if the Admin button is not available** (very old ioBroker Admin versions): the adapter also publishes the login URL as a state object — open `Objects → bosch-smart-home-camera.0 → info → login_url` and click the value to launch the login. The redirect-paste step is the same.
+
+**If the auth code expires** (you'll see `code expired` in the log after pasting), don't panic — just click "Open Bosch Login in browser" again. The adapter generates a fresh URL each time you press the button.
+
+If the refresh token is ever rejected (after a Bosch password change or extended downtime), the adapter logs a new login URL and you repeat steps 3–5.
 
 ### OAuth2 PKCE login flow
 

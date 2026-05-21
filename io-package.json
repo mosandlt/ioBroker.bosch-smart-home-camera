@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "0.7.10",
+    "version": "0.7.11",
     "news": {
+      "0.7.11": {
+        "en": "UX: Login dialog emphasizes that the Bosch auth code expires in ~60 seconds; orange warning above paste field; restructured tab-first workflow. README rewritten with code-expired recovery steps. Closes forum #84538.",
+        "de": "UX: Login-Dialog weist deutlich darauf hin, dass der Bosch-Auth-Code in ~60 Sekunden abläuft; orange Warnung über dem Einfüge-Feld; Tab-First-Workflow überarbeitet. README mit Recovery-Schritten für 'code expired'. Schließt Forum #84538.",
+        "ru": "UX: диалог логина подчёркивает, что Bosch auth-code истекает за ~60 секунд; оранжевое предупреждение над полем вставки; обновлённый tab-first workflow. README c восстановлением после 'code expired'. Закрывает форум #84538.",
+        "pt": "UX: diálogo de login enfatiza que o auth-code Bosch expira em ~60 segundos; aviso laranja acima do campo de colagem; workflow tab-first reestruturado. README com passos de recuperação 'code expired'. Fecha fórum #84538.",
+        "nl": "UX: login-dialoog benadrukt dat de Bosch auth-code in ~60 seconden verloopt; oranje waarschuwing boven plak-veld; tab-first workflow geherstructureerd. README met 'code expired' herstelstappen. Sluit forum #84538.",
+        "fr": "UX: le dialogue de connexion souligne que l'auth-code Bosch expire en ~60 secondes; avertissement orange au-dessus du champ de collage; workflow tab-first restructuré. README avec étapes de récupération 'code expired'. Ferme forum #84538.",
+        "it": "UX: dialogo login enfatizza che l'auth-code Bosch scade in ~60 secondi; avviso arancione sopra il campo di incolla; workflow tab-first ristrutturato. README con passi recupero 'code expired'. Chiude forum #84538.",
+        "es": "UX: diálogo login enfatiza que el auth-code Bosch expira en ~60 segundos; advertencia naranja encima del campo de pegado; workflow tab-first reestructurado. README con pasos recuperación 'code expired'. Cierra foro #84538.",
+        "pl": "UX: dialog logowania podkreśla, że kod auth Bosch wygasa w ~60 sekund; pomarańczowe ostrzeżenie nad polem wklejania; przebudowany workflow tab-first. README z krokami odzyskiwania po 'code expired'. Zamyka forum #84538.",
+        "uk": "UX: діалог логіну підкреслює, що Bosch auth-code спливає за ~60 секунд; помаранчеве попередження над полем вставки; оновлений tab-first workflow. README з кроками відновлення після 'code expired'. Закриває форум #84538.",
+        "zh-cn": "UX：登录对话框强调 Bosch 验证码在约 60 秒内过期；粘贴字段上方有橙色警告；重组 tab-first 工作流。README 添加 code expired 恢复步骤。关闭论坛 #84538。"
+      },
       "0.7.10": {
         "en": "Fix: cloud-503 handling — honest error messages; exponential renewal backoff (5s/15s/45s/120s/300s); Bosch maintenance-window detection. Closes #9.",
         "de": "Fix: Cloud-503-Handling — ehrliche Fehlermeldungen; Exponential-Backoff bei Erneuerung (5s/15s/45s/120s/300s); Bosch-Wartungsfenster-Erkennung. Schließt #9.",
