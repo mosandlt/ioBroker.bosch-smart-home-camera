@@ -45,7 +45,7 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via five sibling p
 
 | Feature | [Home Assistant Integration](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | [Python CLI Tool](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | [ioBroker Adapter](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | [MCP Server](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) |
 |---|---|---|---|---|
-| **Maturity** | v12.8+ — HA Quality Scale **Platinum** | v10.7+ stable | v0.7+ beta | v1.3+ stable · PyPI |
+| **Maturity** | v12.8+ — HA Quality Scale **Platinum** | v10.7+ stable (Mini-NVR BETA) | v0.7+ beta | v1.3+ stable · PyPI |
 | **Platform** | Home Assistant (HACS) | Standalone Python 3.10+ CLI | ioBroker (npm) | Python 3.10+ · pipx / uvx · stdio + streamable-HTTP for MCP clients (Claude Desktop, Claude Code, custom) |
 | **Login** | OAuth2 PKCE (browser) | OAuth2 PKCE (browser) | OAuth2 PKCE (browser) | OAuth2 PKCE (browser, one-time) |
 | **Snapshots** | ✅ Native `Camera.image` | ✅ `snapshot` command | ✅ File-store + base64 DP | ✅ `bosch_camera_snapshot` (LAN-only) |
@@ -56,13 +56,13 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via five sibling p
 | **Privacy mode** | ✅ switch entity | ✅ command | ✅ DP | ✅ `bosch_camera_privacy_set` (LAN-fallback via `prefer_local`) |
 | **Front spotlight (Gen1/Gen2)** | ✅ light entity | ✅ command | ✅ DP | ✅ `bosch_camera_light_set` (LAN-fallback) |
 | **RGB wallwasher (Gen2 Outdoor II)** | ✅ light w/ RGB | ✅ command | ✅ color + brightness DPs | ❌ *(on/off only — RGB not exposed)* |
-| **Panic-alarm siren (Gen2)** | ✅ button entity | ✅ command | ✅ DP | ❌ *(intentionally not exposed)* |
+| **Panic-alarm siren** | ✅ button entity *(Gen2 Indoor II)* | ✅ command *(Gen1 360° only)* | ✅ DP | ❌ *(intentionally not exposed)* |
 | **Image rotation 180°** | ✅ switch | ✅ flag | ✅ DP | ❌ |
 | **Motion / person / audio events** | ✅ FCM push + polling fallback | ✅ event-watch command | ✅ FCM push + polling fallback | ✅ `bosch_camera_events` (on-demand pull) |
 | **Motion edge-trigger state** | ✅ `binary_sensor.motion` | n/a | ✅ `motion_active` DP *(v0.5.3)* | n/a *(request-response, no subscription)* |
 | **Auto-snapshot on motion** | ✅ refreshes Camera entity | n/a | ✅ writes `last_event_image` base64 *(v0.5.3)* | n/a *(no background loop)* |
 | **Synthetic motion trigger (external sensor)** | ✅ service | n/a | ✅ DP | ❌ |
-| **Cloud clip download (history ~30 d)** | ✅ via Media Browser | ✅ download command | ❌ *(parked — no community request yet)* | ❌ *(intentionally not exposed — large payloads)* |
+| **Cloud clip download (history ~30 d)** | ✅ via Media Browser | ❌ *(removed per Bosch request)* | ❌ *(parked — no community request yet)* | ❌ *(intentionally not exposed — large payloads)* |
 | **Mini-NVR (motion-triggered local recording)** | ✅ *(v11.2.0 BETA)* | ✅ *(v10.7.0 BETA)* | ❌ | ❌ |
 | **SMB / NAS clip upload** | ✅ | ✅ *(v10.7.0 BETA)* | ❌ | ❌ |
 | **Audio-alarm sensitivity (Gen2)** | ✅ select | ✅ command | ❌ | ❌ |
