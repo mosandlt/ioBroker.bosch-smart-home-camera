@@ -2939,6 +2939,35 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 await this.upsertState(`cameras.${cam.id}.privacy_enabled`, desired);
                 this.log.debug(`State poll: ${cam.id.slice(0, 8)} privacy ` +
                     `${current?.val ? "ON" : "OFF"} → ${desired ? "ON" : "OFF"} (from cloud)`);
+                // External privacy-toggle (user pressed Privat in the Bosch
+                // app, not via this adapter) rotates the camera's Digest
+                // credentials server-side. The cached LiveSession holds the
+                // pre-toggle credentials and will keep publishing them as
+                // the stream_url DP — external clients (BlueIris, VLC, ...)
+                // then get 401 / "Check Port/User/Password" until we issue
+                // a fresh PUT /connection.
+                // Bug repro: forum.iobroker.net post #1341076 (Jaschkopf,
+                // 2026-05-23) — both ON→OFF and OFF→ON paths handled here
+                // because Bosch invalidates the prior creds on both edges.
+                //
+                // Fix: drop the cached session AND clear the published
+                // stream_url DPs so consumers see "no stream" immediately
+                // (instead of stale creds that 401). The next ensureLiveSession
+                // call (next stream-toggle, snapshot, RCP write, or watchdog
+                // tick) unconditionally fetches rotated Digest creds and
+                // re-publishes the URLs.
+                if (this._liveSessions.has(cam.id)) {
+                    const oldSession = this._liveSessions.get(cam.id);
+                    this._liveSessions.delete(cam.id);
+                    // Clear the now-stale stream URLs so external clients see
+                    // an empty value (and refuse to connect with bogus creds)
+                    // instead of trying the stale URL and getting a 401.
+                    await this.upsertState(`cameras.${cam.id}.stream_url`, "");
+                    await this.upsertState(`cameras.${cam.id}.stream_url_sub`, "");
+                    this.log.info(`Privacy toggled externally for ${cam.id.slice(0, 8)} — ` +
+                        `dropped cached LiveSession (opened ${oldSession ? Math.round((Date.now() - oldSession.openedAt) / 1000) : "?"}s ago) ` +
+                        `+ cleared stream_url DPs so external clients reconnect with rotated Digest creds`);
+                }
             }
         }
         // ── v0.7.7 WiFi info — GET /v11/video_inputs/{id}/wifiinfo ─────────

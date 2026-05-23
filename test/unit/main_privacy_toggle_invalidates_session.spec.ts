@@ -1,0 +1,172 @@
+/**
+ * Regression test — privacy toggle via Bosch app must invalidate the cached
+ * LiveSession so the next ensureLiveSession() fetches rotated Digest creds.
+ *
+ * Source: forum.iobroker.net post #1341076 (Jaschkopf, 2026-05-23).
+ *   "Privacy mode ON via Bosch app, later OFF — BlueIris and VLC then refuse
+ *    the stream URL with 'Check Port/User/Password'.  Adapter restart fixes
+ *    it."
+ *
+ * Root cause: Bosch rotates the Digest credentials of the RTSP stream URL
+ * on every privacy-state edge (camera-side enforcement).  Our
+ * _liveSessions cache holds the pre-toggle creds.  ensureLiveSession()
+ * inside its 60 s TTL window keeps returning that cached session — the
+ * stream_url DP keeps publishing the now-stale creds — external clients
+ * get 401.
+ *
+ * Fix: _pollSingleCameraState() now drops the cached LiveSession on every
+ * detected privacy-state change so the next ensureLiveSession() call is
+ * forced to issue a fresh PUT /connection.  Both ON→OFF and OFF→ON edges
+ * are covered because Bosch invalidates creds on both transitions.
+ *
+ * Pins:
+ *   1. Privacy ON→OFF detected by poll → cached session deleted
+ *   2. Privacy OFF→ON detected by poll → cached session deleted
+ *   3. Privacy state unchanged (re-poll same value) → cached session kept
+ *   4. No cached session present (cold start) → no-op, no crash
+ */
+
+import { expect } from "chai";
+import * as sinon from "sinon";
+import * as path from "path";
+
+import type { MockDatabase } from "@iobroker/testing/build/tests/unit/mocks/mockDatabase";
+import type { MockAdapter } from "@iobroker/testing/build/tests/unit/mocks/mockAdapter";
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+const { MockDatabase: MockDatabaseCtor } =
+    require("@iobroker/testing/build/tests/unit/mocks/mockDatabase") as {
+        MockDatabase: new () => MockDatabase;
+    };
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+const { mockAdapterCore: mockAdapterCoreFn } =
+    require("@iobroker/testing/build/tests/unit/mocks/mockAdapterCore") as {
+        mockAdapterCore: (
+            db: MockDatabase,
+            opts?: { onAdapterCreated?: (a: MockAdapter) => void },
+        ) => unknown;
+    };
+
+const REPO_ROOT = path.resolve(__dirname, "..", "..");
+const MAIN_JS_PATH = path.join(REPO_ROOT, "build", "main.js");
+const ADAPTER_CORE_PATH = require.resolve("@iobroker/adapter-core");
+
+const CAM_A = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyFn = (...args: any[]) => any;
+
+interface PollStub {
+    _liveSessions: Map<string, { digestUser: string; digestPassword: string; openedAt: number }>;
+    _cameras: Map<string, unknown>;
+    getStateAsync: sinon.SinonStub;
+    upsertState: sinon.SinonStub;
+    _pollWifiInfo: sinon.SinonStub;
+    _pollAudioState: sinon.SinonStub;
+    _pollIntrusionState: sinon.SinonStub;
+    _pollLightingState: sinon.SinonStub;
+    _pollMotionConfig: sinon.SinonStub;
+    log: { info: sinon.SinonStub; debug: sinon.SinonStub; warn: sinon.SinonStub };
+}
+
+function makeStub(opts: { hasSession?: boolean; currentPrivacyDp?: boolean | null }): PollStub {
+    const stub: PollStub = {
+        _liveSessions: new Map(),
+        _cameras: new Map(),
+        getStateAsync: sinon.stub().resolves(
+            opts.currentPrivacyDp === null
+                ? null
+                : { val: opts.currentPrivacyDp ?? false, ack: true },
+        ),
+        upsertState: sinon.stub().resolves(),
+        _pollWifiInfo: sinon.stub().resolves(),
+        _pollAudioState: sinon.stub().resolves(),
+        _pollIntrusionState: sinon.stub().resolves(),
+        _pollLightingState: sinon.stub().resolves(),
+        _pollMotionConfig: sinon.stub().resolves(),
+        log: { info: sinon.stub(), debug: sinon.stub(), warn: sinon.stub() },
+    };
+    if (opts.hasSession) {
+        stub._liveSessions.set(CAM_A, {
+            digestUser: "cbs-PRE-TOGGLE",
+            digestPassword: "pre-toggle-pass",
+            openedAt: Date.now() - 5000,
+        });
+    }
+    return stub;
+}
+
+function loadMethod(): { pollSingleCameraState: AnyFn } {
+    const db = new MockDatabaseCtor();
+    let capturedAdapter: MockAdapter | null = null;
+    const core = mockAdapterCoreFn(db, { onAdapterCreated: (a) => { capturedAdapter = a; } });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (require.cache as any)[ADAPTER_CORE_PATH] = {
+        id: ADAPTER_CORE_PATH, filename: ADAPTER_CORE_PATH, loaded: true,
+        parent: module, children: [], path: path.dirname(ADAPTER_CORE_PATH),
+        paths: [], exports: core,
+    };
+    delete require.cache[MAIN_JS_PATH];
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+    const factory = require(MAIN_JS_PATH) as (opts: Record<string, unknown>) => MockAdapter;
+    factory({ config: { redirect_url: "", region: "EU" } });
+    if (!capturedAdapter) throw new Error("adapter not captured");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const proto = capturedAdapter as any;
+    const pollSingleCameraState = proto._pollSingleCameraState as AnyFn | undefined;
+    if (typeof pollSingleCameraState !== "function") {
+        throw new Error("_pollSingleCameraState not found");
+    }
+    return { pollSingleCameraState };
+}
+
+describe("privacy-toggle invalidates cached LiveSession (forum #1341076)", () => {
+    let method: ReturnType<typeof loadMethod>;
+
+    before(() => { method = loadMethod(); });
+    afterEach(() => { sinon.restore(); });
+
+    it("ON→OFF transition deletes the cached LiveSession + clears stream_url DPs", async () => {
+        const stub = makeStub({ hasSession: true, currentPrivacyDp: true });
+        const cam = { id: CAM_A, name: "Terrasse", privacyMode: "OFF" };
+        expect(stub._liveSessions.has(CAM_A)).to.equal(true);
+        await method.pollSingleCameraState.call(stub, "token", cam);
+        expect(stub._liveSessions.has(CAM_A)).to.equal(false);
+        expect(stub.log.info.called).to.equal(true);
+        const msg = stub.log.info.firstCall?.args?.[0] || "";
+        expect(msg).to.include("Privacy toggled externally");
+        // stream_url + stream_url_sub cleared so external clients refuse
+        // to use stale creds instead of getting silent 401s.
+        const upsertCalls = stub.upsertState.getCalls().map((c) => c.args);
+        expect(upsertCalls).to.deep.include([`cameras.${CAM_A}.stream_url`, ""]);
+        expect(upsertCalls).to.deep.include([`cameras.${CAM_A}.stream_url_sub`, ""]);
+    });
+
+    it("OFF→ON transition deletes the cached LiveSession", async () => {
+        const stub = makeStub({ hasSession: true, currentPrivacyDp: false });
+        const cam = { id: CAM_A, name: "Terrasse", privacyMode: "ON" };
+        expect(stub._liveSessions.has(CAM_A)).to.equal(true);
+        await method.pollSingleCameraState.call(stub, "token", cam);
+        expect(stub._liveSessions.has(CAM_A)).to.equal(false);
+        expect(stub.log.info.called).to.equal(true);
+    });
+
+    it("unchanged state keeps the cached LiveSession (no-op)", async () => {
+        const stub = makeStub({ hasSession: true, currentPrivacyDp: false });
+        const cam = { id: CAM_A, name: "Terrasse", privacyMode: "OFF" };
+        await method.pollSingleCameraState.call(stub, "token", cam);
+        // privacy stayed OFF → no transition → session kept
+        expect(stub._liveSessions.has(CAM_A)).to.equal(true);
+        expect(stub.log.info.called).to.equal(false);
+    });
+
+    it("transition detected but no cached session present → no crash", async () => {
+        const stub = makeStub({ hasSession: false, currentPrivacyDp: true });
+        const cam = { id: CAM_A, name: "Terrasse", privacyMode: "OFF" };
+        await method.pollSingleCameraState.call(stub, "token", cam);
+        // No session to invalidate, but upsertState still fires
+        expect(stub._liveSessions.has(CAM_A)).to.equal(false);
+        expect(stub.upsertState.called).to.equal(true);
+    });
+});
