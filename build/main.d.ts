@@ -225,6 +225,7 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * to merge incremental DP writes into the full body Bosch requires.
      */
     private _lightingCache;
+    private _intrusionConfigCache;
     /**
      * Whether a continuous live RTSP stream is active per camera ID.
      * Default: false (no livestream on adapter start — Bosch counts every
@@ -368,6 +369,16 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      *
      * @param cameras  camera list fetched from Bosch Cloud
      */
+    /**
+     * v0.7.14: remove the `wifi_signal_strength` DP — it was created by
+     * v0.7.7 with unit "dBm" but in reality received the API's
+     * `signalStrength` percentage (0-100). The percentage now lives in
+     * `wifi_signal_pct`; keeping the misnamed DP around would mislead
+     * users into thinking dBm data is available. Safe to call repeatedly.
+     *
+     * @param cameras  camera list fetched from Bosch Cloud
+     */
+    private _migrateWifiSignalDp;
     private _migrateLightDps;
     /**
      * Read + decrypt + JSON-parse the persisted FCM credentials. Returns null
@@ -646,6 +657,17 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param cam
      */
     private _pollSingleCameraState;
+    /**
+     * v0.7.14: Fetch intrusionDetectionConfig and mirror sensitivity +
+     * distance into the per-camera DPs so users see the actual cloud
+     * values instead of the placeholder DP defaults (3 / 5). Also seeds
+     * the cache so the user-write handler has a full baseline body to
+     * merge into. Gen2-only endpoint.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private _pollIntrusionConfig;
     /**
      * Fetch WiFi info for one camera and update DPs.
      * GET /v11/video_inputs/{id}/wifiinfo — 200 with body, 404 on Ethernet.

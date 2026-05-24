@@ -338,6 +338,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _lightingCache = new Map<string, LightingState>();
 
+    // v0.7.14: cached intrusionDetectionConfig body from cloud GET so the
+    // user-write handler can merge a single field (sensitivity/distance)
+    // into the full body. Bosch rejects DELTA PUTs with HTTP 400.
+    private _intrusionConfigCache = new Map<string, Record<string, unknown>>();
+
     /**
      * Whether a continuous live RTSP stream is active per camera ID.
      * Default: false (no livestream on adapter start — Bosch counts every
@@ -1119,6 +1124,40 @@ class BoschSmartHomeCamera extends utils.Adapter {
      *
      * @param cameras  camera list fetched from Bosch Cloud
      */
+    /**
+     * v0.7.14: remove the `wifi_signal_strength` DP — it was created by
+     * v0.7.7 with unit "dBm" but in reality received the API's
+     * `signalStrength` percentage (0-100). The percentage now lives in
+     * `wifi_signal_pct`; keeping the misnamed DP around would mislead
+     * users into thinking dBm data is available. Safe to call repeatedly.
+     *
+     * @param cameras  camera list fetched from Bosch Cloud
+     */
+    private async _migrateWifiSignalDp(cameras: BoschCamera[]): Promise<void> {
+        let removed = 0;
+        for (const cam of cameras) {
+            const fullId = `cameras.${cam.id}.wifi_signal_strength`;
+            try {
+                const obj = await this.getObjectAsync(fullId);
+                if (obj) {
+                    await this.delObjectAsync(fullId);
+                    removed++;
+                    this.log.info(
+                        `v0.7.14 migration: removed mislabelled DP ${fullId} ` +
+                            `(was "dBm" but always received percent; use wifi_signal_pct)`,
+                    );
+                }
+            } catch {
+                // ignore
+            }
+        }
+        if (removed > 0) {
+            this.log.info(
+                `v0.7.14 migration: removed ${removed} obsolete wifi_signal_strength DP(s)`,
+            );
+        }
+    }
+
     private async _migrateLightDps(cameras: BoschCamera[]): Promise<void> {
         const LIGHT_DPS = ["light_enabled", "front_light_enabled", "wallwasher_enabled"];
         let removed = 0;
@@ -1808,19 +1847,10 @@ class BoschSmartHomeCamera extends utils.Adapter {
             }
 
             // v0.7.7: WiFi info DPs (read-only, refreshed from cloud poll).
-            await this.setObjectNotExistsAsync(`${prefix}.wifi_signal_strength`, {
-                type: "state",
-                common: {
-                    name: "WiFi signal strength (dBm)",
-                    role: "value",
-                    type: "number",
-                    unit: "dBm",
-                    read: true,
-                    write: false,
-                    def: 0,
-                },
-                native: {},
-            });
+            // v0.7.14: Bosch API returns `signalStrength` as percent 0-100,
+            // NOT dBm — the dBm-labelled DP was wrong from v0.7.7 onward.
+            // Old `wifi_signal_strength` (mislabelled "dBm") is no longer
+            // written; migration block below removes it from existing instances.
             await this.setObjectNotExistsAsync(`${prefix}.wifi_ssid`, {
                 type: "state",
                 common: {
@@ -2694,6 +2724,24 @@ class BoschSmartHomeCamera extends utils.Adapter {
         this._lanReachable.set(camId, [result, Date.now()]);
         // Update the persistent DP so automations can read it
         void this.upsertState(`cameras.${camId}.lan_reachable`, result).catch(() => undefined);
+
+        // v0.7.14: a privacy-mode cam refuses HTTPS so the snapshot-based
+        // `online` flip never lands and the DP stays at the default false
+        // even though the cam is clearly alive (TCP-pings succeed, cloud
+        // state syncs, privacy toggles propagate). When LAN-ping confirms
+        // the cam is reachable, mark it online — this is at least as
+        // truthful as the snapshot path. Snapshot-driven online=false on
+        // OFFLINE_THRESHOLD failures still wins for non-privacy outages.
+        if (result) {
+            try {
+                const cur = await this.getStateAsync(`cameras.${camId}.online`);
+                if (cur?.val !== true) {
+                    await this.setStateAsync(`cameras.${camId}.online`, true, true);
+                }
+            } catch {
+                // ignore — best-effort
+            }
+        }
         return result;
     }
 
@@ -3090,6 +3138,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // ── Step 3: Create state tree ──────────────────────────────────────
         // v0.7.6: remove orphaned light DPs from Gen2 no-light cameras (upgrade migration)
         await this._migrateLightDps(cameras);
+        // v0.7.14: remove mislabelled wifi_signal_strength DP (was "dBm" but
+        // always received percent — superseded by wifi_signal_pct)
+        await this._migrateWifiSignalDp(cameras);
         await this.ensureCameraObjects(cameras);
 
         // Populate in-memory camera cache (used by handlers for Gen1/Gen2 dispatch)
@@ -3337,6 +3388,15 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // current after a Bosch-app rename)
         this._cameras.set(cam.id, cam);
 
+        // v0.7.14: keep `lan_reachable` fresh. Pre-v0.7.14 the DP was only
+        // updated during cloud outages, so users on a healthy cloud always
+        // saw `lan_reachable=false` (the default) even when the cam was
+        // pingable. Fire-and-forget so it runs in parallel with the cloud
+        // queries below; no impact on poll latency.
+        if (this._lanIpMap.has(cam.id)) {
+            void this._tcpPing(cam.id).catch(() => undefined);
+        }
+
         if (cam.privacyMode !== undefined) {
             const desired = cam.privacyMode === "ON";
             // Only write when changed — upsertState already dedupes, but a
@@ -3404,6 +3464,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // Fetched for all cameras in the coordinator poll cycle.
         await this._pollWifiInfo(token, cam.id);
 
+        // v0.7.14: Gen2 intrusionDetectionConfig — mirrors sensitivity +
+        // distance into DPs AND seeds the write-cache so the user-write
+        // handler has a full body to merge into (Bosch rejects DELTA PUTs).
+        if (cam.generation >= 2) {
+            await this._pollIntrusionConfig(token, cam.id);
+        }
+
         // ── Gen2 lighting/switch — seed cache + sync wallwasher DPs ────────
         // /lighting/switch is a separate endpoint (not in /v11/video_inputs),
         // so we fetch it per-camera. Only Gen2 cams with featureSupport.light
@@ -3458,6 +3525,52 @@ class BoschSmartHomeCamera extends utils.Adapter {
     // ── v0.7.7 WiFi info poll ───────────────────────────────────────────────
 
     /**
+     * v0.7.14: Fetch intrusionDetectionConfig and mirror sensitivity +
+     * distance into the per-camera DPs so users see the actual cloud
+     * values instead of the placeholder DP defaults (3 / 5). Also seeds
+     * the cache so the user-write handler has a full baseline body to
+     * merge into. Gen2-only endpoint.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private async _pollIntrusionConfig(token: string, camId: string): Promise<void> {
+        try {
+            const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/intrusionDetectionConfig`;
+            const resp = await this._httpClient.get<unknown>(url, {
+                headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                // 443 = privacy mode active, settings frozen (HA convention).
+                // Skip silently — DPs keep their last-known value from the
+                // pre-privacy poll, write-cache stays fresh until privacy
+                // is lifted.
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 404 || s === 443,
+            });
+            if (resp.status === 404 || resp.status === 443 || !resp.data) {
+                return;
+            }
+            const data = resp.data as Record<string, unknown>;
+            this._intrusionConfigCache.set(camId, { ...data });
+            const sensitivity = typeof data.sensitivity === "number" ? data.sensitivity : undefined;
+            const distance = typeof data.distance === "number" ? data.distance : undefined;
+            const writes: Promise<void>[] = [];
+            if (sensitivity !== undefined) {
+                writes.push(
+                    this.upsertState(`cameras.${camId}.intrusion_sensitivity`, sensitivity),
+                );
+            }
+            if (distance !== undefined) {
+                writes.push(this.upsertState(`cameras.${camId}.intrusion_distance`, distance));
+            }
+            await Promise.all(writes);
+        } catch (err: unknown) {
+            this.log.debug(
+                `Intrusion config poll for ${camId.slice(0, 8)} failed: ` +
+                    `${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
+    }
+
+    /**
      * Fetch WiFi info for one camera and update DPs.
      * GET /v11/video_inputs/{id}/wifiinfo — 200 with body, 404 on Ethernet.
      * Best-effort: errors are logged at debug level and ignored.
@@ -3477,17 +3590,15 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 return;
             }
             const data = resp.data as Record<string, unknown>;
-            const dbm = typeof data.signalStrength === "number" ? data.signalStrength : undefined;
+            // v0.7.14: Bosch's wifiinfo response uses `signalStrength` as a
+            // PERCENTAGE 0-100, not dBm. Verified live against EF791764
+            // (signalStrength=86) and 20E053B5 (signalStrength=100) on
+            // FW 9.40.25. The `signalStrengthPercentage` field that v0.7.7
+            // looked for never existed — dead lookup removed.
             const ssid = typeof data.ssid === "string" ? data.ssid : undefined;
-            const pct =
-                typeof data.signalStrengthPercentage === "number"
-                    ? data.signalStrengthPercentage
-                    : undefined;
+            const pct = typeof data.signalStrength === "number" ? data.signalStrength : undefined;
 
             const writes: Promise<void>[] = [];
-            if (dbm !== undefined) {
-                writes.push(this.upsertState(`cameras.${camId}.wifi_signal_strength`, dbm));
-            }
             if (ssid !== undefined) {
                 writes.push(this.upsertState(`cameras.${camId}.wifi_ssid`, ssid));
             }
@@ -3911,24 +4022,64 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (!this._currentAccessToken) {
             throw new Error("no access token — adapter not ready");
         }
-        const body: Record<string, number> = {};
+        const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/intrusionDetectionConfig`;
+        const headers = {
+            Authorization: `Bearer ${this._currentAccessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        };
+
+        // v0.7.14: Bosch rejects DELTA PUTs with HTTP 400 — the endpoint
+        // requires the FULL config body (detectionMode, sensitivity,
+        // distance, enabled, …). HA does GET → mutate → PUT full body.
+        // Mirror that. Bug reproduced live: setting sensitivity=4 against
+        // Innenbereich (FW 9.40.102) returned 400 until this fix.
+        const cachedRaw = this._intrusionConfigCache.get(camId);
+        let cfg: Record<string, unknown>;
+        if (cachedRaw) {
+            cfg = { ...cachedRaw };
+        } else {
+            // First write before any successful GET — fetch fresh config
+            // so we know the missing required fields.
+            const getResp = await this._httpClient.get<unknown>(url, {
+                headers,
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
+            });
+            if (getResp.status === 443) {
+                throw new Error(
+                    `Bosch rejected intrusion-config GET with HTTP 443 — cam is in privacy mode; ` +
+                        `disable privacy first to read or change the config`,
+                );
+            }
+            cfg = (getResp.data as Record<string, unknown>) ?? {};
+            this._intrusionConfigCache.set(camId, { ...cfg });
+        }
+
         if (delta.sensitivity !== undefined) {
-            body.sensitivity = Math.max(0, Math.min(7, delta.sensitivity));
+            cfg.sensitivity = Math.max(0, Math.min(7, Math.round(delta.sensitivity)));
         }
         if (delta.distance !== undefined) {
-            body.detectionDistance = Math.max(1, Math.min(10, delta.distance));
+            cfg.distance = Math.max(1, Math.min(10, Math.round(delta.distance)));
         }
-        const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/intrusionDetectionConfig`;
-        const resp = await this._httpClient.put<unknown>(url, body, {
-            headers: {
-                Authorization: `Bearer ${this._currentAccessToken}`,
-                "Content-Type": "application/json",
-                Accept: "application/json",
-            },
-            validateStatus: (s) => s >= 200 && s < 300,
+
+        // v0.7.14: HTTP 443 from Bosch = "cam is in privacy mode, config
+        // writes are rejected". HA's same response shows a localised
+        // `privacy_blocked` error. We surface a clear message so users
+        // know to disable privacy first, not a generic "Bad Request".
+        const resp = await this._httpClient.put<unknown>(url, cfg, {
+            headers,
+            validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
         });
+        if (resp.status === 443) {
+            throw new Error(
+                `Bosch rejected intrusion-config PUT with HTTP 443 — cam is in privacy mode; ` +
+                    `disable privacy first to change sensitivity/distance`,
+            );
+        }
+        // Update cache with the body we just successfully wrote
+        this._intrusionConfigCache.set(camId, { ...cfg });
         this.log.info(
-            `Intrusion config updated for ${camId.slice(0, 8)} (HTTP ${resp.status}): ${JSON.stringify(body)}`,
+            `Intrusion config updated for ${camId.slice(0, 8)} (HTTP ${resp.status}): ${JSON.stringify(cfg)}`,
         );
     }
 
@@ -4346,21 +4497,73 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 const ts = BoschSmartHomeCamera.normaliseBoschTimestamp(rawTs);
 
                 const prefix = `cameras.${camId}`;
-                await this.setStateAsync(`${prefix}.last_motion_at`, ts, true);
-                await this.setStateAsync(`${prefix}.last_motion_event_type`, eventType, true);
 
-                this.log.info(
-                    `Motion event [${eventType}] for camera ${camId.slice(0, 8)} at ${ts} (id=${newestId.slice(0, 8)})`,
-                );
+                // v0.7.14: classify event type. Bosch's `/v11/events` mixes
+                // real motion ("motion"/"person"/"audio_alarm") with status
+                // events ("trouble_disconnect", "trouble_reconnect", arming
+                // changes, ...). Pre-v0.7.14 wrote ALL of them to
+                // `last_motion_at` + `last_motion_event_type` and flipped
+                // `motion_active=true`, which (a) misclassified a 4-week-old
+                // disconnect as a fresh motion event after every adapter
+                // restart and (b) triggered auto-snapshot for non-motion
+                // events. Now route only true motion events through the
+                // motion DPs; status events are info-logged + skipped.
+                const MOTION_EVENT_TYPES = new Set(["motion", "person", "audio_alarm"]);
+                const isMotion = MOTION_EVENT_TYPES.has(eventType);
 
-                this._publishMqttEvent(camId, eventType, ts, newestId);
+                // v0.7.14: stale-event guard for side effects. `_lastSeenEventId`
+                // lives in memory only, so on every adapter restart the very
+                // first poll surfaces the newest event for each camera even
+                // when it is hours/weeks old (offline Gen1 cams whose last
+                // cloud event is a 2026-04-27 trouble_disconnect). Historical
+                // DPs (last_motion_at) still update so "letzte Bewegung
+                // gesehen" stays accurate, but motion_active / auto-snapshot
+                // / MQTT publish are suppressed for events older than the
+                // cutoff so an adapter restart doesn't fire scenes for
+                // four-week-old motion.
+                const eventTs = new Date(ts).getTime();
+                const eventAgeMs = Number.isFinite(eventTs) ? Date.now() - eventTs : 0;
+                const MAX_FRESH_AGE_MS = 15 * 60_000;
+                const isFresh = eventAgeMs <= MAX_FRESH_AGE_MS;
 
-                // Same side-effects as the FCM path: flip motion_active=true,
-                // arm the 90 s auto-clear timer, and optionally fire an
-                // auto-snapshot. Without this call, users on the polling
-                // fallback (info.fcm_active="polling") saw last_motion_at
-                // update but motion_active stuck at false (forum #1339866).
-                await this._onMotionFired(camId);
+                if (isMotion) {
+                    await this.setStateAsync(`${prefix}.last_motion_at`, ts, true);
+                    await this.setStateAsync(`${prefix}.last_motion_event_type`, eventType, true);
+                    if (isFresh) {
+                        this.log.info(
+                            `Motion event [${eventType}] for camera ${camId.slice(0, 8)} at ${ts} (id=${newestId.slice(0, 8)})`,
+                        );
+                        this._publishMqttEvent(camId, eventType, ts, newestId);
+                        // Same side-effects as the FCM path: flip motion_active=true,
+                        // arm the 90 s auto-clear timer, and optionally fire an
+                        // auto-snapshot. Without this call, users on the polling
+                        // fallback (info.fcm_active="polling") saw last_motion_at
+                        // update but motion_active stuck at false (forum #1339866).
+                        await this._onMotionFired(camId);
+                    } else {
+                        this.log.debug(
+                            `Stale motion event [${eventType}] for ${camId.slice(0, 8)} ` +
+                                `(age ${Math.round(eventAgeMs / 60_000)}min, id=${newestId.slice(0, 8)}) — ` +
+                                `last_motion_at updated, side effects suppressed`,
+                        );
+                    }
+                } else {
+                    // Non-motion status event (trouble_disconnect, …). Logged
+                    // for visibility but does NOT update motion DPs or fire
+                    // auto-snapshot. The cam may already be unreachable so a
+                    // snapshot attempt would just queue a failed Bosch call.
+                    if (isFresh) {
+                        this.log.info(
+                            `Status event [${eventType}] for camera ${camId.slice(0, 8)} at ${ts} ` +
+                                `(id=${newestId.slice(0, 8)}) — not classified as motion`,
+                        );
+                    } else {
+                        this.log.debug(
+                            `Stale status event [${eventType}] for ${camId.slice(0, 8)} ` +
+                                `(age ${Math.round(eventAgeMs / 60_000)}min, id=${newestId.slice(0, 8)}) — suppressed`,
+                        );
+                    }
+                }
             } catch (err: unknown) {
                 this.log.debug(
                     `fetchAndProcessEvents failed for ${camId.slice(0, 8)}: ${(err as Error).message}`,

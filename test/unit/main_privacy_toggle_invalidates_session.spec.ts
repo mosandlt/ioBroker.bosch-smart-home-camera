@@ -61,10 +61,13 @@ interface PollStub {
     _liveSessions: Map<string, { digestUser: string; digestPassword: string; openedAt: number }>;
     _cameras: Map<string, unknown>;
     _livestreamEnabled: Map<string, boolean>;
+    _lanIpMap: Map<string, string>;
     getStateAsync: sinon.SinonStub;
     upsertState: sinon.SinonStub;
     ensureLiveSession: sinon.SinonStub;
+    _tcpPing: sinon.SinonStub;
     _pollWifiInfo: sinon.SinonStub;
+    _pollIntrusionConfig: sinon.SinonStub;
     _pollAudioState: sinon.SinonStub;
     _pollIntrusionState: sinon.SinonStub;
     _pollLightingState: sinon.SinonStub;
@@ -92,6 +95,7 @@ function makeStub(opts: {
         _liveSessions: new Map(),
         _cameras: new Map(),
         _livestreamEnabled: new Map(),
+        _lanIpMap: new Map(),
         getStateAsync: sinon.stub().resolves(
             opts.currentPrivacyDp === null
                 ? null
@@ -99,7 +103,9 @@ function makeStub(opts: {
         ),
         upsertState: sinon.stub().resolves(),
         ensureLiveSession: ensureStub,
+        _tcpPing: sinon.stub().resolves(false),
         _pollWifiInfo: sinon.stub().resolves(),
+        _pollIntrusionConfig: sinon.stub().resolves(),
         _pollAudioState: sinon.stub().resolves(),
         _pollIntrusionState: sinon.stub().resolves(),
         _pollLightingState: sinon.stub().resolves(),

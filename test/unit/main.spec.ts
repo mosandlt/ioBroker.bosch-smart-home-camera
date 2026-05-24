@@ -1598,12 +1598,16 @@ describe("main adapter — v0.2.0 command handlers", () => {
         // Fresh event arriving on the polling fallback — newer ID than the
         // empty cache, so the dedup check is bypassed.
         const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        // v0.7.14: events older than 15 min are stale-filtered for side
+        // effects (motion_active, MQTT, auto-snapshot, …). Use a fresh
+        // timestamp so the polling-fallback path still flips motion_active.
+        const eventTimestamp = new Date().toISOString();
         const eventBody = [
             {
                 id: "event-9999",
                 eventType: "MOVEMENT",
                 eventTags: ["PERSON"],
-                timestamp: "2026-05-15T19:00:00.000Z",
+                timestamp: eventTimestamp,
                 videoInputId: camId,
             },
         ];
@@ -1630,7 +1634,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         expect(
             lastAt?.val,
             "precondition: polling path writes last_motion_at (already worked in v0.5.4)",
-        ).to.equal("2026-05-15T19:00:00.000Z");
+        ).to.equal(eventTimestamp);
 
         const motionActive = db.getState(
             `${adapter.namespace}.cameras.${camId}.motion_active`,
@@ -1676,6 +1680,8 @@ describe("main adapter — v0.2.0 command handlers", () => {
                 { status: 200, data: cameraListResponse }, // GET /v11/video_inputs (re-poll)
                 // v0.7.7: _pollWifiInfo runs before lighting; 404 = Ethernet cam (no-op)
                 { status: 404, data: null }, // GET /v11/video_inputs/{id}/wifiinfo
+                // v0.7.14: _pollIntrusionConfig runs between wifi and lighting for Gen2
+                { status: 404, data: null }, // GET /v11/video_inputs/{id}/intrusionDetectionConfig
                 { status: 200, data: lightingResponse }, // GET /v11/video_inputs/{id}/lighting/switch
             ],
         });
@@ -1743,6 +1749,8 @@ describe("main adapter — v0.2.0 command handlers", () => {
                 { status: 200, data: cameraListResponse },
                 // v0.7.7: _pollWifiInfo runs before lighting; 404 = Ethernet cam (no-op)
                 { status: 404, data: null }, // GET /v11/video_inputs/{id}/wifiinfo
+                // v0.7.14: _pollIntrusionConfig runs between wifi and lighting for Gen2
+                { status: 404, data: null }, // GET /v11/video_inputs/{id}/intrusionDetectionConfig
                 { status: 200, data: lightingResponse },
             ],
         });

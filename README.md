@@ -89,6 +89,21 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via five sibling p
 
 ## Changelog
 
+### 0.7.14 (2026-05-24)
+Live-audit pass on the Indoor II camera surfaced eight latent bugs in the data plane, all fixed in one round.
+
+- **`wifi_signal_pct` stuck at 0**: the `wifiinfo` endpoint returns `signalStrength` as a percent (0–100), not dBm — verified live against Terrasse (`signalStrength=86`) and Innenbereich (`signalStrength=100`) on FW 9.40.102. v0.7.7 had assumed dBm semantics and looked for a `signalStrengthPercentage` field that does not exist. The percent now maps to `wifi_signal_pct` directly.
+- **`wifi_signal_strength` DP retired**: it was labelled "dBm" but always received percent values from v0.7.7 onward. v0.7.14 migration removes the DP from existing instances so users don't see two contradictory readings.
+- **`trouble_disconnect` no longer classified as motion**: pre-v0.7.14 the `fetchAndProcessEvents` polling fallback wrote every cloud event — including connectivity status events (`trouble_disconnect`, `trouble_reconnect`) — into `last_motion_at` / `last_motion_event_type` and flipped `motion_active=true`. v0.7.14 limits motion DPs to an allowlist (`motion`, `person`, `audio_alarm`); status events are info-logged and skipped.
+- **Stale events no longer replay on every restart**: `_lastSeenEventId` is in-memory only, so after each adapter restart the newest cached cloud event was re-processed — including four-week-old `trouble_disconnect` events from offline Gen1 cameras. Side effects (motion_active flip, auto-snapshot, MQTT publish) are now skipped for events older than 15 minutes; `last_motion_at` still updates as historical "letzte Bewegung gesehen" record.
+- **`lan_reachable` refreshes per poll**: pre-v0.7.14 the TCP-ping only fired during cloud outages, so `lan_reachable` stayed at its `false` default during normal operation. v0.7.14 fires a fire-and-forget per-camera TCP-ping inside every `_pollSingleCameraState` tick (no impact on poll latency).
+- **`online` flips true under privacy mode**: the snapshot-based reachability check fails when the camera is in privacy mode, so `online` stayed at the default `false` even when the camera was clearly alive (TCP-pings succeed, cloud state syncs). v0.7.14 also flips `online=true` whenever the new periodic TCP-ping succeeds.
+- **Intrusion DPs mirror real cloud values**: `intrusion_sensitivity` and `intrusion_distance` were never read from `/intrusionDetectionConfig` — they showed only the DP defaults (3, 5). New `_pollIntrusionConfig` runs in every Gen2 state poll, caches the full body, and mirrors `sensitivity` + `distance` to the DPs.
+- **Intrusion writes succeed**: Bosch's `intrusionDetectionConfig` endpoint rejects DELTA PUTs with HTTP 400 — pre-v0.7.14 sent `{sensitivity: N}` or `{detectionDistance: N}`. v0.7.14 reads the full config from the write-cache (or fetches it on first write), merges the user's change, and PUTs the full body. Also: the `distance` field is named `distance`, not `detectionDistance`. Verified live with `{"enabled":true,"sensitivity":4,"detectionMode":"ALL_MOTIONS","distance":8}` → HTTP 204.
+- **HTTP 443 surfaces clearly**: Bosch returns 443 ("non-standard") on every config-write while the camera is in privacy mode. HA already maps this to a `privacy_blocked` error; v0.7.14 mirrors that and throws "cam is in privacy mode, disable privacy first" instead of a generic axios error.
+
+Tests: existing pinned tests in `main_audio_intrusion_wifi.spec.ts` updated for the GET→PUT-full-body sequence and the new percent mapping; `main.spec.ts` polling-fallback test uses a fresh timestamp to exercise the post-stale-filter path. Full suite: **610 passing / 0 failing / 4 pending**.
+
 ### 0.7.13 (2026-05-24)
 Privacy-toggle fix part 2 — TLS proxy now actually rotates its bound Digest creds.
 
@@ -250,7 +265,7 @@ Older releases (0.0.1 – 0.3.3) are archived in [CHANGELOG_OLD.md](./CHANGELOG_
 
 ## Status
 
-**Beta (v0.7.13)** — verified live against 4 cameras (Gen1 + Gen2, FW 7.91.56 / 9.40.25) on a real ioBroker instance. Cloud API contracts confirmed against the iOS app via mitmproxy.
+**Beta (v0.7.14)** — verified live against 4 cameras (Gen1 + Gen2, FW 7.91.56 / 9.40.25) on a real ioBroker instance. Cloud API contracts confirmed against the iOS app via mitmproxy.
 
 What works:
 - Browser-based OAuth2 PKCE login via Bosch SingleKey ID (no programmatic password handling — captcha/MFA happen in the browser)
@@ -620,7 +635,7 @@ This adapter is part of a 5-implementation family for Bosch Smart Home Cameras:
 |---|---|---|
 | 🏆 Home Assistant Integration | [Bosch-Smart-Home-Camera-Tool-HomeAssistant](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | **v12.8.4** · HA Quality Scale **Platinum** · production-ready |
 | 🐍 Python CLI | [Bosch-Smart-Home-Camera-Tool-Python](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | v10.7.6 · Mini-NVR + SMB upload (BETA) · LAN-fallback (ping / --local) · capture / research / no-HA standalone |
-| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.13 · beta · npm |
+| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.14 · beta · npm |
 | 🤖 MCP Server | [Bosch-Smart-Home-Camera-Tool-MCP](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) | v1.3.5 · LAN-ping + prefer_local · Claude Code / Claude Desktop integration |
 | 🔴 Node-RED nodes (alpha) | [Bosch-Smart-Home-Camera-Tool-NodeRED](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-NodeRED) | v0.1.0-alpha · skeleton |
 

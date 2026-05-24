@@ -341,10 +341,23 @@ describe("v0.7.7 speaker_level", () => {
 // ── intrusion_sensitivity ───────────────────────────────────────────────────
 
 describe("v0.7.7 intrusion_sensitivity", () => {
-    it("Gen2: write 5 → PUT /intrusionDetectionConfig {sensitivity:5}, state acked", async () => {
+    it("Gen2: write 5 → GET cache miss + PUT full body, state acked (v0.7.14)", async () => {
+        // v0.7.14: Bosch rejects DELTA PUTs with HTTP 400 — handler now
+        // GETs the full config (when cache is empty) then PUTs the
+        // merged body. Pin sequence: boot cameras → GET intrusion config →
+        // PUT full body → 204 success.
         stubAxiosSequence([
-            { status: 200, data: CAMERAS_GEN2_ONLY },
-            { status: 204, data: null }, // PUT /intrusionDetectionConfig
+            { status: 200, data: CAMERAS_GEN2_ONLY }, // boot cameras
+            {
+                status: 200,
+                data: {
+                    enabled: true,
+                    sensitivity: 3,
+                    detectionMode: "ALL_MOTIONS",
+                    distance: 5,
+                },
+            }, // GET /intrusionDetectionConfig (cache miss)
+            { status: 204, data: null }, // PUT /intrusionDetectionConfig (full body)
         ]);
         const { db, adapter } = createAdapterWithMocks(CAMERAS_GEN2_ONLY);
         await bootWithTokens(db, adapter);
@@ -361,6 +374,29 @@ describe("v0.7.7 intrusion_sensitivity", () => {
         const state = db.getState(isId) as ioBroker.State | null;
         expect(state?.val).to.equal(5);
         expect(state?.ack).to.equal(true);
+    });
+
+    it("Gen2: write rejected with HTTP 443 (privacy mode) → clear error (v0.7.14)", async () => {
+        // v0.7.14 maps Bosch's 443 to "cam is in privacy mode, disable
+        // privacy first" instead of bubbling up a generic axios error.
+        stubAxiosSequence([
+            { status: 200, data: CAMERAS_GEN2_ONLY },
+            { status: 443, data: null }, // GET /intrusionDetectionConfig (privacy blocked)
+        ]);
+        const { db, adapter } = createAdapterWithMocks(CAMERAS_GEN2_ONLY);
+        await bootWithTokens(db, adapter);
+
+        const isId = `${adapter.namespace}.cameras.${CAM_GEN2}.intrusion_sensitivity`;
+        await adapter.stateChangeHandler!(isId, {
+            val: 5,
+            ack: false,
+            ts: Date.now(),
+            lc: Date.now(),
+            from: "user",
+        });
+        // Not acked — user write failed
+        const state = db.getState(isId) as ioBroker.State | null;
+        expect(state?.ack === true).to.equal(false, "443 must not ack user write");
     });
 
     it("Gen1: write ignored — not acked", async () => {
@@ -399,10 +435,21 @@ describe("v0.7.7 intrusion_sensitivity", () => {
 // ── intrusion_distance ──────────────────────────────────────────────────────
 
 describe("v0.7.7 intrusion_distance", () => {
-    it("Gen2: write 7 → PUT /intrusionDetectionConfig {detectionDistance:7}, state acked", async () => {
+    it("Gen2: write 7 → GET cache miss + PUT full body (v0.7.14)", async () => {
+        // v0.7.14: handler now PUTs full body including `distance` (was
+        // `detectionDistance` pre-v0.7.14 — wrong field name caused 400).
         stubAxiosSequence([
-            { status: 200, data: CAMERAS_GEN2_ONLY },
-            { status: 204, data: null }, // PUT /intrusionDetectionConfig
+            { status: 200, data: CAMERAS_GEN2_ONLY }, // boot cameras
+            {
+                status: 200,
+                data: {
+                    enabled: true,
+                    sensitivity: 3,
+                    detectionMode: "ALL_MOTIONS",
+                    distance: 5,
+                },
+            }, // GET /intrusionDetectionConfig
+            { status: 204, data: null }, // PUT /intrusionDetectionConfig (full body)
         ]);
         const { db, adapter } = createAdapterWithMocks(CAMERAS_GEN2_ONLY);
         await bootWithTokens(db, adapter);
@@ -450,14 +497,18 @@ describe("v0.7.7 intrusion_distance", () => {
 // adapter set at creation time. We therefore arm the stub BEFORE createAdapter
 // and use the same single boot-stub for the wifiinfo call too.
 
-describe("v0.7.7 WiFi info DPs", () => {
-    it("wifiinfo 200: wifi DPs written from /wifiinfo response", async () => {
+describe("v0.7.7 WiFi info DPs (v0.7.14: field mapping fixed)", () => {
+    it("wifiinfo 200: signalStrength (percent 0-100) → wifi_signal_pct DP (v0.7.14)", async () => {
+        // v0.7.14: Bosch's wifiinfo response uses `signalStrength` as a
+        // PERCENT 0-100 (verified live against Terrasse=86 + Innenbereich=
+        // 100). Pre-v0.7.14 wrote it to wifi_signal_strength labelled
+        // "dBm" and looked for the non-existent `signalStrengthPercentage`.
         const wifiPayload = {
             ssid: "MyHomeWiFi",
-            signalStrength: -65,
-            signalStrengthPercentage: 70,
+            signalStrength: 86, // PERCENT 0-100, not dBm
+            ipAddress: "192.168.1.42",
+            macAddress: "64-da-a0-33-14-af",
         };
-        // Boot: cameras + wifiinfo (called explicitly after boot via _pollWifiInfo)
         stubAxiosSequence([
             { status: 200, data: CAMERAS_GEN2_ONLY }, // boot cameras fetch
             { status: 200, data: wifiPayload }, // _pollWifiInfo GET /wifiinfo
@@ -465,14 +516,12 @@ describe("v0.7.7 WiFi info DPs", () => {
         const { db, adapter } = createAdapterWithMocks(CAMERAS_GEN2_ONLY);
         await bootWithTokens(db, adapter);
 
-        // Call _pollWifiInfo directly — it uses the already-created _httpClient
-        // which inherited the stub adapter set before createAdapter()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (adapter as any)._pollWifiInfo("stored.acc", CAM_GEN2);
 
         expect(getStateVal(db, adapter, `cameras.${CAM_GEN2}.wifi_ssid`)).to.equal("MyHomeWiFi");
-        expect(getStateVal(db, adapter, `cameras.${CAM_GEN2}.wifi_signal_strength`)).to.equal(-65);
-        expect(getStateVal(db, adapter, `cameras.${CAM_GEN2}.wifi_signal_pct`)).to.equal(70);
+        // signalStrength=86 → wifi_signal_pct=86 (new mapping)
+        expect(getStateVal(db, adapter, `cameras.${CAM_GEN2}.wifi_signal_pct`)).to.equal(86);
     });
 
     it("wifiinfo 404 (Ethernet cam): DPs stay at default — no error", async () => {
