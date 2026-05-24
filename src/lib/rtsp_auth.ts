@@ -230,7 +230,34 @@ export function attachRtspAuthHandler(opts: RtspAuthOptions): void {
             }
 
             if (mode === "AUTH_RESPONDING") {
-                // Response to our authed retry — forward to client and switch to INJECTING.
+                // Response to our authed retry. Two cases:
+                //   - status 200/2xx: success — forward and enter INJECTING
+                //   - status 401: our Digest creds are stale (Bosch rotated
+                //     them server-side after a privacy toggle). v0.7.13:
+                //     forward the 401 honestly + close the sockets instead
+                //     of unconditionally entering INJECTING with bad creds.
+                //     The client will reconnect, by which time the privacy
+                //     state poll's eager ensureLiveSession() (or any other
+                //     trigger) has refreshed the proxy's Digest creds via
+                //     updateDigestAuth(). Forum #1341076.
+                if (status === 401) {
+                    log(
+                        "warn",
+                        `RTSP auth ${camLabel}: camera rejected our Digest creds (status 401) — ` +
+                            `forwarding 401 + closing client so it reconnects with refreshed creds`,
+                    );
+                    pendingFirstRequest = null;
+                    challenge = null;
+                    clientSocket.write(respBuf);
+                    if (trailing.length > 0) {
+                        clientSocket.write(trailing);
+                    }
+                    // Tearing down the client side triggers the proxy's
+                    // teardown handler (clientSocket.on("end") → teardown()).
+                    clientSocket.end();
+                    return;
+                }
+                // 2xx (or unexpected): real handshake success.
                 mode = "INJECTING";
                 pendingFirstRequest = null;
                 log(

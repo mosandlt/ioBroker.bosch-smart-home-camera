@@ -27,6 +27,20 @@ export interface TlsProxyHandle {
     localRtspUrl: string;
     /** Stop the proxy (close server + all in-flight connections) */
     stop(): Promise<void>;
+    /**
+     * v0.7.13: Refresh the Digest creds the proxy uses to authenticate
+     * against the camera, without restarting the listener (sticky port
+     * preserved). Necessary because Bosch rotates the RTSP Digest creds
+     * server-side on every privacy-mode toggle — the `PUT /connection`
+     * response carries new `user`/`password` values that the proxy must
+     * inject into client requests, otherwise BlueIris/VLC get 401 after
+     * the toggle until the adapter is restarted. Forum #1341076.
+     *
+     * Only affects future client connections; in-flight connections keep
+     * their original captured creds (they're either still valid or already
+     * in a failed state — restarting them mid-stream would be worse).
+     */
+    updateDigestAuth(user: string, password: string): void;
 }
 /** Options for startTlsProxy() */
 export interface TlsProxyOptions {

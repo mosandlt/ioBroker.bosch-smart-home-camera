@@ -116,12 +116,16 @@ describe("rtsp_auth — pure helpers", () => {
 class FakeSocket extends EventEmitter {
     public writes: Buffer[] = [];
     public destroyed = false;
+    public ended = false;
     write(buf: Buffer | string): boolean {
         this.writes.push(Buffer.isBuffer(buf) ? buf : Buffer.from(buf, "utf-8"));
         return true;
     }
     destroy(): void {
         this.destroyed = true;
+    }
+    end(): void {
+        this.ended = true;
     }
     /** Concatenated write history as UTF-8 — convenience for assertions. */
     text(): string {
@@ -262,6 +266,79 @@ describe("rtsp_auth — state machine", () => {
         expect(describe, "DESCRIBE preserves Accept header").to.include(
             "Accept: application/sdp",
         );
+    });
+
+    it("AUTH_RESPONDING + 401 (stale Digest creds): forwards 401 to client, ends socket, never enters INJECTING — forum #1341076", () => {
+        // Regression: Bosch rotates RTSP Digest creds server-side on every
+        // privacy-mode toggle. Before v0.7.13, the proxy unconditionally
+        // entered INJECTING mode after the AUTH_RESPONDING phase even when
+        // the camera replied 401 to our authed retry — every subsequent
+        // client request then got the broken creds injected, returning 401
+        // in a loop until adapter restart. Fix: detect 401 and abort.
+        const client = new FakeSocket();
+        const remote = new FakeSocket();
+        const { logs } = attach(client, remote);
+
+        // 1) Client probes (no Authorization yet)
+        client.emit(
+            "data",
+            Buffer.from("OPTIONS rtsp://x/y RTSP/1.0\r\nCSeq: 1\r\n\r\n", "utf-8"),
+        );
+        // 2) Camera challenges with 401 — proxy parses + retries with Digest
+        remote.emit(
+            "data",
+            Buffer.from(
+                'RTSP/1.0 401 Unauthorized\r\nCSeq: 1\r\nWWW-Authenticate: Digest realm="b", nonce="n", qop="auth"\r\n\r\n',
+                "utf-8",
+            ),
+        );
+        // Sanity: client must not have seen the first 401 (swallowed)
+        expect(client.writes.length, "first 401 swallowed by proxy").to.equal(0);
+        // Proxy must have written the authed retry to remote
+        expect(remote.writes.length, "authed retry sent").to.equal(2);
+
+        // 3) Camera STILL replies 401 to the authed retry → creds are stale
+        const secondChallenge = Buffer.from(
+            'RTSP/1.0 401 Unauthorized\r\nCSeq: 1\r\nWWW-Authenticate: Digest realm="b", nonce="n2", qop="auth"\r\n\r\n',
+            "utf-8",
+        );
+        remote.emit("data", secondChallenge);
+
+        // Client now sees the 401 (honest — don't pretend creds work)
+        expect(client.writes.length, "second 401 forwarded to client").to.equal(1);
+        expect(client.writes[0].toString("utf-8"), "client got the 401 status line").to.include(
+            "401 Unauthorized",
+        );
+        // Client socket gracefully ended so it reconnects fresh
+        expect(client.ended, "client socket end() called").to.equal(true);
+        // A warn-level log line was emitted explaining the abort
+        const warnLog = logs.find((l) => l.startsWith("[warn]"));
+        expect(warnLog, "warn log emitted").to.match(/camera rejected.*Digest/i);
+
+        // 4) Critical: subsequent client requests must NOT be silently
+        //    forwarded with the bad Digest header (i.e. we did NOT enter
+        //    INJECTING mode). A late client request after socket.end() is
+        //    a no-op as far as the proxy is concerned.
+        const writesBeforeLate = remote.writes.length;
+        client.emit(
+            "data",
+            Buffer.from(
+                "DESCRIBE rtsp://x/y RTSP/1.0\r\nCSeq: 2\r\nAccept: application/sdp\r\n\r\n",
+                "utf-8",
+            ),
+        );
+        // In INJECTING mode this would forward to remote; in the post-401
+        // abort path the proxy still processes the buffer but the test
+        // verifies no Authorization header gets injected (the late
+        // DESCRIBE either stays buffered or is forwarded raw — never
+        // with the proven-bad Digest header attached).
+        const lateWrites = remote.writes.slice(writesBeforeLate);
+        for (const w of lateWrites) {
+            expect(
+                w.toString("utf-8"),
+                "no stale Authorization header injected on late client requests",
+            ).to.not.match(/Authorization: Digest /);
+        }
     });
 
     it("Camera→client direction is byte-piped after the auth dance (RTP frames not mangled)", () => {

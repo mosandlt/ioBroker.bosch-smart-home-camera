@@ -60,8 +60,10 @@ type AnyFn = (...args: any[]) => any;
 interface PollStub {
     _liveSessions: Map<string, { digestUser: string; digestPassword: string; openedAt: number }>;
     _cameras: Map<string, unknown>;
+    _livestreamEnabled: Map<string, boolean>;
     getStateAsync: sinon.SinonStub;
     upsertState: sinon.SinonStub;
+    ensureLiveSession: sinon.SinonStub;
     _pollWifiInfo: sinon.SinonStub;
     _pollAudioState: sinon.SinonStub;
     _pollIntrusionState: sinon.SinonStub;
@@ -70,16 +72,33 @@ interface PollStub {
     log: { info: sinon.SinonStub; debug: sinon.SinonStub; warn: sinon.SinonStub };
 }
 
-function makeStub(opts: { hasSession?: boolean; currentPrivacyDp?: boolean | null }): PollStub {
+function makeStub(opts: {
+    hasSession?: boolean;
+    currentPrivacyDp?: boolean | null;
+    livestreamEnabled?: boolean;
+    ensureLiveSessionRejects?: boolean;
+}): PollStub {
+    const ensureStub = sinon.stub();
+    if (opts.ensureLiveSessionRejects) {
+        ensureStub.rejects(new Error("camera unreachable on LAN"));
+    } else {
+        ensureStub.resolves({
+            digestUser: "cbs-FRESH",
+            digestPassword: "fresh-pass",
+            openedAt: Date.now(),
+        });
+    }
     const stub: PollStub = {
         _liveSessions: new Map(),
         _cameras: new Map(),
+        _livestreamEnabled: new Map(),
         getStateAsync: sinon.stub().resolves(
             opts.currentPrivacyDp === null
                 ? null
                 : { val: opts.currentPrivacyDp ?? false, ack: true },
         ),
         upsertState: sinon.stub().resolves(),
+        ensureLiveSession: ensureStub,
         _pollWifiInfo: sinon.stub().resolves(),
         _pollAudioState: sinon.stub().resolves(),
         _pollIntrusionState: sinon.stub().resolves(),
@@ -93,6 +112,9 @@ function makeStub(opts: { hasSession?: boolean; currentPrivacyDp?: boolean | nul
             digestPassword: "pre-toggle-pass",
             openedAt: Date.now() - 5000,
         });
+    }
+    if (opts.livestreamEnabled !== undefined) {
+        stub._livestreamEnabled.set(CAM_A, opts.livestreamEnabled);
     }
     return stub;
 }
@@ -168,5 +190,96 @@ describe("privacy-toggle invalidates cached LiveSession (forum #1341076)", () =>
         // No session to invalidate, but upsertState still fires
         expect(stub._liveSessions.has(CAM_A)).to.equal(false);
         expect(stub.upsertState.called).to.equal(true);
+    });
+});
+
+// v0.7.13 — eager LiveSession refresh on ON→OFF transitions so the TLS
+// proxy's bound Digest creds are rotated BEFORE the next BlueIris/VLC
+// reconnect attempt. Forum #1341076.
+describe("privacy ON→OFF eager LiveSession refresh (forum #1341076)", () => {
+    let method: ReturnType<typeof loadMethod>;
+    before(() => { method = loadMethod(); });
+    afterEach(() => { sinon.restore(); });
+
+    it("ON→OFF + livestream_enabled=true → ensureLiveSession fired exactly once", async () => {
+        const stub = makeStub({
+            hasSession: true,
+            currentPrivacyDp: true,
+            livestreamEnabled: true,
+        });
+        const cam = { id: CAM_A, name: "Terrasse", privacyMode: "OFF" };
+        await method.pollSingleCameraState.call(stub, "token", cam);
+        // Eager refresh happens after the await chain — give the fire-and-forget
+        // microtask one tick to run, then assert.
+        await new Promise((r) => setImmediate(r));
+        expect(stub.ensureLiveSession.calledOnceWithExactly(CAM_A)).to.equal(true);
+    });
+
+    it("ON→OFF + livestream_enabled=false → no eager refresh (no stream to keep alive)", async () => {
+        const stub = makeStub({
+            hasSession: true,
+            currentPrivacyDp: true,
+            livestreamEnabled: false,
+        });
+        const cam = { id: CAM_A, name: "Terrasse", privacyMode: "OFF" };
+        await method.pollSingleCameraState.call(stub, "token", cam);
+        await new Promise((r) => setImmediate(r));
+        expect(stub.ensureLiveSession.called).to.equal(false);
+    });
+
+    it("ON→OFF + livestream_enabled missing (cold start before users seeded) → no eager refresh", async () => {
+        // _livestreamEnabled.get() returns undefined when no DP was ever read
+        const stub = makeStub({ hasSession: true, currentPrivacyDp: true });
+        // Note: opts.livestreamEnabled NOT set → map empty → .get() → undefined
+        const cam = { id: CAM_A, name: "Terrasse", privacyMode: "OFF" };
+        await method.pollSingleCameraState.call(stub, "token", cam);
+        await new Promise((r) => setImmediate(r));
+        expect(stub.ensureLiveSession.called).to.equal(false);
+    });
+
+    it("OFF→ON + livestream_enabled=true → no eager refresh (cam now in privacy, can't stream)", async () => {
+        const stub = makeStub({
+            hasSession: true,
+            currentPrivacyDp: false,
+            livestreamEnabled: true,
+        });
+        const cam = { id: CAM_A, name: "Terrasse", privacyMode: "ON" };
+        await method.pollSingleCameraState.call(stub, "token", cam);
+        await new Promise((r) => setImmediate(r));
+        expect(stub.ensureLiveSession.called).to.equal(false);
+    });
+
+    it("ensureLiveSession rejects → no crash (fire-and-forget, debug-logged)", async () => {
+        const stub = makeStub({
+            hasSession: true,
+            currentPrivacyDp: true,
+            livestreamEnabled: true,
+            ensureLiveSessionRejects: true,
+        });
+        const cam = { id: CAM_A, name: "Terrasse", privacyMode: "OFF" };
+        await method.pollSingleCameraState.call(stub, "token", cam);
+        // Wait one extra tick for the .catch() to run
+        await new Promise((r) => setImmediate(r));
+        await new Promise((r) => setImmediate(r));
+        expect(stub.ensureLiveSession.called).to.equal(true);
+        // Failure routed to debug, not warn/info (non-fatal: next consumer will retry)
+        const debugCalls = stub.log.debug.getCalls().map((c) => String(c.args?.[0] ?? ""));
+        const refreshFailLog = debugCalls.find((m) =>
+            m.includes("Eager LiveSession refresh after privacy ON→OFF failed"),
+        );
+        expect(refreshFailLog, "debug log records the swallowed rejection").to.not.equal(undefined);
+    });
+
+    it("unchanged state (no transition) → no eager refresh", async () => {
+        const stub = makeStub({
+            hasSession: true,
+            currentPrivacyDp: false,
+            livestreamEnabled: true,
+        });
+        const cam = { id: CAM_A, name: "Terrasse", privacyMode: "OFF" };
+        // current OFF, new OFF → no transition → eager refresh must NOT fire
+        await method.pollSingleCameraState.call(stub, "token", cam);
+        await new Promise((r) => setImmediate(r));
+        expect(stub.ensureLiveSession.called).to.equal(false);
     });
 });

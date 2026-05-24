@@ -422,6 +422,63 @@ describe("TLS Proxy (src/lib/tls_proxy.ts)", function () {
 
     // ── Test 10 ───────────────────────────────────────────────────────────────
 
+    it("updateDigestAuth: handle exposes the method; no-op when proxy was started without digestAuth", async () => {
+        // v0.7.13 — forum #1341076. The proxy must allow callers to rotate
+        // the bound Digest creds at runtime (privacy-toggle rotates them
+        // server-side). When the proxy was started in legacy byte-pipe
+        // mode (no digestAuth in options), updateDigestAuth must remain
+        // a safe no-op so callers don't have to special-case it.
+        const handle = await startTlsProxy({
+            remoteHost: "127.0.0.1",
+            remotePort: echoPort,
+            cameraId: "TEST-UPDATE-DIGEST-NOOP",
+            rejectUnauthorized: false,
+            // no digestAuth → byte-pipe mode
+        });
+        handles.push(handle);
+
+        expect(handle.updateDigestAuth).to.be.a("function");
+        // Must not throw, must not crash, must not log at warn/error
+        const before = handle.port;
+        handle.updateDigestAuth("cbs-newuser", "newpass");
+        expect(handle.port, "port preserved across updateDigestAuth").to.equal(before);
+    });
+
+    it("updateDigestAuth: rotates the in-memory creds, logs the change at debug level", async () => {
+        // The proxy stores Digest creds in a closure that the per-connection
+        // attachRtspAuthHandler() reads at attach time. updateDigestAuth
+        // mutates that closure; the assertion here is on the debug log —
+        // verifying the rotation took effect for future connections.
+        const entries: LogEntry[] = [];
+        const handle = await startTlsProxy({
+            remoteHost: "127.0.0.1",
+            remotePort: echoPort,
+            cameraId: "TEST-UPDATE-DIGEST-ROT",
+            rejectUnauthorized: false,
+            digestAuth: { user: "cbs-pre", password: "prepass" },
+            log: (level, message) => entries.push({ level, message }),
+        });
+        handles.push(handle);
+
+        handle.updateDigestAuth("cbs-post", "postpass");
+
+        const debugLog = entries.find(
+            (e) =>
+                e.level === "debug" &&
+                e.message.includes("refreshed Digest creds") &&
+                e.message.includes("cbs-post"),
+        );
+        expect(debugLog, "debug log records the rotation").to.not.equal(undefined);
+
+        // Idempotent: calling with the same creds again should not log "refreshed"
+        const sizeBefore = entries.length;
+        handle.updateDigestAuth("cbs-post", "postpass");
+        const newRefreshLogs = entries
+            .slice(sizeBefore)
+            .filter((e) => e.message.includes("refreshed Digest creds"));
+        expect(newRefreshLogs.length, "no-op when creds unchanged").to.equal(0);
+    });
+
     it("circuit breaker: closes server after _MAX_BURST consecutive failures", async function () {
         this.timeout(15_000); // circuit breaker fires after 5 failures — allow time
 

@@ -2034,6 +2034,14 @@ class BoschSmartHomeCamera extends utils.Adapter {
             let proxyHandle;
             if (existingProxy && remoteUnchanged) {
                 proxyHandle = existingProxy;
+                // v0.7.13: refresh the Digest creds the proxy uses for the
+                // auth-aware path. Without this, a privacy-toggle-driven
+                // session refresh would update the published stream_url
+                // but leave the proxy's in-memory Digest creds stuck on
+                // the pre-toggle values — BlueIris/VLC then get 401 on
+                // every reconnect until the adapter restarts.
+                // Forum #1341076 (Jaschkopf, 2026-05-23).
+                proxyHandle.updateDigestAuth(session.digestUser, session.digestPassword);
                 this.log.debug(`TLS proxy for ${camId.slice(0, 8)}: reusing port ${proxyHandle.port} ` +
                     `(remote unchanged ${remoteHost}:${remotePort})`);
             }
@@ -2967,6 +2975,21 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     this.log.info(`Privacy toggled externally for ${cam.id.slice(0, 8)} — ` +
                         `dropped cached LiveSession (opened ${oldSession ? Math.round((Date.now() - oldSession.openedAt) / 1000) : "?"}s ago) ` +
                         `+ cleared stream_url DPs so external clients reconnect with rotated Digest creds`);
+                }
+                // v0.7.13: ON→OFF (camera is streamable again) AND someone
+                // is actively pulling the stream → eagerly fetch a fresh
+                // LiveSession so the TLS proxy's in-memory Digest creds
+                // are refreshed BEFORE the next BlueIris/VLC reconnect.
+                // Without this eager refresh, the proxy keeps its stale
+                // creds until something else (snapshot, watchdog, …) calls
+                // ensureLiveSession — meanwhile clients see 401 in their
+                // RTSP auth dance. Forum #1341076 (Jaschkopf, 2026-05-23).
+                if (desired === false && this._livestreamEnabled.get(cam.id) === true) {
+                    void this.ensureLiveSession(cam.id).catch((err) => {
+                        const msg = err instanceof Error ? err.message : String(err);
+                        this.log.debug(`Eager LiveSession refresh after privacy ON→OFF failed for ` +
+                            `${cam.id.slice(0, 8)} — ${msg} (next consumer will retry)`);
+                    });
                 }
             }
         }

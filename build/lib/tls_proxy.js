@@ -70,9 +70,16 @@ const _BURST_WINDOW = 30_000; // ms — window for burst counting
  */
 function startTlsProxy(options) {
     return new Promise((resolve, reject) => {
-        const { remoteHost, remotePort, cameraId, localPort = 0, bindHost = "127.0.0.1", urlHost, rejectUnauthorized = false, digestAuth, } = options;
+        const { remoteHost, remotePort, cameraId, localPort = 0, bindHost = "127.0.0.1", urlHost, rejectUnauthorized = false, } = options;
         const camLabel = cameraId.slice(0, 8);
         const log = options.log ?? (() => undefined);
+        // v0.7.13: mutable holder so updateDigestAuth() can rotate creds
+        // for future client connections without restarting the listener.
+        // Each per-connection attachRtspAuthHandler() call reads the
+        // current values out of this holder at attach-time.
+        const digestAuthHolder = options.digestAuth
+            ? { user: options.digestAuth.user, password: options.digestAuth.password }
+            : null;
         // Track all live sockets so stop() can destroy them
         const activeSockets = new Set();
         // Circuit-breaker state (mirrors Python fail_count / first_fail_at)
@@ -118,18 +125,21 @@ function startTlsProxy(options) {
                 firstFailAt = 0;
                 // Keep-alive on camera side too
                 remoteSocket.setKeepAlive(true, 30_000);
-                if (digestAuth) {
+                if (digestAuthHolder) {
                     // v0.5.3: auth-aware mode — parse RTSP traffic, inject
                     // `Authorization: Digest …` headers transparently so
                     // clients can connect to a no-creds URL (fixes BlueIris
                     // Error 8000007a, forum #84538). Back-compat: when the
                     // client supplies its own Authorization (legacy in-URL
                     // creds path), the handler switches to passthrough.
+                    // v0.7.13: read live values from the mutable holder so
+                    // a privacy-toggle-driven updateDigestAuth() between
+                    // connections takes effect immediately.
                     (0, rtsp_auth_1.attachRtspAuthHandler)({
                         clientSocket,
                         remoteSocket,
-                        digestUser: digestAuth.user,
-                        digestPassword: digestAuth.password,
+                        digestUser: digestAuthHolder.user,
+                        digestPassword: digestAuthHolder.password,
                         log,
                         camLabel,
                     });
@@ -209,7 +219,22 @@ function startTlsProxy(options) {
                     // complete synchronously on the next tick.
                 });
             }
-            resolve({ port, bindHost, localRtspUrl, stop });
+            // v0.7.13: rotate the in-memory Digest creds the proxy hands
+            // to future client connections. No-op if the proxy was started
+            // without digestAuth (legacy byte-pipe mode).
+            function updateDigestAuth(user, password) {
+                if (!digestAuthHolder) {
+                    return;
+                }
+                const changed = digestAuthHolder.user !== user || digestAuthHolder.password !== password;
+                digestAuthHolder.user = user;
+                digestAuthHolder.password = password;
+                if (changed) {
+                    log("debug", `TLS proxy ${camLabel}: refreshed Digest creds (user=${user.slice(0, 8)}…) ` +
+                        `— next client connection will use rotated creds`);
+                }
+            }
+            resolve({ port, bindHost, localRtspUrl, stop, updateDigestAuth });
         });
     });
 }

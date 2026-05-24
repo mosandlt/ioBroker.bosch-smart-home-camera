@@ -89,6 +89,24 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via five sibling p
 
 ## Changelog
 
+### 0.7.13 (2026-05-24)
+Privacy-toggle fix part 2 — TLS proxy now actually rotates its bound Digest creds.
+
+- **Root cause of v0.7.12's residual 401**: the TLS proxy held its `digestUser` / `digestPassword` in a closure captured at proxy-start time. On the cached-proxy reuse path (same remote, sticky port), `upsertSession` republished the public `stream_url` with the freshly-issued creds but **never refreshed the proxy's own in-memory creds** — every reconnect from BlueIris/VLC still ran the Digest dance with the pre-toggle values.
+- **Fix (`src/lib/tls_proxy.ts`)**: `digestAuth` is now stored in a mutable holder and exposed via `TlsProxyHandle.updateDigestAuth(user, password)`. Each per-connection auth-handler attachment reads the current values, so future connections pick up rotated creds without restarting the listener (sticky port + already-published `stream_url` survive untouched).
+- **Wire-up (`src/main.ts` `upsertSession`)**: on the reuse branch, `proxyHandle.updateDigestAuth(session.digestUser, session.digestPassword)` is called with every session refresh.
+- **Eager refresh (`_pollSingleCameraState`)**: on a detected ON→OFF privacy edge, if `livestream_enabled === true`, fire-and-forget `ensureLiveSession()` so the proxy's Digest creds are rotated **before** the next BlueIris/VLC reconnect attempt. Off-state edges or off-streaming cams stay no-op.
+- **Defense-in-depth (`src/lib/rtsp_auth.ts`)**: when the camera responds 401 to our authed retry (i.e. we still got stale creds in), the proxy now forwards the 401 honestly + ends the client socket instead of unconditionally entering `INJECTING` mode with proven-bad creds. The next client reconnect retries against the by-then-refreshed proxy.
+- **+13 pinned tests**: `rtsp_auth.spec.ts` covers AUTH_RESPONDING+401 abort path; `tls_proxy.spec.ts` covers `updateDigestAuth` API + idempotency; `main_privacy_toggle_invalidates_session.spec.ts` covers all 6 modes of the eager refresh (ON→OFF + livestream=true → fired; ON→OFF + livestream=false → not; ON→OFF + flag missing → not; OFF→ON → not regardless of livestream; ensureLiveSession rejects → no crash; unchanged state → not).
+
+### 0.7.12 (2026-05-23)
+Privacy-toggle invalidates cached LiveSession + clears `stream_url` DPs.
+
+- **Symptom**: BlueIris and VLC refused to play `cameras.<id>.stream_url` after a privacy-mode toggle via the Bosch app, returning "Check Port/User/Password" / 401 until the adapter was restarted.
+- **Root cause**: Bosch rotates the Digest credentials of the RTSP stream URL on every privacy-state edge (ON→OFF and OFF→ON). Our `_liveSessions` cache holds the pre-toggle creds for up to 60 s, so the published `stream_url` DPs kept advertising the now-stale credentials.
+- **Fix (`_pollSingleCameraState`)**: every detected privacy-state change drops the cached `LiveSession` and clears both `stream_url` + `stream_url_sub` DPs to `""`. The next `ensureLiveSession()` call (next stream-toggle, snapshot, RCP write, or watchdog tick) is forced to issue a fresh `PUT /connection` and re-publish the URLs with rotated credentials. The empty-string clear also signals to external clients that the stream is temporarily unavailable, preventing them from silently retrying the stale URL.
+- **+4 pinned tests** in `test/unit/main_privacy_toggle_invalidates_session.spec.ts`.
+
 ### 0.7.11 (2026-05-21)
 Login UX: urgency warning + tab-first workflow + README recovery steps.
 
@@ -232,7 +250,7 @@ Older releases (0.0.1 – 0.3.3) are archived in [CHANGELOG_OLD.md](./CHANGELOG_
 
 ## Status
 
-**Beta (v0.7.11)** — verified live against 4 cameras (Gen1 + Gen2, FW 7.91.56 / 9.40.25) on a real ioBroker instance. Cloud API contracts confirmed against the iOS app via mitmproxy.
+**Beta (v0.7.13)** — verified live against 4 cameras (Gen1 + Gen2, FW 7.91.56 / 9.40.25) on a real ioBroker instance. Cloud API contracts confirmed against the iOS app via mitmproxy.
 
 What works:
 - Browser-based OAuth2 PKCE login via Bosch SingleKey ID (no programmatic password handling — captcha/MFA happen in the browser)
@@ -602,7 +620,7 @@ This adapter is part of a 5-implementation family for Bosch Smart Home Cameras:
 |---|---|---|
 | 🏆 Home Assistant Integration | [Bosch-Smart-Home-Camera-Tool-HomeAssistant](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | **v12.8.4** · HA Quality Scale **Platinum** · production-ready |
 | 🐍 Python CLI | [Bosch-Smart-Home-Camera-Tool-Python](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | v10.7.6 · Mini-NVR + SMB upload (BETA) · LAN-fallback (ping / --local) · capture / research / no-HA standalone |
-| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.11 · beta · npm |
+| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.13 · beta · npm |
 | 🤖 MCP Server | [Bosch-Smart-Home-Camera-Tool-MCP](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) | v1.3.5 · LAN-ping + prefer_local · Claude Code / Claude Desktop integration |
 | 🔴 Node-RED nodes (alpha) | [Bosch-Smart-Home-Camera-Tool-NodeRED](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-NodeRED) | v0.1.0-alpha · skeleton |
 
