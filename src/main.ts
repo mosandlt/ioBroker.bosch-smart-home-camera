@@ -518,8 +518,16 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (this._stateCache.get(id) === value) {
             return;
         }
-        this._stateCache.set(id, value);
+        // v0.7.15: write FIRST, cache AFTER. Pre-v0.7.15 set the cache
+        // before the await; if setStateAsync then failed/rejected, the
+        // cache held the new value while the DB still held the old one,
+        // and every subsequent upsertState call skipped via the cache
+        // short-circuit — the DP was stuck on the stale DB value for
+        // the rest of the adapter's lifetime. Sandbox-observed live:
+        // privacy_enabled stuck at True with ts frozen for 4+ hours
+        // while the state-poll loop kept logging "ON → OFF" every 30 s.
         await this.setStateAsync(id, value as ioBroker.StateValue, true);
+        this._stateCache.set(id, value);
     }
 
     // ── Object creation ─────────────────────────────────────────────────────

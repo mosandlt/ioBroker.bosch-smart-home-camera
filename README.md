@@ -89,6 +89,14 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via five sibling p
 
 ## Changelog
 
+### 0.7.15 (2026-05-24)
+Hotfix — `upsertState` cache / DB divergence.
+
+- **Symptom**: sandbox running v0.7.14 showed `privacy_enabled = True ack=True ts=16:10 UTC` while the state-poll loop kept logging `State poll: privacy ON → OFF (from cloud)` every 30 s. The DP `ts` stayed frozen for 4+ hours despite each poll calling `upsertState` with a new value.
+- **Root cause**: `upsertState` set the in-memory `_stateCache` BEFORE awaiting `setStateAsync`. If the DB write failed or rejected for any reason, the cache held the new value while the DB still held the old one. From that point on every subsequent `upsertState` call hit the cache short-circuit (`_stateCache.get(id) === value` → return early) and silently skipped the write — the DP was frozen on the stale DB value for the rest of the adapter's lifetime.
+- **Fix**: await `setStateAsync` first; only update `_stateCache` after a successful write. A failed write leaves the cache at the old value, so the next call retries instead of skipping.
+- **+4 pinned tests** in `main_upsertstate_cache_divergence.spec.ts` covering: successful write updates cache; throwing write leaves cache untouched + next call retries; repeated identical writes still short-circuit; recovery after multiple transient failures. Full suite: **614 passing / 0 failing / 4 pending**.
+
 ### 0.7.14 (2026-05-24)
 Live-audit pass on the Indoor II camera surfaced eight latent bugs in the data plane, all fixed in one round.
 
@@ -265,7 +273,7 @@ Older releases (0.0.1 – 0.3.3) are archived in [CHANGELOG_OLD.md](./CHANGELOG_
 
 ## Status
 
-**Beta (v0.7.14)** — verified live against 4 cameras (Gen1 + Gen2, FW 7.91.56 / 9.40.25) on a real ioBroker instance. Cloud API contracts confirmed against the iOS app via mitmproxy.
+**Beta (v0.7.15)** — verified live against 4 cameras (Gen1 + Gen2, FW 7.91.56 / 9.40.25) on a real ioBroker instance. Cloud API contracts confirmed against the iOS app via mitmproxy.
 
 What works:
 - Browser-based OAuth2 PKCE login via Bosch SingleKey ID (no programmatic password handling — captcha/MFA happen in the browser)
@@ -635,7 +643,7 @@ This adapter is part of a 5-implementation family for Bosch Smart Home Cameras:
 |---|---|---|
 | 🏆 Home Assistant Integration | [Bosch-Smart-Home-Camera-Tool-HomeAssistant](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | **v12.8.4** · HA Quality Scale **Platinum** · production-ready |
 | 🐍 Python CLI | [Bosch-Smart-Home-Camera-Tool-Python](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | v10.7.6 · Mini-NVR + SMB upload (BETA) · LAN-fallback (ping / --local) · capture / research / no-HA standalone |
-| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.14 · beta · npm |
+| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.15 · beta · npm |
 | 🤖 MCP Server | [Bosch-Smart-Home-Camera-Tool-MCP](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) | v1.3.5 · LAN-ping + prefer_local · Claude Code / Claude Desktop integration |
 | 🔴 Node-RED nodes (alpha) | [Bosch-Smart-Home-Camera-Tool-NodeRED](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-NodeRED) | v0.1.0-alpha · skeleton |
 
