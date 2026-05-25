@@ -213,6 +213,35 @@
           "md": 6,
           "lg": 6,
           "xl": 6
+        },
+        "_mjpeg_header": {
+          "type": "header",
+          "text": "Fast local snapshot (Gen2)",
+          "size": 5,
+          "newLine": true,
+          "sm": 12
+        },
+        "_mjpeg_help": {
+          "type": "staticText",
+          "text": "Gen2 cameras (Eyes Outdoor II, Eyes Indoor II) expose a low-latency MJPEG stream on RTSP inst=3. When enabled and the camera is reachable on the LAN, snapshots are fetched via a local FFmpeg subprocess (~150-300 ms) instead of the cloud snap.jpg path (~500-1500 ms). Requires ffmpeg on the ioBroker host. Falls back to snap.jpg on any error.",
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 12,
+          "lg": 12,
+          "xl": 12
+        },
+        "use_mjpeg_snapshot": {
+          "type": "checkbox",
+          "label": "Use MJPEG inst=3 for Gen2 snapshots (fast LAN path)",
+          "help": "Requires ffmpeg on the ioBroker host. Automatically falls back to snap.jpg on errors.",
+          "default": true,
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 6,
+          "lg": 6,
+          "xl": 6
         }
       }
     },

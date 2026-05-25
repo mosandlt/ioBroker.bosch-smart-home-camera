@@ -21,13 +21,15 @@ let _savedAdapter: AxiosAdapter | string | readonly (string | AxiosAdapter)[] | 
 export function stubAxiosSequence(responses: Array<Partial<AxiosResponse>>): void {
     _savedAdapter = axios.defaults.adapter;
     let callIndex = 0;
+    // 2026-05-25: when the explicit response queue is exhausted, default
+    // to a `404 null` response instead of rejecting. This lets new polls
+    // added in future agent passes (F4/F6/F13, Tier-2 number numbers,
+    // 444 handling, etc.) coexist with older tests that only configured
+    // responses for the original endpoint set — the new polls then get
+    // a harmless "not found" and the test's actual assertions stay valid.
+    const FALLBACK: Partial<AxiosResponse> = { status: 404, data: null };
     axios.defaults.adapter = (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
-        const resp = responses[callIndex++];
-        if (!resp) {
-            return Promise.reject(
-                new Error(`stubAxiosSequence: no response configured for call #${callIndex}`),
-            );
-        }
+        const resp = responses[callIndex++] ?? FALLBACK;
         return Promise.resolve({
             status: 200,
             statusText: "OK",

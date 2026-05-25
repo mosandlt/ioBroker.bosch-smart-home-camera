@@ -69,6 +69,16 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     /** Consecutive snapshot failures before a camera is marked offline. */
     private static readonly OFFLINE_THRESHOLD;
     /**
+     * Timestamps (Date.now() ms) of recent HTTP 444 session-quota hits per camera.
+     * Pruned to _SESSION_QUOTA_WINDOW_MS on each new hit.
+     * When ≥ _SESSION_QUOTA_NOTIFY_THRESHOLD hits occur within the window,
+     * the `session_limit_hit` DP is set to true and a warn-log is emitted.
+     * Cleared when the camera opens a session successfully.
+     */
+    private _sessionLimitHits;
+    private static readonly SESSION_QUOTA_WINDOW_MS;
+    private static readonly SESSION_QUOTA_NOTIFY_THRESHOLD;
+    /**
      * Polling timer for /v11/events when FCM push registration failed.
      * Drives event ingestion without push so motion/audio events still surface.
      * Null when FCM is healthy (push is the primary path).
@@ -180,6 +190,19 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _localWriteAt;
     /** v0.7.4: post-write grace window (ms). Mirrors HA's _LOCAL_WRITE_GRACE_S. */
     private static readonly LOCAL_WRITE_GRACE_MS;
+    /**
+     * Diagnostic slow-tier: counter incremented on every STATE_POLL_INTERVAL_MS tick.
+     * When it reaches SLOW_TIER_THRESHOLD (10), the slow-tier tasks run and it resets.
+     * STATE_POLL_INTERVAL_MS=30s × 10 = 300s cadence — mirrors HA's do_slow logic.
+     */
+    private _diagPollTick;
+    /** Slow-tier runs every SLOW_TIER_THRESHOLD state-poll ticks (10 × 30s = 300s). */
+    private static readonly SLOW_TIER_THRESHOLD;
+    /**
+     * F13: cached cloud feature flags result. Null until first successful fetch.
+     * Account-level — one per adapter instance (not per camera).
+     */
+    private _featureFlagsCache;
     /** v0.7.4: outage-ping throttle (ms). */
     private static readonly OUTAGE_PING_THROTTLE_MS;
     /** v0.7.4: TCP-connect timeout for LAN-reachability probe (ms). */
@@ -226,6 +249,9 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _lightingCache;
     private _intrusionConfigCache;
+    private _lensElevationCache;
+    private _globalLightingCache;
+    private _alarmSettingsCache;
     /**
      * Whether a continuous live RTSP stream is active per camera ID.
      * Default: false (no livestream on adapter start — Bosch counts every
@@ -401,6 +427,11 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param cameras
      */
     private ensureCameraObjects;
+    /**
+     * Ensure the top-level `cloud` channel and F13 feature-flags DPs exist.
+     * Called once in onReady after cameras are discovered.
+     */
+    private ensureCloudObjects;
     /**
      * Save tokens to ioBroker states (survives adapter restart).
      *
@@ -669,6 +700,54 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _pollIntrusionConfig;
     /**
+     * Poll lens elevation from GET /v11/video_inputs/{id}/lens_elevation.
+     * Seeds the write-cache and mirrors the value into the DP.
+     * Gen2 only. Best-effort — errors swallowed.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private _pollLensElevation;
+    /**
+     * Poll global lighting config from GET /v11/video_inputs/{id}/lighting.
+     * Seeds the write-cache and mirrors darknessThreshold (0.0–1.0) → DP (0–100 %).
+     * Gen2 Outdoor only. Best-effort — errors swallowed.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private _pollGlobalLighting;
+    /**
+     * Poll alarm settings from GET /v11/video_inputs/{id}/alarm_settings.
+     * Seeds the write-cache and mirrors alarm delay fields into DPs.
+     * HOME_Eyes_Indoor / CAMERA_INDOOR_GEN2 only. Best-effort — errors swallowed.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private _pollAlarmSettings;
+    /**
+     * F4/F6 slow-tier: fetch ONVIF scopes (RCP 0x0a98) and RCP version (0xff00)
+     * directly from the camera's LAN HTTPS endpoint using cached cbs Digest creds.
+     *
+     * Called on every slow-tier tick (every SLOW_TIER_THRESHOLD × STATE_POLL_INTERVAL_MS ≈ 300 s).
+     * Fully best-effort — errors are swallowed, DPs keep their last known value.
+     * Requires an active LiveSession so cbs Digest creds are available.
+     *
+     * @param camId  Camera UUID
+     */
+    private _pollLanDiagnostics;
+    /**
+     * F13: fetch cloud feature flags from GET /v11/feature_flags.
+     *
+     * Account-level (not per-camera). Called on slow-tier ticks (≈ 300 s).
+     * Caches result in _featureFlagsCache; DPs updated only on change.
+     * Best-effort — errors are silently ignored.
+     *
+     * @param token  Current access_token
+     */
+    private _pollFeatureFlags;
+    /**
      * Fetch WiFi info for one camera and update DPs.
      * GET /v11/video_inputs/{id}/wifiinfo — 200 with body, 404 on Ethernet.
      * Best-effort: errors are logged at debug level and ignored.
@@ -736,6 +815,33 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param delta  {sensitivity?, distance?}
      */
     private _handleIntrusionWrite;
+    /**
+     * Set lens mounting height via PUT /v11/video_inputs/{id}/lens_elevation.
+     * Gen2 only. Range clamped to 0.5–5.0 m.
+     *
+     * @param camId      Camera UUID (must be Gen2)
+     * @param elevation  Height in metres (clamped)
+     */
+    private _handleLensElevationWrite;
+    /**
+     * Set darkness threshold via PUT /v11/video_inputs/{id}/lighting.
+     * Converts user-facing 0–100 % to Bosch float 0.0–1.0.
+     * Merges with cached softLightFading field (Bosch requires full body).
+     * Gen2 Outdoor only.
+     *
+     * @param camId  Camera UUID (must be Gen2 Outdoor)
+     * @param pct    Threshold percentage 0–100
+     */
+    private _handleDarknessThresholdWrite;
+    /**
+     * Write alarm settings via PUT /v11/video_inputs/{id}/alarm_settings.
+     * Merges delta into the full cached body (Bosch may reject partial bodies).
+     * HOME_Eyes_Indoor / CAMERA_INDOOR_GEN2 only.
+     *
+     * @param camId   Camera UUID
+     * @param delta   Partial update: one or more of {alarmDelayInSeconds, alarmActivationDelaySeconds, preAlarmDelayInSeconds}
+     */
+    private _handleAlarmSettingsWrite;
     /**
      * Inject a synthetic motion event for a camera.
      *
@@ -966,6 +1072,17 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private handleSnapshotTrigger;
     /**
+     * Fetch a snapshot via snap.jpg with one retry on transient errors.
+     *
+     * Extracted from handleSnapshotTrigger so the MJPEG fast path can fall back
+     * to this without code duplication.
+     *
+     * @param camId
+     * @param snapUrl  Full snap.jpg URL (from buildSnapshotUrl)
+     * @param session  Live session providing Digest credentials
+     */
+    private _fetchSnapJpgWithRetry;
+    /**
      * Start the polling fallback: re-fetch /v11/events every 30 s.
      *
      * Activated only when FCM push registration fails for both iOS and Android.
@@ -1009,6 +1126,20 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @returns ISO 8601 string, or the input unchanged if no zone suffix.
      */
     private static normaliseBoschTimestamp;
+    /**
+     * Handle a Bosch HTTP 444 session-quota error.
+     *
+     * - Records the hit timestamp in _sessionLimitHits.
+     * - Sets cameras.<id>.session_limit_hit = true.
+     * - Warns at WARN level (not debug) on every hit so the user notices.
+     * - After SESSION_QUOTA_NOTIFY_THRESHOLD (3) hits in SESSION_QUOTA_WINDOW_MS (5 min),
+     *   logs an additional warning advising to close other Bosch clients.
+     * - Schedules a 60s auto-retry (Bosch orphaned slots expire within ~60s).
+     * - Does NOT increment _snapshotFailCount — quota is not a connectivity failure.
+     *
+     * @param camId  Camera UUID
+     */
+    private _handleSessionLimitError;
     private markCameraReachability;
     /**
      * Fire a user notification when a camera flips between online and offline.

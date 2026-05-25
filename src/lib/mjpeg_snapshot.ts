@@ -1,0 +1,208 @@
+/**
+ * MJPEG inst=3 snapshot helper for Gen2 Bosch Smart Home Cameras.
+ *
+ * Gen2 cameras (HOME_Eyes_Outdoor, HOME_Eyes_Indoor) expose an undocumented
+ * MJPEG stream on RTSP inst=3 (RTP/AVP 26). This module captures exactly one
+ * JPEG frame from that stream via an FFmpeg subprocess.
+ *
+ * APPROACH: child_process.spawn("ffmpeg", ...)
+ *   A pure-TypeScript RTSP+RTP+MJPEG client requires >500 LOC. Using spawn
+ *   with FFmpeg achieves the same result in ~40 LOC. FFmpeg is typically
+ *   available on ioBroker hosts (media processing dependency).
+ *   Subprocess overhead is still faster than a cloud snap.jpg round-trip:
+ *   ~150-300 ms vs. ~500-1500 ms via cloud.
+ *
+ * Auth: Digest credentials from PUT /v11/video_inputs/{id}/connection LOCAL.
+ *   The rotating ~60 s TTL means snapshots must use recently-fetched creds.
+ *
+ * Reference: HA mjpeg_snapshot.py (ported from Python asyncio to Node spawn)
+ *
+ * TESTABILITY NOTE:
+ *   Node built-in `child_process.spawn` has a read-only property descriptor and
+ *   cannot be stubbed via sinon on the module namespace. We therefore expose
+ *   `_spawnFn` as a mutable export so unit tests can replace it without
+ *   touching the real `child_process` module object.
+ *   Production code MUST NOT reassign `_spawnFn`.
+ */
+
+import { spawn as _nodeSpawn, type ChildProcess, type SpawnOptionsWithoutStdio } from "node:child_process";
+
+// ── Constants ──────────────────────────────────────────────────────────────────
+
+/** RTSP stream instance for MJPEG on Gen2 cameras. */
+export const MJPEG_INST = 3;
+
+/** Minimal sanity check: a valid JPEG starts with 0xFF 0xD8. */
+const JPEG_MAGIC = Buffer.from([0xff, 0xd8]);
+
+// ── Testability shim ───────────────────────────────────────────────────────────
+
+/**
+ * Mutable spawn reference. Tests replace this to inject a fake ChildProcess.
+ * Production code uses the real Node `spawn`.
+ *
+ * @internal
+ */
+export let _spawnFn: (
+    command: string,
+    args: string[],
+    options?: SpawnOptionsWithoutStdio,
+) => ChildProcess = _nodeSpawn;
+
+// ── Main export ────────────────────────────────────────────────────────────────
+
+/**
+ * Capture one JPEG frame from the Gen2 MJPEG stream (inst=3).
+ *
+ * Connects to `rtsps://{user}:{password}@{camHost}:{camPort}/rtsp_tunnel?inst=3`
+ * via an FFmpeg subprocess, extracts exactly one frame, and returns it as a
+ * JPEG Buffer.
+ *
+ * Guards:
+ *   - Returns null (with debug log) when any required param is empty.
+ *   - Returns null (with warning log) on timeout, non-zero exit code, empty
+ *     output, or non-JPEG magic bytes.
+ *   - Returns null (with error log) when ffmpeg binary is not found.
+ *   - Kills the lingering process on timeout to prevent zombie accumulation.
+ *
+ * @param camHost    Camera LAN IP (e.g. "192.168.20.149")
+ * @param camPort    Camera RTSP-over-TLS port (always 443 for Bosch cameras)
+ * @param user       CBS username from PUT /connection (e.g. "cbs-XXXXXXXX")
+ * @param password   Digest password from PUT /connection
+ * @param log        ioBroker logger (or any object with .debug/.warn/.error)
+ * @param timeoutMs  Maximum ms to wait for a frame. Default 8000 ms.
+ * @returns JPEG bytes as Buffer on success; null otherwise.
+ */
+export async function fetchMjpegSnapshot(
+    camHost: string,
+    camPort: number,
+    user: string,
+    password: string,
+    log: { debug: (msg: string) => void; warn: (msg: string) => void; error: (msg: string) => void },
+    timeoutMs: number = 8000,
+): Promise<Buffer | null> {
+    if (!camHost || !user || !password) {
+        log.debug("fetchMjpegSnapshot: missing required params — skipping");
+        return null;
+    }
+
+    const rtspUrl =
+        `rtsps://${user}:${password}@${camHost}:${camPort}` +
+        `/rtsp_tunnel?inst=${MJPEG_INST}`;
+
+    const t0 = Date.now();
+    let proc: ChildProcess | null = null;
+
+    return new Promise<Buffer | null>((resolve) => {
+        let settled = false;
+        let timeoutHandle: NodeJS.Timeout | null = null;
+
+        function settle(result: Buffer | null): void {
+            if (settled) return;
+            settled = true;
+            if (timeoutHandle !== null) clearTimeout(timeoutHandle);
+            resolve(result);
+        }
+
+        function killProc(): void {
+            if (proc !== null) {
+                try {
+                    proc.kill("SIGKILL");
+                } catch {
+                    // race: process already exited
+                }
+            }
+        }
+
+        try {
+            proc = _spawnFn("ffmpeg", [
+                "-loglevel",
+                "error",
+                "-rtsp_flags",
+                "prefer_tcp",
+                "-allowed_media_types",
+                "video",
+                "-i",
+                rtspUrl,
+                "-vframes",
+                "1",
+                "-c:v",
+                "copy",
+                "-f",
+                "image2pipe",
+                "-",
+            ]);
+        } catch (spawnErr: unknown) {
+            const msg = spawnErr instanceof Error ? spawnErr.message : String(spawnErr);
+            if ((spawnErr as NodeJS.ErrnoException).code === "ENOENT") {
+                log.error("fetchMjpegSnapshot: ffmpeg not found — cannot capture MJPEG snapshot");
+            } else {
+                log.warn(`fetchMjpegSnapshot: OS error spawning ffmpeg: ${msg}`);
+            }
+            settle(null);
+            return;
+        }
+
+        const stdoutChunks: Buffer[] = [];
+        const stderrChunks: Buffer[] = [];
+
+        proc.stdout?.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
+        proc.stderr?.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
+
+        proc.on("error", (err: NodeJS.ErrnoException) => {
+            if (err.code === "ENOENT") {
+                log.error("fetchMjpegSnapshot: ffmpeg not found — cannot capture MJPEG snapshot");
+            } else {
+                log.warn(`fetchMjpegSnapshot: OS error from ffmpeg process: ${err.message}`);
+            }
+            settle(null);
+        });
+
+        proc.on("close", (code: number | null) => {
+            const elapsedMs = Date.now() - t0;
+
+            if (settled) return; // timeout already fired
+
+            if (code !== 0) {
+                const stderrText = Buffer.concat(stderrChunks).toString("utf8", 0, 200) || "(no stderr)";
+                log.warn(
+                    `fetchMjpegSnapshot: FFmpeg exited with code ${code} for ${camHost} — ${stderrText}`,
+                );
+                settle(null);
+                return;
+            }
+
+            const out = Buffer.concat(stdoutChunks);
+
+            if (out.length === 0) {
+                log.warn(`fetchMjpegSnapshot: FFmpeg returned empty output for ${camHost}`);
+                settle(null);
+                return;
+            }
+
+            // Sanity-check: output must start with JPEG magic bytes 0xFF 0xD8
+            if (out[0] !== JPEG_MAGIC[0] || out[1] !== JPEG_MAGIC[1]) {
+                log.warn(
+                    `fetchMjpegSnapshot: output does not start with JPEG magic ` +
+                        `(got ${out.slice(0, 4).toString("hex")}) for ${camHost} — discarding`,
+                );
+                settle(null);
+                return;
+            }
+
+            log.debug(
+                `fetchMjpegSnapshot: ${out.length} bytes in ${elapsedMs} ms for ${camHost}`,
+            );
+            settle(out);
+        });
+
+        // Arm timeout watchdog
+        timeoutHandle = setTimeout(() => {
+            if (settled) return;
+            const elapsedMs = Date.now() - t0;
+            log.warn(`fetchMjpegSnapshot: timeout after ${elapsedMs} ms for ${camHost}`);
+            killProc();
+            settle(null);
+        }, timeoutMs);
+    });
+}

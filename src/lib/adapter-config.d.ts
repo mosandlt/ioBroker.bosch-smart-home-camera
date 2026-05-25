@@ -55,6 +55,13 @@ declare global {
             mqtt_topic_prefix?: string;
             /** Use TLS (mqtts://) for the broker connection. Default false. */
             mqtt_tls?: boolean;
+            /**
+             * v0.7.16: when true (default), snapshot fetches on Gen2 cameras
+             * with LAN reachability + cached Digest creds use the fast MJPEG
+             * inst=3 RTSP path (~150-300 ms) instead of cloud snap.jpg
+             * (~500-1500 ms). Falls back to snap.jpg on any FFmpeg error.
+             */
+            use_mjpeg_snapshot?: boolean;
         }
     }
 }

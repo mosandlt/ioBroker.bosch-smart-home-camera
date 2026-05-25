@@ -38,7 +38,12 @@ import {
 // See deprecation notice in src/lib/login.ts.
 import { fetchCameras, type BoschCamera, UnauthorizedError } from "./lib/cameras";
 
-import { openLiveSession, closeLiveSession, type LiveSession } from "./lib/live_session";
+import {
+    openLiveSession,
+    closeLiveSession,
+    SessionLimitError,
+    type LiveSession,
+} from "./lib/live_session";
 
 import { SessionWatchdog } from "./lib/session_watchdog";
 
@@ -46,6 +51,7 @@ import { SessionWatchdog } from "./lib/session_watchdog";
 import { digestRequest } from "./lib/digest";
 
 import { fetchSnapshot, buildSnapshotUrl } from "./lib/snapshot";
+import { fetchMjpegSnapshot } from "./lib/mjpeg_snapshot";
 
 import { startTlsProxy, type TlsProxyHandle } from "./lib/tls_proxy";
 
@@ -73,6 +79,10 @@ import {
 } from "./lib/maintenance";
 
 import { MqttBridge } from "./lib/mqtt_bridge";
+
+import { fetchRcpLan, parseOnvifScopes, formatRcpVersion } from "./lib/rcp_lan_helper";
+
+import { fetchFeatureFlags } from "./lib/cloud_feature_flags";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -150,6 +160,17 @@ class BoschSmartHomeCamera extends utils.Adapter {
 
     /** Consecutive snapshot failures before a camera is marked offline. */
     private static readonly OFFLINE_THRESHOLD = 3;
+
+    /**
+     * Timestamps (Date.now() ms) of recent HTTP 444 session-quota hits per camera.
+     * Pruned to _SESSION_QUOTA_WINDOW_MS on each new hit.
+     * When ≥ _SESSION_QUOTA_NOTIFY_THRESHOLD hits occur within the window,
+     * the `session_limit_hit` DP is set to true and a warn-log is emitted.
+     * Cleared when the camera opens a session successfully.
+     */
+    private _sessionLimitHits: Map<string, number[]> = new Map();
+    private static readonly SESSION_QUOTA_WINDOW_MS = 300_000; // 5 minutes
+    private static readonly SESSION_QUOTA_NOTIFY_THRESHOLD = 3;
 
     /**
      * Polling timer for /v11/events when FCM push registration failed.
@@ -283,6 +304,22 @@ class BoschSmartHomeCamera extends utils.Adapter {
     /** v0.7.4: post-write grace window (ms). Mirrors HA's _LOCAL_WRITE_GRACE_S. */
     private static readonly LOCAL_WRITE_GRACE_MS = 30_000;
 
+    /**
+     * Diagnostic slow-tier: counter incremented on every STATE_POLL_INTERVAL_MS tick.
+     * When it reaches SLOW_TIER_THRESHOLD (10), the slow-tier tasks run and it resets.
+     * STATE_POLL_INTERVAL_MS=30s × 10 = 300s cadence — mirrors HA's do_slow logic.
+     */
+    private _diagPollTick = 0;
+
+    /** Slow-tier runs every SLOW_TIER_THRESHOLD state-poll ticks (10 × 30s = 300s). */
+    private static readonly SLOW_TIER_THRESHOLD = 10;
+
+    /**
+     * F13: cached cloud feature flags result. Null until first successful fetch.
+     * Account-level — one per adapter instance (not per camera).
+     */
+    private _featureFlagsCache: { display: string; raw: string } | null = null;
+
     /** v0.7.4: outage-ping throttle (ms). */
     private static readonly OUTAGE_PING_THROTTLE_MS = 30_000;
 
@@ -342,6 +379,20 @@ class BoschSmartHomeCamera extends utils.Adapter {
     // user-write handler can merge a single field (sensitivity/distance)
     // into the full body. Bosch rejects DELTA PUTs with HTTP 400.
     private _intrusionConfigCache = new Map<string, Record<string, unknown>>();
+
+    // v0.8.0: lens elevation cache (Gen2, float 0.5–5.0 m).
+    // Seeded by slow-tier GET /lens_elevation poll; used by write handler to confirm value.
+    private _lensElevationCache = new Map<string, number>();
+
+    // v0.8.0: global lighting cache (Gen2 Outdoor only) for darkness_threshold.
+    // GET /lighting → {"darknessThreshold": 0.47, "softLightFading": bool}.
+    // PUT /lighting requires full body — cache holds both fields.
+    private _globalLightingCache = new Map<string, Record<string, unknown>>();
+
+    // v0.8.0: alarm_settings cache (HOME_Eyes_Indoor only).
+    // GET /alarm_settings → {alarmDelayInSeconds, alarmActivationDelaySeconds, preAlarmDelayInSeconds, ...}.
+    // PUT /alarm_settings requires the full body — cache holds all fields.
+    private _alarmSettingsCache = new Map<string, Record<string, unknown>>();
 
     /**
      * Whether a continuous live RTSP stream is active per camera ID.
@@ -1338,6 +1389,22 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 native: {},
             });
 
+            // v0.8.0: session_limit_hit — true when Bosch returns HTTP 444
+            // (too many simultaneous live sessions). Auto-clears after ~5 min
+            // without further 444 hits. NOT the same as offline (camera reachable).
+            await this.setObjectNotExistsAsync(`${prefix}.session_limit_hit`, {
+                type: "state",
+                common: {
+                    role: "indicator.alarm",
+                    name: "Session limit hit (HTTP 444 — too many concurrent sessions)",
+                    type: "boolean",
+                    read: true,
+                    write: false,
+                    def: false,
+                },
+                native: {},
+            });
+
             // Writable states — user commands
             await this.setObjectNotExistsAsync(`${prefix}.privacy_enabled`, {
                 type: "state",
@@ -1887,6 +1954,127 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 native: {},
             });
 
+            // v0.8.0: lens elevation (Gen2 only, float 0.5–5.0 m).
+            // Controls perspective correction in person/intrusion detection.
+            // GET/PUT /v11/video_inputs/{id}/lens_elevation → {"elevation": float}.
+            if (cam.generation >= 2) {
+                await this.setObjectNotExistsAsync(`${prefix}.lens_elevation`, {
+                    type: "state",
+                    common: {
+                        name: "Lens elevation (mounting height) 0.5–5.0 m (Gen2) — write to change",
+                        role: "level",
+                        type: "number",
+                        min: 0.5,
+                        max: 5.0,
+                        unit: "m",
+                        read: true,
+                        write: true,
+                        def: 2.0,
+                    },
+                    native: {},
+                });
+            }
+
+            // v0.8.0: darkness threshold (Gen2 Outdoor only, 0–100 %).
+            // Controls day/night lighting switch point.
+            // GET/PUT /v11/video_inputs/{id}/lighting → {"darknessThreshold": 0.47, "softLightFading": bool}.
+            // Stored by Bosch as 0.0–1.0 float; exposed here as 0–100 integer.
+            if (cam.generation >= 2 && cam.hardwareVersion !== "HOME_Eyes_Indoor" && cam.hardwareVersion !== "CAMERA_INDOOR_GEN2") {
+                await this.setObjectNotExistsAsync(`${prefix}.darkness_threshold`, {
+                    type: "state",
+                    common: {
+                        name: "Darkness threshold 0–100 % (Gen2 Outdoor) — 0=always day, 100=always night",
+                        role: "level",
+                        type: "number",
+                        min: 0,
+                        max: 100,
+                        unit: "%",
+                        read: true,
+                        write: true,
+                        def: 50,
+                    },
+                    native: {},
+                });
+            }
+
+            // v0.8.0: alarm settings (HOME_Eyes_Indoor / CAMERA_INDOOR_GEN2 only).
+            // GET/PUT /v11/video_inputs/{id}/alarm_settings → {alarmDelayInSeconds, alarmActivationDelaySeconds, preAlarmDelayInSeconds, ...}.
+            if (cam.hardwareVersion === "HOME_Eyes_Indoor" || cam.hardwareVersion === "CAMERA_INDOOR_GEN2") {
+                await this.setObjectNotExistsAsync(`${prefix}.siren_duration`, {
+                    type: "state",
+                    common: {
+                        name: "Siren duration in seconds (alarm_settings.alarmDelayInSeconds) 10–300",
+                        role: "level.timer",
+                        type: "number",
+                        min: 10,
+                        max: 300,
+                        unit: "s",
+                        read: true,
+                        write: true,
+                        def: 60,
+                    },
+                    native: {},
+                });
+                await this.setObjectNotExistsAsync(`${prefix}.alarm_activation_delay`, {
+                    type: "state",
+                    common: {
+                        name: "Alarm activation delay in seconds (alarm_settings.alarmActivationDelaySeconds) 0–600",
+                        role: "level.timer",
+                        type: "number",
+                        min: 0,
+                        max: 600,
+                        unit: "s",
+                        read: true,
+                        write: true,
+                        def: 30,
+                    },
+                    native: {},
+                });
+                await this.setObjectNotExistsAsync(`${prefix}.pre_alarm_delay`, {
+                    type: "state",
+                    common: {
+                        name: "Pre-alarm LED warning duration in seconds (alarm_settings.preAlarmDelayInSeconds) 0–300",
+                        role: "level.timer",
+                        type: "number",
+                        min: 0,
+                        max: 300,
+                        unit: "s",
+                        read: true,
+                        write: true,
+                        def: 30,
+                    },
+                    native: {},
+                });
+            }
+
+            // F4: ONVIF scopes (LAN RCP 0x0a98, slow-tier 300s, diagnostic)
+            await this.setObjectNotExistsAsync(`${prefix}.onvif_scopes`, {
+                type: "state",
+                common: {
+                    name: "ONVIF scopes from RCP 0x0a98 (LAN, diagnostic) — JSON",
+                    role: "info",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "",
+                },
+                native: {},
+            });
+
+            // F6: RCP protocol version (LAN RCP 0xff00, slow-tier 300s, diagnostic)
+            await this.setObjectNotExistsAsync(`${prefix}.rcp_version`, {
+                type: "state",
+                common: {
+                    name: "RCP protocol version from camera firmware (LAN, diagnostic)",
+                    role: "info.firmware",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "",
+                },
+                native: {},
+            });
+
             // Set initial values
             await this.upsertState(`${prefix}.name`, cam.name);
             await this.upsertState(`${prefix}.firmware_version`, cam.firmwareVersion);
@@ -1900,6 +2088,46 @@ class BoschSmartHomeCamera extends utils.Adapter {
             const lsState = await this.getStateAsync(`${prefix}.livestream_enabled`);
             this._livestreamEnabled.set(cam.id, lsState?.val === true);
         }
+    }
+
+    /**
+     * Ensure the top-level `cloud` channel and F13 feature-flags DPs exist.
+     * Called once in onReady after cameras are discovered.
+     */
+    private async ensureCloudObjects(): Promise<void> {
+        await this.setObjectNotExistsAsync("cloud", {
+            type: "channel",
+            common: { name: "Bosch cloud account info" },
+            native: {},
+        });
+
+        // F13: cloud feature flags — display (comma-separated enabled flags)
+        await this.setObjectNotExistsAsync("cloud.feature_flags", {
+            type: "state",
+            common: {
+                name: "Bosch cloud feature flags (enabled, diagnostic)",
+                role: "info",
+                type: "string",
+                read: true,
+                write: false,
+                def: "",
+            },
+            native: {},
+        });
+
+        // F13: raw JSON for tooling / debugging
+        await this.setObjectNotExistsAsync("cloud.feature_flags_raw", {
+            type: "state",
+            common: {
+                name: "Bosch cloud feature flags raw JSON (diagnostic)",
+                role: "json",
+                type: "string",
+                read: true,
+                write: false,
+                def: "",
+            },
+            native: {},
+        });
     }
 
     // ── Token persistence ───────────────────────────────────────────────────
@@ -3150,6 +3378,8 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // always received percent — superseded by wifi_signal_pct)
         await this._migrateWifiSignalDp(cameras);
         await this.ensureCameraObjects(cameras);
+        // F13: ensure cloud.feature_flags + cloud.feature_flags_raw DPs exist
+        await this.ensureCloudObjects();
 
         // Populate in-memory camera cache (used by handlers for Gen1/Gen2 dispatch)
         this._cameras.clear();
@@ -3378,11 +3608,22 @@ class BoschSmartHomeCamera extends utils.Adapter {
             void this._pingAllCamsDuringOutage().catch(() => undefined);
             throw err;
         }
+        // Slow-tier diagnostics: every SLOW_TIER_THRESHOLD ticks (10 × 30s = 300s).
+        // F4/F6 run per-camera inside _pollSingleCameraState (slow-tier gate passed via arg).
+        // F13 runs at account level here.
+        this._diagPollTick++;
+        const doSlowTier = this._diagPollTick >= BoschSmartHomeCamera.SLOW_TIER_THRESHOLD;
+        if (doSlowTier) {
+            this._diagPollTick = 0;
+            // F13: cloud feature flags — account-level, fetch once per 300s
+            void this._pollFeatureFlags(token).catch(() => undefined);
+        }
+
         // v0.6.0: poll each camera in parallel. With 4 cameras the per-tick
         // wall-time drops from ~N * 250 ms to ~250 ms because every camera
         // owns its own DP namespace (`cameras.<id>.*`), so concurrent writes
         // don't race.
-        await Promise.all(cameras.map((cam) => this._pollSingleCameraState(token, cam)));
+        await Promise.all(cameras.map((cam) => this._pollSingleCameraState(token, cam, doSlowTier)));
     }
 
     /**
@@ -3391,7 +3632,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * @param token
      * @param cam
      */
-    private async _pollSingleCameraState(token: string, cam: BoschCamera): Promise<void> {
+    private async _pollSingleCameraState(token: string, cam: BoschCamera, doSlowTier = false): Promise<void> {
         // Refresh the in-memory metadata cache too (so generation/name stays
         // current after a Bosch-app rename)
         this._cameras.set(cam.id, cam);
@@ -3477,6 +3718,28 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // handler has a full body to merge into (Bosch rejects DELTA PUTs).
         if (cam.generation >= 2) {
             await this._pollIntrusionConfig(token, cam.id);
+        }
+
+        // v0.8.0: lens elevation (Gen2 only) — seed write-cache + mirror DP.
+        if (cam.generation >= 2) {
+            await this._pollLensElevation(token, cam.id);
+        }
+
+        // v0.8.0: global lighting (Gen2 Outdoor only) — darkness_threshold DP.
+        if (cam.generation >= 2 && cam.hardwareVersion !== "HOME_Eyes_Indoor" && cam.hardwareVersion !== "CAMERA_INDOOR_GEN2") {
+            await this._pollGlobalLighting(token, cam.id);
+        }
+
+        // v0.8.0: alarm settings (Indoor II only) — siren_duration, alarm_activation_delay, pre_alarm_delay DPs.
+        if (cam.hardwareVersion === "HOME_Eyes_Indoor" || cam.hardwareVersion === "CAMERA_INDOOR_GEN2") {
+            await this._pollAlarmSettings(token, cam.id);
+        }
+
+        // F4/F6 slow-tier LAN diagnostic reads — all cameras, before the Gen1/no-light
+        // early return so Gen1 cams still get ONVIF scopes + RCP version.
+        // Gated on slow-tier tick; best-effort (errors swallowed inside helper).
+        if (doSlowTier) {
+            await this._pollLanDiagnostics(cam.id);
         }
 
         // ── Gen2 lighting/switch — seed cache + sync wallwasher DPs ────────
@@ -3573,6 +3836,204 @@ class BoschSmartHomeCamera extends utils.Adapter {
         } catch (err: unknown) {
             this.log.debug(
                 `Intrusion config poll for ${camId.slice(0, 8)} failed: ` +
+                    `${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
+    }
+
+    // ── v0.8.0 lens elevation poll ──────────────────────────────────────────
+
+    /**
+     * Poll lens elevation from GET /v11/video_inputs/{id}/lens_elevation.
+     * Seeds the write-cache and mirrors the value into the DP.
+     * Gen2 only. Best-effort — errors swallowed.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private async _pollLensElevation(token: string, camId: string): Promise<void> {
+        try {
+            const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/lens_elevation`;
+            const resp = await this._httpClient.get<unknown>(url, {
+                headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 404 || s === 443,
+            });
+            if (resp.status === 404 || resp.status === 443 || !resp.data) {
+                return;
+            }
+            const data = resp.data as Record<string, unknown>;
+            const elevation = typeof data.elevation === "number" ? data.elevation : undefined;
+            if (elevation !== undefined) {
+                this._lensElevationCache.set(camId, elevation);
+                await this.upsertState(`cameras.${camId}.lens_elevation`, elevation);
+            }
+        } catch (err: unknown) {
+            this.log.debug(
+                `Lens elevation poll for ${camId.slice(0, 8)} failed: ` +
+                    `${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
+    }
+
+    // ── v0.8.0 global lighting (darkness_threshold) poll ───────────────────
+
+    /**
+     * Poll global lighting config from GET /v11/video_inputs/{id}/lighting.
+     * Seeds the write-cache and mirrors darknessThreshold (0.0–1.0) → DP (0–100 %).
+     * Gen2 Outdoor only. Best-effort — errors swallowed.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private async _pollGlobalLighting(token: string, camId: string): Promise<void> {
+        try {
+            const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/lighting`;
+            const resp = await this._httpClient.get<unknown>(url, {
+                headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 404 || s === 443,
+            });
+            if (resp.status === 404 || resp.status === 443 || !resp.data) {
+                return;
+            }
+            const data = resp.data as Record<string, unknown>;
+            this._globalLightingCache.set(camId, { ...data });
+            const dt = typeof data.darknessThreshold === "number" ? data.darknessThreshold : undefined;
+            if (dt !== undefined) {
+                // Convert from Bosch float (0.0–1.0) to user-facing percent (0–100)
+                await this.upsertState(`cameras.${camId}.darkness_threshold`, Math.round(dt * 100));
+            }
+        } catch (err: unknown) {
+            this.log.debug(
+                `Global lighting poll for ${camId.slice(0, 8)} failed: ` +
+                    `${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
+    }
+
+    // ── v0.8.0 alarm settings poll ─────────────────────────────────────────
+
+    /**
+     * Poll alarm settings from GET /v11/video_inputs/{id}/alarm_settings.
+     * Seeds the write-cache and mirrors alarm delay fields into DPs.
+     * HOME_Eyes_Indoor / CAMERA_INDOOR_GEN2 only. Best-effort — errors swallowed.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private async _pollAlarmSettings(token: string, camId: string): Promise<void> {
+        try {
+            const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/alarm_settings`;
+            const resp = await this._httpClient.get<unknown>(url, {
+                headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 404 || s === 443,
+            });
+            if (resp.status === 404 || resp.status === 443 || !resp.data) {
+                return;
+            }
+            const data = resp.data as Record<string, unknown>;
+            this._alarmSettingsCache.set(camId, { ...data });
+            const writes: Promise<void>[] = [];
+            const sirenDur = typeof data.alarmDelayInSeconds === "number" ? data.alarmDelayInSeconds : undefined;
+            const actDelay = typeof data.alarmActivationDelaySeconds === "number" ? data.alarmActivationDelaySeconds : undefined;
+            const preDelay = typeof data.preAlarmDelayInSeconds === "number" ? data.preAlarmDelayInSeconds : undefined;
+            if (sirenDur !== undefined) {
+                writes.push(this.upsertState(`cameras.${camId}.siren_duration`, sirenDur));
+            }
+            if (actDelay !== undefined) {
+                writes.push(this.upsertState(`cameras.${camId}.alarm_activation_delay`, actDelay));
+            }
+            if (preDelay !== undefined) {
+                writes.push(this.upsertState(`cameras.${camId}.pre_alarm_delay`, preDelay));
+            }
+            await Promise.all(writes);
+        } catch (err: unknown) {
+            this.log.debug(
+                `Alarm settings poll for ${camId.slice(0, 8)} failed: ` +
+                    `${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
+    }
+
+    /**
+     * F4/F6 slow-tier: fetch ONVIF scopes (RCP 0x0a98) and RCP version (0xff00)
+     * directly from the camera's LAN HTTPS endpoint using cached cbs Digest creds.
+     *
+     * Called on every slow-tier tick (every SLOW_TIER_THRESHOLD × STATE_POLL_INTERVAL_MS ≈ 300 s).
+     * Fully best-effort — errors are swallowed, DPs keep their last known value.
+     * Requires an active LiveSession so cbs Digest creds are available.
+     *
+     * @param camId  Camera UUID
+     */
+    private async _pollLanDiagnostics(camId: string): Promise<void> {
+        const session = this._liveSessions.get(camId);
+        if (!session) {
+            // No active session — skip silently (user hasn't opened a stream yet)
+            return;
+        }
+
+        // F4: ONVIF scopes via RCP 0x0a98
+        try {
+            const raw = await fetchRcpLan(session, "0x0a98");
+            if (raw) {
+                const scopes = parseOnvifScopes(raw);
+                await this.upsertState(
+                    `cameras.${camId}.onvif_scopes`,
+                    JSON.stringify(scopes),
+                );
+                this.log.debug(
+                    `F4 ONVIF scopes for ${camId.slice(0, 8)}: ` +
+                        `name="${scopes.name}" hw="${scopes.hardware}" profiles=${JSON.stringify(scopes.profiles)}`,
+                );
+            }
+        } catch (err: unknown) {
+            this.log.debug(
+                `F4 ONVIF scopes poll error for ${camId.slice(0, 8)}: ` +
+                    `${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
+
+        // F6: RCP protocol version via 0xff00
+        try {
+            const raw = await fetchRcpLan(session, "0xff00");
+            if (raw && raw.length >= 4) {
+                const ver = formatRcpVersion(raw);
+                if (ver) {
+                    await this.upsertState(`cameras.${camId}.rcp_version`, ver);
+                    this.log.debug(`F6 RCP version for ${camId.slice(0, 8)}: ${ver}`);
+                }
+            }
+        } catch (err: unknown) {
+            this.log.debug(
+                `F6 RCP version poll error for ${camId.slice(0, 8)}: ` +
+                    `${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
+    }
+
+    /**
+     * F13: fetch cloud feature flags from GET /v11/feature_flags.
+     *
+     * Account-level (not per-camera). Called on slow-tier ticks (≈ 300 s).
+     * Caches result in _featureFlagsCache; DPs updated only on change.
+     * Best-effort — errors are silently ignored.
+     *
+     * @param token  Current access_token
+     */
+    private async _pollFeatureFlags(token: string): Promise<void> {
+        try {
+            const result = await fetchFeatureFlags(this._httpClient, token);
+            if (!result) {
+                return;
+            }
+            this._featureFlagsCache = result;
+            await Promise.all([
+                this.upsertState("cloud.feature_flags", result.display),
+                this.upsertState("cloud.feature_flags_raw", result.raw),
+            ]);
+            this.log.debug(`F13 feature flags: ${result.display || "(none)"}`);
+        } catch (err: unknown) {
+            this.log.debug(
+                `F13 feature flags poll error: ` +
                     `${err instanceof Error ? err.message : String(err)}`,
             );
         }
@@ -3869,6 +4330,66 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     );
                     break;
                 }
+                case "lens_elevation": {
+                    // v0.8.0: lens mounting height — PUT /lens_elevation (Gen2 only)
+                    const camLe = this._cameras.get(camId);
+                    if (!camLe || camLe.generation < 2) {
+                        this.log.warn(
+                            `lens_elevation write for ${camId.slice(0, 8)} ignored — Gen2 only`,
+                        );
+                        return; // skip ack
+                    }
+                    await this._handleLensElevationWrite(camId, Number(state.val));
+                    break;
+                }
+                case "darkness_threshold": {
+                    // v0.8.0: darkness threshold — PUT /lighting (Gen2 Outdoor only)
+                    const camDt = this._cameras.get(camId);
+                    if (!camDt || camDt.generation < 2 || camDt.hardwareVersion === "HOME_Eyes_Indoor" || camDt.hardwareVersion === "CAMERA_INDOOR_GEN2") {
+                        this.log.warn(
+                            `darkness_threshold write for ${camId.slice(0, 8)} ignored — Gen2 Outdoor only`,
+                        );
+                        return; // skip ack
+                    }
+                    await this._handleDarknessThresholdWrite(camId, Number(state.val));
+                    break;
+                }
+                case "siren_duration": {
+                    // v0.8.0: siren duration — PUT /alarm_settings (Indoor II only)
+                    const camSd = this._cameras.get(camId);
+                    if (!camSd || (camSd.hardwareVersion !== "HOME_Eyes_Indoor" && camSd.hardwareVersion !== "CAMERA_INDOOR_GEN2")) {
+                        this.log.warn(
+                            `siren_duration write for ${camId.slice(0, 8)} ignored — Indoor II only`,
+                        );
+                        return; // skip ack
+                    }
+                    await this._handleAlarmSettingsWrite(camId, { alarmDelayInSeconds: Math.round(Number(state.val)) });
+                    break;
+                }
+                case "alarm_activation_delay": {
+                    // v0.8.0: alarm activation delay — PUT /alarm_settings (Indoor II only)
+                    const camAad = this._cameras.get(camId);
+                    if (!camAad || (camAad.hardwareVersion !== "HOME_Eyes_Indoor" && camAad.hardwareVersion !== "CAMERA_INDOOR_GEN2")) {
+                        this.log.warn(
+                            `alarm_activation_delay write for ${camId.slice(0, 8)} ignored — Indoor II only`,
+                        );
+                        return; // skip ack
+                    }
+                    await this._handleAlarmSettingsWrite(camId, { alarmActivationDelaySeconds: Math.round(Number(state.val)) });
+                    break;
+                }
+                case "pre_alarm_delay": {
+                    // v0.8.0: pre-alarm LED delay — PUT /alarm_settings (Indoor II only)
+                    const camPad = this._cameras.get(camId);
+                    if (!camPad || (camPad.hardwareVersion !== "HOME_Eyes_Indoor" && camPad.hardwareVersion !== "CAMERA_INDOOR_GEN2")) {
+                        this.log.warn(
+                            `pre_alarm_delay write for ${camId.slice(0, 8)} ignored — Indoor II only`,
+                        );
+                        return; // skip ack
+                    }
+                    await this._handleAlarmSettingsWrite(camId, { preAlarmDelayInSeconds: Math.round(Number(state.val)) });
+                    break;
+                }
                 default:
                     return; // unknown writable state — no-op
             }
@@ -4088,6 +4609,136 @@ class BoschSmartHomeCamera extends utils.Adapter {
         this._intrusionConfigCache.set(camId, { ...cfg });
         this.log.info(
             `Intrusion config updated for ${camId.slice(0, 8)} (HTTP ${resp.status}): ${JSON.stringify(cfg)}`,
+        );
+    }
+
+    // ── v0.8.0 lens elevation write handler ────────────────────────────────
+
+    /**
+     * Set lens mounting height via PUT /v11/video_inputs/{id}/lens_elevation.
+     * Gen2 only. Range clamped to 0.5–5.0 m.
+     *
+     * @param camId      Camera UUID (must be Gen2)
+     * @param elevation  Height in metres (clamped)
+     */
+    private async _handleLensElevationWrite(camId: string, elevation: number): Promise<void> {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const clamped = Math.max(0.5, Math.min(5.0, Math.round(elevation * 100) / 100));
+        const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/lens_elevation`;
+        const resp = await this._httpClient.put<unknown>(
+            url,
+            { elevation: clamped },
+            {
+                headers: {
+                    Authorization: `Bearer ${this._currentAccessToken}`,
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+                validateStatus: (s) => s >= 200 && s < 300,
+            },
+        );
+        this._lensElevationCache.set(camId, clamped);
+        this.log.info(
+            `Lens elevation set to ${clamped} m for ${camId.slice(0, 8)} (HTTP ${resp.status})`,
+        );
+    }
+
+    // ── v0.8.0 darkness threshold write handler ────────────────────────────
+
+    /**
+     * Set darkness threshold via PUT /v11/video_inputs/{id}/lighting.
+     * Converts user-facing 0–100 % to Bosch float 0.0–1.0.
+     * Merges with cached softLightFading field (Bosch requires full body).
+     * Gen2 Outdoor only.
+     *
+     * @param camId  Camera UUID (must be Gen2 Outdoor)
+     * @param pct    Threshold percentage 0–100
+     */
+    private async _handleDarknessThresholdWrite(camId: string, pct: number): Promise<void> {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+        const boschValue = Math.round(clamped / 100 * 10000) / 10000; // 4 decimal places like HA
+        const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/lighting`;
+        const headers = {
+            Authorization: `Bearer ${this._currentAccessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        };
+
+        // Bosch requires full body — merge with cached softLightFading if available
+        const cached = this._globalLightingCache.get(camId) ?? {};
+        const softLightFading = typeof cached.softLightFading === "boolean" ? cached.softLightFading : true;
+        const body = { darknessThreshold: boschValue, softLightFading };
+
+        const resp = await this._httpClient.put<unknown>(url, body, {
+            headers,
+            validateStatus: (s) => s >= 200 && s < 300,
+        });
+        this._globalLightingCache.set(camId, { ...cached, ...body });
+        this.log.info(
+            `Darkness threshold set to ${clamped}% (${boschValue}) for ${camId.slice(0, 8)} (HTTP ${resp.status})`,
+        );
+    }
+
+    // ── v0.8.0 alarm settings write handler ───────────────────────────────
+
+    /**
+     * Write alarm settings via PUT /v11/video_inputs/{id}/alarm_settings.
+     * Merges delta into the full cached body (Bosch may reject partial bodies).
+     * HOME_Eyes_Indoor / CAMERA_INDOOR_GEN2 only.
+     *
+     * @param camId   Camera UUID
+     * @param delta   Partial update: one or more of {alarmDelayInSeconds, alarmActivationDelaySeconds, preAlarmDelayInSeconds}
+     */
+    private async _handleAlarmSettingsWrite(
+        camId: string,
+        delta: { alarmDelayInSeconds?: number; alarmActivationDelaySeconds?: number; preAlarmDelayInSeconds?: number },
+    ): Promise<void> {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/alarm_settings`;
+        const headers = {
+            Authorization: `Bearer ${this._currentAccessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        };
+
+        // Seed cache from GET if not yet available (first write before poll ran)
+        let cfg = this._alarmSettingsCache.get(camId);
+        if (!cfg) {
+            const getResp = await this._httpClient.get<unknown>(url, {
+                headers,
+                validateStatus: (s) => s >= 200 && s < 300,
+            });
+            cfg = (getResp.data as Record<string, unknown>) ?? {};
+            this._alarmSettingsCache.set(camId, { ...cfg });
+        } else {
+            cfg = { ...cfg };
+        }
+
+        // Apply delta
+        if (delta.alarmDelayInSeconds !== undefined) {
+            cfg.alarmDelayInSeconds = Math.max(10, Math.min(300, delta.alarmDelayInSeconds));
+        }
+        if (delta.alarmActivationDelaySeconds !== undefined) {
+            cfg.alarmActivationDelaySeconds = Math.max(0, Math.min(600, delta.alarmActivationDelaySeconds));
+        }
+        if (delta.preAlarmDelayInSeconds !== undefined) {
+            cfg.preAlarmDelayInSeconds = Math.max(0, Math.min(300, delta.preAlarmDelayInSeconds));
+        }
+
+        const resp = await this._httpClient.put<unknown>(url, cfg, {
+            headers,
+            validateStatus: (s) => s >= 200 && s < 300,
+        });
+        this._alarmSettingsCache.set(camId, { ...cfg });
+        this.log.info(
+            `Alarm settings updated for ${camId.slice(0, 8)} (HTTP ${resp.status}): ${JSON.stringify(delta)}`,
         );
     }
 
@@ -4432,8 +5083,17 @@ class BoschSmartHomeCamera extends utils.Adapter {
             // freshly-opened stream.
             this._cancelSnapshotIdleTeardown(camId);
             // Open Bosch session + spawn TLS proxy + arm watchdog + populate stream_url
-            await this.ensureLiveSession(camId);
-            this.log.info(`Livestream STARTED for camera ${camId.slice(0, 8)}`);
+            try {
+                await this.ensureLiveSession(camId);
+                this.log.info(`Livestream STARTED for camera ${camId.slice(0, 8)}`);
+            } catch (err: unknown) {
+                if (err instanceof SessionLimitError) {
+                    // v0.8.0: 444 session-quota — track + warn + schedule retry
+                    await this._handleSessionLimitError(camId);
+                    return;
+                }
+                throw err;
+            }
         } else {
             await this._teardownStream(camId);
             this.log.info(`Livestream STOPPED for camera ${camId.slice(0, 8)}`);
@@ -4908,7 +5568,18 @@ class BoschSmartHomeCamera extends utils.Adapter {
         camId: string,
         opts: { asMotionEvent?: boolean } = {},
     ): Promise<void> {
-        const session = await this.ensureLiveSession(camId);
+        let session: LiveSession;
+        try {
+            session = await this.ensureLiveSession(camId);
+        } catch (err: unknown) {
+            if (err instanceof SessionLimitError) {
+                // v0.8.0: 444 session-quota — do NOT mark camera offline,
+                // do NOT increment snapshotFailCount. Track + warn + retry.
+                await this._handleSessionLimitError(camId);
+                return;
+            }
+            throw err;
+        }
         const snapUrl = buildSnapshotUrl(session.proxyUrl);
 
         // v0.5.2: when livestream is OFF (default), a snapshot must NOT leave
@@ -4921,26 +5592,42 @@ class BoschSmartHomeCamera extends utils.Adapter {
 
         try {
             let buf: Buffer;
-            try {
-                buf = await fetchSnapshot(snapUrl, session.digestUser, session.digestPassword);
-            } catch (err: unknown) {
-                const msg = err instanceof Error ? err.message : String(err);
-                // Only retry on "aborted" / connection-reset errors — not on auth (401)
-                // or non-image content type (no point retrying those).
-                const isTransient = /abort|reset|ECONNRESET|socket hang up|timeout/i.test(msg);
-                if (!isTransient) {
-                    await this.markCameraReachability(camId, false);
-                    throw err;
-                }
 
-                this.log.debug(`Snapshot retry for ${camId.slice(0, 8)}: ${msg}`);
-                await new Promise((r) => setTimeout(r, 800));
-                try {
-                    buf = await fetchSnapshot(snapUrl, session.digestUser, session.digestPassword);
-                } catch (retryErr) {
-                    await this.markCameraReachability(camId, false);
-                    throw retryErr;
+            // v0.7.16: MJPEG fast path — Gen2 + LAN reachable + config opt-in.
+            // Skips when privacy is ON (camera refuses RTSP while private).
+            const cam = this._cameras.get(camId);
+            const lanEntry = this._lanReachable.get(camId);
+            const lanReachable = lanEntry?.[0] === true;
+            const privacyOn =
+                (await this.getStateAsync(`cameras.${camId}.privacy_enabled`))?.val === true;
+            const useMjpeg =
+                this.config.use_mjpeg_snapshot !== false && // default true
+                cam?.generation === 2 &&
+                lanReachable &&
+                !privacyOn &&
+                session.digestUser &&
+                session.digestPassword;
+
+            if (useMjpeg) {
+                const lanIp = this._lanIpMap.get(camId) ?? session.lanAddress.split(":")[0];
+                const mjpegBuf = await fetchMjpegSnapshot(
+                    lanIp,
+                    443,
+                    session.digestUser,
+                    session.digestPassword,
+                    this.log,
+                );
+                if (mjpegBuf !== null) {
+                    buf = mjpegBuf;
+                } else {
+                    // MJPEG failed — fall through to snap.jpg
+                    this.log.debug(
+                        `MJPEG snapshot failed for ${camId.slice(0, 8)}, falling back to snap.jpg`,
+                    );
+                    buf = await this._fetchSnapJpgWithRetry(camId, snapUrl, session);
                 }
+            } else {
+                buf = await this._fetchSnapJpgWithRetry(camId, snapUrl, session);
             }
 
             const filePath = `cameras/${camId}/snapshot.jpg`;
@@ -4973,6 +5660,44 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 // timer is reset on every snap, so the window always extends
                 // SNAPSHOT_SESSION_IDLE_MS from the *last* snap.
                 this._armSnapshotIdleTeardown(camId);
+            }
+        }
+    }
+
+    /**
+     * Fetch a snapshot via snap.jpg with one retry on transient errors.
+     *
+     * Extracted from handleSnapshotTrigger so the MJPEG fast path can fall back
+     * to this without code duplication.
+     *
+     * @param camId
+     * @param snapUrl  Full snap.jpg URL (from buildSnapshotUrl)
+     * @param session  Live session providing Digest credentials
+     */
+    private async _fetchSnapJpgWithRetry(
+        camId: string,
+        snapUrl: string,
+        session: { digestUser: string; digestPassword: string },
+    ): Promise<Buffer> {
+        try {
+            return await fetchSnapshot(snapUrl, session.digestUser, session.digestPassword);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            // Only retry on "aborted" / connection-reset errors — not on auth (401)
+            // or non-image content type (no point retrying those).
+            const isTransient = /abort|reset|ECONNRESET|socket hang up|timeout/i.test(msg);
+            if (!isTransient) {
+                await this.markCameraReachability(camId, false);
+                throw err;
+            }
+
+            this.log.debug(`Snapshot retry for ${camId.slice(0, 8)}: ${msg}`);
+            await new Promise((r) => setTimeout(r, 800));
+            try {
+                return await fetchSnapshot(snapUrl, session.digestUser, session.digestPassword);
+            } catch (retryErr) {
+                await this.markCameraReachability(camId, false);
+                throw retryErr;
             }
         }
     }
@@ -5081,10 +5806,96 @@ class BoschSmartHomeCamera extends utils.Adapter {
         return raw.replace(/\[[^\]]+\]$/, "");
     }
 
+    /**
+     * Handle a Bosch HTTP 444 session-quota error.
+     *
+     * - Records the hit timestamp in _sessionLimitHits.
+     * - Sets cameras.<id>.session_limit_hit = true.
+     * - Warns at WARN level (not debug) on every hit so the user notices.
+     * - After SESSION_QUOTA_NOTIFY_THRESHOLD (3) hits in SESSION_QUOTA_WINDOW_MS (5 min),
+     *   logs an additional warning advising to close other Bosch clients.
+     * - Schedules a 60s auto-retry (Bosch orphaned slots expire within ~60s).
+     * - Does NOT increment _snapshotFailCount — quota is not a connectivity failure.
+     *
+     * @param camId  Camera UUID
+     */
+    private async _handleSessionLimitError(camId: string): Promise<void> {
+        const now = Date.now();
+        const window = BoschSmartHomeCamera.SESSION_QUOTA_WINDOW_MS;
+        const threshold = BoschSmartHomeCamera.SESSION_QUOTA_NOTIFY_THRESHOLD;
+
+        // Prune + record
+        const hits = (this._sessionLimitHits.get(camId) ?? []).filter(
+            (t) => now - t < window,
+        );
+        hits.push(now);
+        this._sessionLimitHits.set(camId, hits);
+
+        const camPrefix = camId.slice(0, 8);
+
+        this.log.warn(
+            `[session-quota] Bosch returned HTTP 444 for camera ${camPrefix} — ` +
+                `too many simultaneous live sessions. Hit ${hits.length} of ${threshold} in the 5-min window.`,
+        );
+
+        // Set DP session_limit_hit = true
+        try {
+            await this.setStateAsync(`cameras.${camId}.session_limit_hit`, true, true);
+        } catch (err: unknown) {
+            this.log.debug(
+                `session_limit_hit DP write failed for ${camPrefix} (non-fatal): ` +
+                    `${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
+
+        if (hits.length >= threshold) {
+            this.log.warn(
+                `[session-quota] ${hits.length} session-quota hits in 5 min for camera ` +
+                    `${camPrefix} — close the Bosch App on other devices or disable ` +
+                    `parallel integrations (HA, Python CLI). Retry auto-scheduled in 60 s.`,
+            );
+        }
+
+        // Auto-retry after 60 s — Bosch releases orphaned slots within ~60 s.
+        // Fire-and-forget; if the retry also hits 444, _handleSessionLimitError is called again.
+        this.setTimeout(() => {
+            this.log.debug(`[session-quota] Auto-retry ensureLiveSession for ${camPrefix}`);
+            void this.ensureLiveSession(camId)
+                .then(async () => {
+                    // Successful retry → clear session_limit_hit DP
+                    this._sessionLimitHits.delete(camId);
+                    await this.setStateAsync(
+                        `cameras.${camId}.session_limit_hit`,
+                        false,
+                        true,
+                    );
+                    this.log.info(
+                        `[session-quota] Session-quota recovered for camera ${camPrefix}`,
+                    );
+                })
+                .catch((retryErr: unknown) => {
+                    const msg =
+                        retryErr instanceof Error ? retryErr.message : String(retryErr);
+                    this.log.debug(
+                        `[session-quota] Auto-retry still failed for ${camPrefix}: ${msg}`,
+                    );
+                });
+        }, 60_000);
+    }
+
     private async markCameraReachability(camId: string, reachable: boolean): Promise<void> {
         if (reachable) {
             if (this._snapshotFailCount.get(camId)) {
                 this._snapshotFailCount.delete(camId);
+            }
+            // v0.8.0: clear session_limit_hit on successful reachability
+            if (this._sessionLimitHits.has(camId)) {
+                this._sessionLimitHits.delete(camId);
+                try {
+                    await this.setStateAsync(`cameras.${camId}.session_limit_hit`, false, true);
+                } catch {
+                    // non-fatal
+                }
             }
             await this.setStateAsync(`cameras.${camId}.online`, true, true);
             // v0.7.2: notify on online/offline transition

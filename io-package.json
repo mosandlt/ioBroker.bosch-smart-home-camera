@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "0.7.15",
+    "version": "0.8.0",
     "news": {
+      "0.8.0": {
+        "en": "v0.8.0: ported HA v13.2.x features \u2014 F1 MJPEG snapshot (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 RCP-Version DP, F13 Cloud Feature-Flags DPs, Tier-2 gap-list (lens_elevation, darkness_threshold, alarm-system numbers), 444 SessionLimit handling with 60s auto-retry. +90 tests.",
+        "de": "v0.8.0: HA v13.2.x Features portiert \u2014 F1 MJPEG-Snapshot (Gen2 LAN, opt-in), F4 ONVIF-Scopes DP, F6 RCP-Version DP, F13 Cloud-Feature-Flags DPs, Tier-2 Gap-Liste (lens_elevation, darkness_threshold, Alarm-System-Numbers), 444 SessionLimit-Behandlung mit 60s Auto-Retry. +90 Tests.",
+        "ru": "v0.8.0: \u043f\u043e\u0440\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u044b \u0444\u0443\u043d\u043a\u0446\u0438\u0438 HA v13.2.x \u2014 F1 MJPEG-\u0441\u043d\u0438\u043c\u043e\u043a (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 RCP-Version DP, F13 Cloud Feature-Flags, Tier-2 (lens_elevation, darkness_threshold, alarm-system), \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430 444 SessionLimit \u0441 \u0430\u0432\u0442\u043e-\u043f\u043e\u0432\u0442\u043e\u0440\u043e\u043c 60\u0441. +90 \u0442\u0435\u0441\u0442\u043e\u0432.",
+        "pt": "v0.8.0: funcionalidades HA v13.2.x portadas \u2014 F1 instant\u00e2neo MJPEG (Gen2 LAN, opcional), F4 ONVIF Scopes DP, F6 vers\u00e3o RCP DP, F13 flags de funcionalidade, Tier-2 (lens_elevation, darkness_threshold, alarme), tratamento 444 SessionLimit com auto-retry 60s. +90 testes.",
+        "nl": "v0.8.0: HA v13.2.x features geport \u2014 F1 MJPEG snapshot (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 RCP-versie DP, F13 Cloud Feature-Flags, Tier-2 (lens_elevation, darkness_threshold, alarm-system), 444 SessionLimit-afhandeling met 60s auto-retry. +90 tests.",
+        "fr": "v0.8.0: fonctionnalit\u00e9s HA v13.2.x port\u00e9es \u2014 F1 capture MJPEG (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 version RCP DP, F13 indicateurs de fonctionnalit\u00e9s, Tier-2 (lens_elevation, darkness_threshold, alarme), gestion 444 SessionLimit avec r\u00e9essai auto 60s. +90 tests.",
+        "it": "v0.8.0: funzionalit\u00e0 HA v13.2.x portate \u2014 F1 snapshot MJPEG (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 versione RCP DP, F13 flag funzionalit\u00e0, Tier-2 (lens_elevation, darkness_threshold, allarme), gestione 444 SessionLimit con auto-retry 60s. +90 test.",
+        "es": "v0.8.0: funciones HA v13.2.x portadas \u2014 F1 instant\u00e1nea MJPEG (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 versi\u00f3n RCP DP, F13 banderas de funciones, Tier-2 (lens_elevation, darkness_threshold, alarma), manejo 444 SessionLimit con reintento auto 60s. +90 pruebas.",
+        "pl": "v0.8.0: funkcje HA v13.2.x przeniesione \u2014 F1 migawka MJPEG (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 wersja RCP DP, F13 flagi funkcji, Tier-2 (lens_elevation, darkness_threshold, alarm), obs\u0142uga 444 SessionLimit z auto-retry 60s. +90 test\u00f3w.",
+        "uk": "v0.8.0: \u0444\u0443\u043d\u043a\u0446\u0456\u0457 HA v13.2.x \u043f\u043e\u0440\u0442\u043e\u0432\u0430\u043d\u043e \u2014 F1 \u0437\u043d\u0456\u043c\u043e\u043a MJPEG (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 \u0432\u0435\u0440\u0441\u0456\u044f RCP DP, F13 \u043f\u0440\u0430\u043f\u043e\u0440\u0446\u0456 \u0444\u0443\u043d\u043a\u0446\u0456\u0439, Tier-2 (lens_elevation, darkness_threshold, \u0442\u0440\u0438\u0432\u043e\u0433\u0430), \u043e\u0431\u0440\u043e\u0431\u043a\u0430 444 SessionLimit \u0437 \u0430\u0432\u0442\u043e-\u043f\u043e\u0432\u0442\u043e\u0440\u043e\u043c 60\u0441. +90 \u0442\u0435\u0441\u0442\u0456\u0432.",
+        "zh-cn": "v0.8.0: \u79fb\u690d HA v13.2.x \u529f\u80fd \u2014 F1 MJPEG \u5feb\u7167 (Gen2 LAN, \u53ef\u9009), F4 ONVIF Scopes DP, F6 RCP \u7248\u672c DP, F13 \u4e91\u529f\u80fd\u6807\u5fd7, Tier-2 (lens_elevation, darkness_threshold, \u62a5\u8b66), 444 SessionLimit \u5904\u7406 60\u79d2 \u81ea\u52a8\u91cd\u8bd5\u3002+90 \u6d4b\u8bd5\u3002"
+      },
       "0.7.15": {
         "en": "Hotfix: upsertState cache/DB divergence. The cache was set BEFORE awaiting setStateAsync, so any failed DB write left the cache holding the new value while the DB stayed at the old one. Every later write to that DP then hit the cache short-circuit and silently skipped \u2014 the DP was frozen for the adapter's lifetime. Sandbox-observed: privacy_enabled stuck at True for 4 h. Now write first, cache after.",
         "de": "Hotfix: upsertState Cache/DB-Divergenz. Der Cache wurde VOR dem await setStateAsync gesetzt, jeder fehlgeschlagene DB-Write hinterlie\u00df den Cache mit dem neuen Wert w\u00e4hrend die DB beim alten blieb. Jeder weitere Write desselben DPs wurde dann via Cache-Shortcut still geskippt \u2014 der DP war f\u00fcr die restliche Adapter-Laufzeit eingefroren. Sandbox: privacy_enabled blieb 4h auf True. Jetzt erst Write, dann Cache.",
@@ -80,84 +93,6 @@
         "pl": "Fix: obs\u0142uga cloud-503 \u2014 uczciwe komunikaty b\u0142\u0119d\u00f3w; wyk\u0142adniczy backoff odnawiania (5s/15s/45s/120s/300s); wykrywanie okna konserwacji Bosch. Closes #9.",
         "uk": "Fix: \u043e\u0431\u0440\u043e\u0431\u043a\u0430 cloud-503 \u2014 \u0447\u0435\u0441\u043d\u0456 \u043f\u043e\u0432\u0456\u0434\u043e\u043c\u043b\u0435\u043d\u043d\u044f \u043f\u0440\u043e \u043f\u043e\u043c\u0438\u043b\u043a\u0438; exponential backoff \u043e\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u044f (5s/15s/45s/120s/300s); \u0432\u0438\u044f\u0432\u043b\u0435\u043d\u043d\u044f \u0432\u0456\u043a\u043d\u0430 \u043e\u0431\u0441\u043b\u0443\u0433\u043e\u0432\u0443\u0432\u0430\u043d\u043d\u044f Bosch. Closes #9.",
         "zh-cn": "\u4fee\u590d\uff1acloud-503 \u5904\u7406 \u2014 \u8bda\u5b9e\u7684\u9519\u8bef\u6d88\u606f\uff1b\u6307\u6570\u9000\u907f\u7eed\u671f (5s/15s/45s/120s/300s)\uff1bBosch \u7ef4\u62a4\u7a97\u53e3\u68c0\u6d4b\u3002\u5173\u95ed #9\u3002"
-      },
-      "0.7.9": {
-        "en": "New: MQTT Bridge \u2014 publish motion/person/audio_alarm events to any MQTT broker; configurable prefix, TLS, auth; compatible with Node-RED, openHAB, HA, Frigate.",
-        "de": "Neu: MQTT-Bridge \u2014 motion/person/audio_alarm Events an MQTT-Broker publishen; konfigurierbares Prefix, TLS, Auth; kompatibel mit Node-RED, openHAB, HA, Frigate.",
-        "ru": "\u041d\u043e\u0432\u043e\u0435: MQTT-\u043c\u043e\u0441\u0442 \u2014 \u043f\u0443\u0431\u043b\u0438\u043a\u0430\u0446\u0438\u044f \u0441\u043e\u0431\u044b\u0442\u0438\u0439 motion/person/audio_alarm \u043d\u0430 \u043b\u044e\u0431\u043e\u0439 MQTT-\u0431\u0440\u043e\u043a\u0435\u0440; \u043d\u0430\u0441\u0442\u0440\u0430\u0438\u0432\u0430\u0435\u043c\u044b\u0439 \u043f\u0440\u0435\u0444\u0438\u043a\u0441, TLS, \u0430\u0443\u0442\u0435\u043d\u0442\u0438\u0444\u0438\u043a\u0430\u0446\u0438\u044f; \u0441\u043e\u0432\u043c\u0435\u0441\u0442\u0438\u043c\u043e \u0441 Node-RED, openHAB, HA, Frigate.",
-        "pt": "Novo: MQTT Bridge \u2014 publicar eventos motion/person/audio_alarm em qualquer broker MQTT; prefixo, TLS e auth configur\u00e1veis; compat\u00edvel com Node-RED, openHAB, HA, Frigate.",
-        "nl": "Nieuw: MQTT Bridge \u2014 motion/person/audio_alarm events naar elke MQTT broker sturen; configureerbaar prefix, TLS, auth; compatibel met Node-RED, openHAB, HA, Frigate.",
-        "fr": "Nouveau: MQTT Bridge \u2014 publier les \u00e9v\u00e9nements motion/person/audio_alarm sur n'importe quel broker MQTT; pr\u00e9fixe, TLS et auth configurables; compatible Node-RED, openHAB, HA, Frigate.",
-        "it": "Nuovo: MQTT Bridge \u2014 pubblica eventi motion/person/audio_alarm su qualsiasi broker MQTT; prefisso, TLS e auth configurabili; compatibile con Node-RED, openHAB, HA, Frigate.",
-        "es": "Nuevo: MQTT Bridge \u2014 publica eventos motion/person/audio_alarm en cualquier broker MQTT; prefijo, TLS y auth configurables; compatible con Node-RED, openHAB, HA, Frigate.",
-        "pl": "Nowe: MQTT Bridge \u2014 publikuj zdarzenia motion/person/audio_alarm do dowolnego brokera MQTT; konfigurowalny prefix, TLS, auth; zgodny z Node-RED, openHAB, HA, Frigate.",
-        "uk": "\u041d\u043e\u0432\u0435: MQTT-\u043c\u0456\u0441\u0442 \u2014 \u043f\u0443\u0431\u043b\u0456\u043a\u0430\u0446\u0456\u044f \u043f\u043e\u0434\u0456\u0439 motion/person/audio_alarm \u043d\u0430 \u0431\u0443\u0434\u044c-\u044f\u043a\u0438\u0439 MQTT-\u0431\u0440\u043e\u043a\u0435\u0440; \u043d\u0430\u043b\u0430\u0448\u0442\u043e\u0432\u0443\u0432\u0430\u043d\u0438\u0439 \u043f\u0440\u0435\u0444\u0456\u043a\u0441, TLS, \u0430\u0443\u0442\u0435\u043d\u0442\u0438\u0444\u0456\u043a\u0430\u0446\u0456\u044f; \u0441\u0443\u043c\u0456\u0441\u043d\u043e \u0437 Node-RED, openHAB, HA, Frigate.",
-        "zh-cn": "\u65b0\u589e\uff1aMQTT Bridge \u2014 \u5c06 motion/person/audio_alarm \u4e8b\u4ef6\u63a8\u9001\u5230\u4efb\u610f MQTT Broker\uff1b\u53ef\u914d\u7f6e\u524d\u7f00\u3001TLS\u3001\u8ba4\u8bc1\uff1b\u517c\u5bb9 Node-RED\u3001openHAB\u3001HA\u3001Frigate\u3002"
-      },
-      "0.7.8": {
-        "en": "Fix: Gen2 LAN-RCP writes no longer fail silently; emergency LiveSession auto-opens for Digest creds. New: PTZ presets for 360\u00b0 indoor cam \u2014 pan_position + pan_preset DPs; home/left/right/back-left/back-right.",
-        "de": "Fix: Gen2 LAN-RCP-Writes schlagen nicht mehr still fehl; Emergency-LiveSession \u00f6ffnet sich f\u00fcr Digest-Creds. Neu: PTZ-Presets f\u00fcr 360\u00b0-Innenkamera \u2014 pan_position + pan_preset DPs; home/left/right/back-left/back-right.",
-        "ru": "Fix: Gen2 LAN-RCP \u0431\u0435\u0437 \u0442\u0438\u0445\u0438\u0445 \u0441\u0431\u043e\u0435\u0432; \u0430\u0432\u0430\u0440\u0438\u0439\u043d\u0430\u044f LiveSession \u0434\u043b\u044f Digest. \u041d\u043e\u0432\u043e\u0435: PTZ-\u043f\u0440\u0435\u0441\u0435\u0442\u044b \u0434\u043b\u044f 360\u00b0 (Gen1) \u2014 pan_position + pan_preset DP; home/left/right/back-left/back-right.",
-        "pt": "Fix: writes LAN-RCP Gen2 sem falhas silenciosas; LiveSession emerg\u00eancia para Digest. Novo: PTZ presets c\u00e2mera 360\u00b0 \u2014 pan_position + pan_preset DPs; home/left/right/back-left/back-right.",
-        "nl": "Fix: Gen2 LAN-RCP writes niet meer stil falen; nood-LiveSession voor Digest. Nieuw: PTZ presets 360\u00b0 cam \u2014 pan_position + pan_preset DPs; home/left/right/back-left/back-right.",
-        "fr": "Fix: writes LAN-RCP Gen2 sans \u00e9chec silencieux; LiveSession urgence pour Digest. Nouveau: PTZ presets cam\u00e9ra 360\u00b0 \u2014 DPs pan_position + pan_preset; home/left/right/back-left/back-right.",
-        "it": "Fix: write LAN-RCP Gen2 senza fail silenzioso; LiveSession emergenza per Digest. Nuovo: PTZ preset cam 360\u00b0 \u2014 DP pan_position + pan_preset; home/left/right/back-left/back-right.",
-        "es": "Fix: writes LAN-RCP Gen2 sin fallo silencioso; LiveSession emergencia para Digest. Nuevo: PTZ presets cam 360\u00b0 \u2014 DPs pan_position + pan_preset; home/left/right/back-left/back-right.",
-        "pl": "Fix: zapisy LAN-RCP Gen2 bez cichych b\u0142\u0119d\u00f3w; awaryjnie LiveSession dla Digest. Nowe: PTZ presety 360\u00b0 \u2014 DP pan_position + pan_preset; home/left/right/back-left/back-right.",
-        "uk": "Fix: Gen2 LAN-RCP \u0431\u0435\u0437 \u0442\u0438\u0445\u0438\u0445 \u0437\u0431\u043e\u0457\u0432; \u0430\u0432\u0430\u0440\u0456\u0439\u043d\u0430 LiveSession \u0434\u043b\u044f Digest. \u041d\u043e\u0432\u0435: PTZ \u043f\u0440\u0435\u0441\u0435\u0442\u0438 360\u00b0 (Gen1) \u2014 DP pan_position + pan_preset; home/left/right/back-left/back-right.",
-        "zh-cn": "\u4fee\u590d\uff1aGen2 LAN-RCP \u4e0d\u518d\u9759\u9ed8\u5931\u8d25\uff1b\u81ea\u52a8 LiveSession \u83b7\u53d6 Digest \u51ed\u636e\u3002\u65b0\u589e\uff1a360\u00b0 \u5ba4\u5185\u6444\u50cf\u5934 PTZ \u9884\u8bbe \u2014 pan_position + pan_preset DP\uff1bhome/left/right/back-left/back-right\u3002"
-      },
-      "0.7.7": {
-        "en": "New: Gen2 audio (mic/speaker) + intrusion (sensitivity/distance) DPs; WiFi info DPs; configurable motion-active window.",
-        "de": "Neu: Gen2 Audio (Mikrofon/Lautsprecher) + Intrusion (Empfindlichkeit/Distanz) DPs; WLAN-Info-DPs; konfigurierbares Motion-Active-Fenster.",
-        "ru": "\u041d\u043e\u0432\u043e\u0435: Gen2 \u0430\u0443\u0434\u0438\u043e (\u043c\u0438\u043a\u0440\u043e\u0444\u043e\u043d/\u0434\u0438\u043d\u0430\u043c\u0438\u043a) + \u0432\u0442\u043e\u0440\u0436\u0435\u043d\u0438\u0435 (\u0447\u0443\u0432\u0441\u0442\u0432\u0438\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u044c/\u0434\u0438\u0441\u0442\u0430\u043d\u0446\u0438\u044f) DP; WiFi DP; \u043d\u0430\u0441\u0442\u0440\u0430\u0438\u0432\u0430\u0435\u043c\u043e\u0435 \u043e\u043a\u043d\u043e motion-active.",
-        "pt": "Novo: Gen2 DPs \u00e1udio (mic/altifalante) + intrus\u00e3o (sensibilidade/dist\u00e2ncia); DPs WiFi; janela motion-active configur\u00e1vel.",
-        "nl": "Nieuw: Gen2 audio (mic/luidspreker) + inbraak (gevoeligheid/afstand) DPs; WiFi DPs; instelbaar motion-active venster.",
-        "fr": "Nouveau: Gen2 DPs audio (micro/haut-parleur) + intrusion (sensibilit\u00e9/distance); DPs WiFi; fen\u00eatre motion-active configurable.",
-        "it": "Nuovo: Gen2 DP audio (mic/altoparlante) + intrusione (sensibilit\u00e0/distanza); DP WiFi; finestra motion-active configurabile.",
-        "es": "Nuevo: Gen2 DPs audio (mic/altavoz) + intrusi\u00f3n (sensibilidad/distancia); DPs WiFi; ventana motion-active configurable.",
-        "pl": "Nowe: Gen2 DP audio (mik/g\u0142o\u015bnik) + wtargni\u0119cie (czu\u0142o\u015b\u0107/odleg\u0142o\u015b\u0107); DP WiFi; konfigurowalny czas motion-active.",
-        "uk": "\u041d\u043e\u0432\u0435: Gen2 DP \u0430\u0443\u0434\u0456\u043e (\u043c\u0456\u043a\u0440\u043e\u0444\u043e\u043d/\u0434\u0438\u043d\u0430\u043c\u0456\u043a) + \u0432\u0442\u043e\u0440\u0433\u043d\u0435\u043d\u043d\u044f (\u0447\u0443\u0442\u043b\u0438\u0432\u0456\u0441\u0442\u044c/\u0432\u0456\u0434\u0441\u0442\u0430\u043d\u044c); DP WiFi; \u043d\u0430\u043b\u0430\u0448\u0442\u043e\u0432\u0443\u0432\u0430\u043d\u0435 \u0432\u0456\u043a\u043d\u043e motion-active.",
-        "zh-cn": "\u65b0\u589e\uff1aGen2 \u97f3\u9891 DP\uff08\u9ea6\u514b\u98ce/\u626c\u58f0\u5668\uff09+\u5165\u4fb5\u68c0\u6d4b DP\uff1bWiFi \u4fe1\u606f DP\uff1b\u53ef\u914d\u7f6e motion-active \u7a97\u53e3\u3002"
-      },
-      "0.7.6": {
-        "en": "Fix: Indoor II (Gen2, no LEDs) no longer gets light DPs; handler writes blocked; orphaned DPs removed on restart.",
-        "de": "Fix: Indoor II (Gen2, keine LEDs) erh\u00e4lt keine Licht-DPs; Handler-Writes geblockt; verwaiste DPs beim Neustart entfernt.",
-        "ru": "Fix: Indoor II (Gen2, \u043d\u0435\u0442 LED) \u043d\u0435 \u043f\u043e\u043b\u0443\u0447\u0430\u0435\u0442 DP \u0441\u0432\u0435\u0442\u0430; \u0437\u0430\u043f\u0438\u0441\u0438 handler \u0437\u0430\u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u043d\u044b; \u0443\u0441\u0442\u0430\u0440\u0435\u043b\u044b\u0435 DP \u0443\u0434\u0430\u043b\u044f\u044e\u0442\u0441\u044f \u043f\u0440\u0438 \u043f\u0435\u0440\u0435\u0437\u0430\u043f\u0443\u0441\u043a\u0435.",
-        "pt": "Fix: Indoor II (Gen2, sem LED) n\u00e3o recebe DPs de luz; escritas bloqueadas; DPs obsoletos removidos no rein\u00edcio.",
-        "nl": "Fix: Indoor II (Gen2, geen LED) krijgt geen licht-DPs; handler-writes geblokkeerd; verouderde DPs bij herstart verwijderd.",
-        "fr": "Correction: Indoor II (Gen2, sans LED) ne re\u00e7oit plus de DP lumi\u00e8re; \u00e9critures bloqu\u00e9es; DP obsol\u00e8tes supprim\u00e9s au red\u00e9marrage.",
-        "it": "Fix: Indoor II (Gen2, senza LED) non riceve DP luce; scritture bloccate; DP obsoleti rimossi al riavvio.",
-        "es": "Fix: Indoor II (Gen2, sin LED) no recibe DPs de luz; escritas bloqueadas; DPs obsoletos eliminados al reiniciar.",
-        "pl": "Fix: Indoor II (Gen2, bez LED) nie dostaje DP \u015bwiate\u0142; zapisy zablokowane; przestarza\u0142e DP usuwane przy restarcie.",
-        "uk": "\u0412\u0438\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043d\u044f: Indoor II (Gen2, \u0431\u0435\u0437 LED) \u043d\u0435 \u043e\u0442\u0440\u0438\u043c\u0443\u0454 DP \u0441\u0432\u0456\u0442\u043b\u0430; \u0437\u0430\u043f\u0438\u0441\u0438 \u0437\u0430\u0431\u043b\u043e\u043a\u043e\u0432\u0430\u043d\u043e; \u0437\u0430\u0441\u0442\u0430\u0440\u0456\u043b\u0456 DP \u0432\u0438\u0434\u0430\u043b\u044f\u044e\u0442\u044c\u0441\u044f \u043f\u0440\u0438 \u043f\u0435\u0440\u0435\u0437\u0430\u043f\u0443\u0441\u043a\u0443.",
-        "zh-cn": "\u4fee\u590d\uff1aIndoor II\uff08Gen2\uff0c\u65e0 LED\uff09\u4e0d\u518d\u521b\u5efa\u706f\u5149 DP\uff1b\u5199\u5165\u88ab\u5c4f\u853d\uff1b\u91cd\u542f\u65f6\u6e05\u9664\u9057\u7559 DP\u3002"
-      },
-      "0.7.5": {
-        "en": "Fix: local RCP fallback (privacy/light) now uses HTTPS port 443 + HTTP Digest auth; HTTP port 80 \u2192 connection refused on Gen2 cameras.",
-        "de": "Fix: Lokaler RCP-Fallback (Privacy/Licht) nutzt jetzt HTTPS Port 443 + HTTP Digest Auth; HTTP Port 80 \u2192 Connection refused bei Gen2-Kameras.",
-        "ru": "\u0418\u0441\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435: \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0439 RCP-fallback (privacy/\u0441\u0432\u0435\u0442) \u0442\u0435\u043f\u0435\u0440\u044c \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u0442 HTTPS \u043f\u043e\u0440\u0442 443 + HTTP Digest auth; HTTP \u043f\u043e\u0440\u0442 80 \u2192 connection refused \u043d\u0430 Gen2.",
-        "pt": "Fix: fallback RCP local (privacy/luz) usa agora HTTPS porta 443 + HTTP Digest auth; HTTP porta 80 \u2192 connection refused em c\u00e2meras Gen2.",
-        "nl": "Fix: lokale RCP-fallback (privacy/licht) gebruikt nu HTTPS poort 443 + HTTP Digest auth; HTTP poort 80 \u2192 connection refused op Gen2-camera's.",
-        "fr": "Correction : le fallback RCP local (privacy/lumi\u00e8re) utilise d\u00e9sormais HTTPS port 443 + HTTP Digest auth ; HTTP port 80 \u2192 connection refused sur Gen2.",
-        "it": "Fix: il fallback RCP locale (privacy/luce) usa ora HTTPS porta 443 + HTTP Digest auth; HTTP porta 80 \u2192 connection refused su Gen2.",
-        "es": "Fix: el fallback RCP local (privacy/luz) usa ahora HTTPS puerto 443 + HTTP Digest auth; HTTP puerto 80 \u2192 connection refused en Gen2.",
-        "pl": "Fix: lokalny fallback RCP (privacy/\u015bwiat\u0142o) u\u017cywa teraz HTTPS port 443 + HTTP Digest auth; HTTP port 80 \u2192 connection refused na Gen2.",
-        "uk": "\u0412\u0438\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043d\u044f: \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u0438\u0439 RCP-fallback (privacy/\u0441\u0432\u0456\u0442\u043b\u043e) \u0442\u0435\u043f\u0435\u0440 \u0432\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u043e\u0432\u0443\u0454 HTTPS \u043f\u043e\u0440\u0442 443 + HTTP Digest auth; HTTP \u043f\u043e\u0440\u0442 80 \u2192 connection refused \u043d\u0430 Gen2.",
-        "zh-cn": "\u4fee\u590d\uff1a\u672c\u5730 RCP \u56de\u9000\uff08\u9690\u79c1/\u706f\u5149\uff09\u73b0\u5728\u4f7f\u7528 HTTPS 443 \u7aef\u53e3 + HTTP Digest \u8ba4\u8bc1\uff1bHTTP 80 \u7aef\u53e3\u5728 Gen2 \u6444\u50cf\u5934\u4e0a connection refused\u3002"
-      },
-      "0.7.4": {
-        "en": "LAN-fallback: outage-ping sweep on cloud 5xx; cameras.<id>.lan_ip + lan_reachable DPs; 30 s post-write grace; cloud-degraded startup rehydrates from object DB; front-light local RCP fallback (Gen2) on cloud failure; privacy local RCP fallback.",
-        "de": "LAN-Fallback: Outage-Ping bei Cloud-5xx; cameras.<id>.lan_ip + lan_reachable DPs; 30 s Post-Write-Grace; Cloud-degradierter Start rehydriert aus Object-DB; Front-Licht lokaler RCP-Fallback (Gen2) bei Cloud-Ausfall; Privacy lokaler RCP-Fallback.",
-        "ru": "LAN-fallback: \u043f\u0438\u043d\u0433 \u043f\u0440\u0438 5xx \u043e\u0442 \u043e\u0431\u043b\u0430\u043a\u0430; cameras.<id>.lan_ip + lan_reachable; 30 \u0441 grace \u043f\u043e\u0441\u043b\u0435 \u0437\u0430\u043f\u0438\u0441\u0438; \u0437\u0430\u043f\u0443\u0441\u043a \u043f\u0440\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e\u043c \u043e\u0431\u043b\u0430\u043a\u0435 \u0438\u0437 object DB; \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0439 RCP fallback front-light (Gen2); \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0439 RCP fallback privacy.",
-        "pt": "LAN-fallback: ping de outage em 5xx cloud; DPs cameras.<id>.lan_ip + lan_reachable; grace 30 s p\u00f3s-escrita; startup degradado rehydrata do object DB; fallback RCP local front-light (Gen2); fallback RCP local privacy.",
-        "nl": "LAN-fallback: outage-ping bij cloud 5xx; cameras.<id>.lan_ip + lan_reachable DPs; 30 s post-write grace; cloud-degraded start herlaadt uit object DB; front-light lokale RCP fallback (Gen2); privacy lokale RCP fallback.",
-        "fr": "LAN-fallback: ping outage sur 5xx cloud; DPs cameras.<id>.lan_ip + lan_reachable; grace 30 s post-\u00e9criture; d\u00e9marrage d\u00e9grad\u00e9 recharge depuis object DB; fallback RCP local front-light (Gen2); fallback RCP local privacy.",
-        "it": "LAN-fallback: ping outage su 5xx cloud; DP cameras.<id>.lan_ip + lan_reachable; grace 30 s post-scrittura; avvio degradato ricarica da object DB; fallback RCP locale front-light (Gen2); fallback RCP locale privacy.",
-        "es": "LAN-fallback: ping outage en 5xx cloud; DPs cameras.<id>.lan_ip + lan_reachable; grace 30 s post-escritura; inicio degradado rehidrata desde object DB; fallback RCP local front-light (Gen2); fallback RCP local privacy.",
-        "pl": "LAN-fallback: ping outage przy 5xx cloud; DP cameras.<id>.lan_ip + lan_reachable; 30 s grace po zapisie; zdegradowany start rehydruje z object DB; lokalny fallback RCP front-light (Gen2); lokalny fallback RCP privacy.",
-        "uk": "LAN-fallback: ping outage \u043f\u0440\u0438 5xx \u0445\u043c\u0430\u0440\u0438; DP cameras.<id>.lan_ip + lan_reachable; grace 30 \u0441 \u043f\u0456\u0441\u043b\u044f \u0437\u0430\u043f\u0438\u0441\u0443; \u0434\u0435\u0433\u0440\u0430\u0434\u043e\u0432\u0430\u043d\u0438\u0439 \u0441\u0442\u0430\u0440\u0442 \u043f\u0435\u0440\u0435\u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0443\u0454 \u0437 object DB; \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u0438\u0439 RCP fallback front-light (Gen2); \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u0438\u0439 RCP fallback privacy.",
-        "zh-cn": "LAN \u56de\u9000\uff1a\u4e91\u7aef 5xx \u65f6\u6267\u884c outage-ping\uff1bcameras.<id>.lan_ip + lan_reachable \u72b6\u6001\uff1b\u5199\u5165\u540e 30 \u79d2 grace \u671f\uff1b\u4e91\u7aef\u964d\u7ea7\u542f\u52a8\u4ece object DB \u6062\u590d\uff1bGen2 \u524d\u706f\u672c\u5730 RCP \u56de\u9000\uff1b\u9690\u79c1\u6a21\u5f0f\u672c\u5730 RCP \u56de\u9000\u3002"
       }
     },
     "titleLang": {
@@ -233,7 +168,10 @@
         "name": "Bosch Smart Home Camera",
         "url": "bosch-smart-home-camera/customWidgets.js",
         "i18n": true,
-        "version": "0.1.0"
+        "version": "0.1.0",
+        "components": [
+          "boschCamera"
+        ]
       }
     }
   },
@@ -241,7 +179,8 @@
   "protectedNative": [],
   "native": {
     "redirect_url": "",
-    "region": "EU"
+    "region": "EU",
+    "use_mjpeg_snapshot": true
   },
   "instanceObjects": [
     {
