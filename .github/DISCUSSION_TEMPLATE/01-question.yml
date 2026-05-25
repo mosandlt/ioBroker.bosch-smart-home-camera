@@ -1,0 +1,71 @@
+title: "[Q&A] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for posting! Please fill in all required fields so we can help efficiently.
+        (Danke! Bitte füll alle Pflichtfelder aus damit wir schnell helfen können.)
+  - type: input
+    id: adapter_version
+    attributes:
+      label: Adapter Version
+      description: "e.g. v0.7.15 — found in ioBroker Admin under Adapters → bosch-smart-home-camera."
+      placeholder: "v0.7.15"
+    validations:
+      required: true
+  - type: input
+    id: node_version
+    attributes:
+      label: Node.js Version
+      description: "Run `node --version` in a terminal."
+      placeholder: "v20.x.x"
+    validations:
+      required: true
+  - type: input
+    id: iobroker_version
+    attributes:
+      label: ioBroker js-controller Version
+      description: "Found in ioBroker Admin → System → About or run `iob version`."
+      placeholder: "6.x.x"
+    validations:
+      required: true
+  - type: dropdown
+    id: cam_model
+    attributes:
+      label: Camera Model (Kamera-Modell)
+      options:
+        - Eyes Outdoor (Gen1)
+        - 360° Indoor (Gen1)
+        - Eyes Outdoor II (Gen2)
+        - Eyes Indoor II (Gen2)
+        - Multiple / mixed (Mehrere / gemischt)
+      multiple: true
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: "What do you want to know? Please be specific — describe what you tried and what happened."
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Adapter Logs (if relevant)
+      description: |
+        Paste relevant adapter log lines.
+        Enable debug logging first: ioBroker Admin → Adapters → bosch-smart-home-camera → Log level: debug.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have read the [README](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera#readme) and checked existing discussions
+          required: true
+        - label: I am running a supported Node.js version (18+)
+          required: false

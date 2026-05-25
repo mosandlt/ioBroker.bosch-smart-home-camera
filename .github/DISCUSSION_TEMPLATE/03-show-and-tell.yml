@@ -1,0 +1,63 @@
+title: "[Show & Tell] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share your ioBroker setup, VIS dashboard, blockly script, or creative use of the adapter!
+        (Zeig deinen ioBroker-Setup, dein VIS-Dashboard, dein Blockly-Script!)
+  - type: input
+    id: adapter_version
+    attributes:
+      label: Adapter Version
+      placeholder: "v0.7.15"
+    validations:
+      required: true
+  - type: dropdown
+    id: cam_model
+    attributes:
+      label: Camera Model(s) in your setup
+      options:
+        - Eyes Outdoor (Gen1)
+        - 360° Indoor (Gen1)
+        - Eyes Outdoor II (Gen2)
+        - Eyes Indoor II (Gen2)
+        - Multiple / mixed (Mehrere / gemischt)
+      multiple: true
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: What are you sharing?
+      options:
+        - VIS dashboard / widget
+        - Blockly script
+        - JavaScript / TypeScript script
+        - Node-RED flow
+        - Full smart home setup
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: "Describe what you built and why it is useful."
+    validations:
+      required: true
+  - type: textarea
+    id: code_config
+    attributes:
+      label: Config / Code Snippet (optional)
+      description: "Paste JSON, JavaScript, or Blockly export if you want to share the details."
+      render: javascript
+    validations:
+      required: false
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / Links (optional)
+      description: "Drag & drop images or paste links."
+    validations:
+      required: false
