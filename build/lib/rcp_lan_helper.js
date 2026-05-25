@@ -108,6 +108,7 @@ function parseOnvifScopes(raw) {
         const text = raw.toString("ascii");
         // Split on null bytes, newlines, carriage returns, or whitespace runs
         const scopes = text
+            // eslint-disable-next-line no-control-regex
             .split(/[\x00\n\r]+/)
             .map((s) => s.trim())
             .filter((s) => s.length > 0);

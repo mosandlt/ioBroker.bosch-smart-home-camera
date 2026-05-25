@@ -191,7 +191,11 @@ class MqttBridge {
             });
         });
     }
-    /** Map Bosch event type → MQTT sub-topic. */
+    /**
+     * Map Bosch event type → MQTT sub-topic.
+     *
+     * @param eventType
+     */
     static eventTypeToSubtopic(eventType) {
         if (eventType === "audio_alarm") {
             return "audio";

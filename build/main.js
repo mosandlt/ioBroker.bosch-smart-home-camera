@@ -1765,7 +1765,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
             // Controls day/night lighting switch point.
             // GET/PUT /v11/video_inputs/{id}/lighting → {"darknessThreshold": 0.47, "softLightFading": bool}.
             // Stored by Bosch as 0.0–1.0 float; exposed here as 0–100 integer.
-            if (cam.generation >= 2 && cam.hardwareVersion !== "HOME_Eyes_Indoor" && cam.hardwareVersion !== "CAMERA_INDOOR_GEN2") {
+            if (cam.generation >= 2 &&
+                cam.hardwareVersion !== "HOME_Eyes_Indoor" &&
+                cam.hardwareVersion !== "CAMERA_INDOOR_GEN2") {
                 await this.setObjectNotExistsAsync(`${prefix}.darkness_threshold`, {
                     type: "state",
                     common: {
@@ -1784,7 +1786,8 @@ class BoschSmartHomeCamera extends utils.Adapter {
             }
             // v0.8.0: alarm settings (HOME_Eyes_Indoor / CAMERA_INDOOR_GEN2 only).
             // GET/PUT /v11/video_inputs/{id}/alarm_settings → {alarmDelayInSeconds, alarmActivationDelaySeconds, preAlarmDelayInSeconds, ...}.
-            if (cam.hardwareVersion === "HOME_Eyes_Indoor" || cam.hardwareVersion === "CAMERA_INDOOR_GEN2") {
+            if (cam.hardwareVersion === "HOME_Eyes_Indoor" ||
+                cam.hardwareVersion === "CAMERA_INDOOR_GEN2") {
                 await this.setObjectNotExistsAsync(`${prefix}.siren_duration`, {
                     type: "state",
                     common: {
@@ -2704,6 +2707,8 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * @param camIp     Camera LAN IP address
      * @param brightness  Brightness 0–100 (clamped)
      * @param auth      Optional Digest credentials {user, password}; required for Gen2
+     * @param auth.user
+     * @param auth.password
      */
     async _localWriteFrontLight(camIp, brightness, auth) {
         const val = Math.max(0, Math.min(100, Math.round(brightness)));
@@ -2764,6 +2769,8 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * @param camIp   Camera LAN IP address
      * @param enabled  true = privacy ON, false = privacy OFF
      * @param auth    Optional Digest credentials {user, password}; required for Gen2
+     * @param auth.user
+     * @param auth.password
      */
     async _localWritePrivacy(camIp, enabled, auth) {
         const payload = enabled ? "0x00010000" : "0x00000000";
@@ -3204,6 +3211,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
      *
      * @param token
      * @param cam
+     * @param doSlowTier
      */
     async _pollSingleCameraState(token, cam, doSlowTier = false) {
         // Refresh the in-memory metadata cache too (so generation/name stays
@@ -3287,11 +3295,14 @@ class BoschSmartHomeCamera extends utils.Adapter {
             await this._pollLensElevation(token, cam.id);
         }
         // v0.8.0: global lighting (Gen2 Outdoor only) — darkness_threshold DP.
-        if (cam.generation >= 2 && cam.hardwareVersion !== "HOME_Eyes_Indoor" && cam.hardwareVersion !== "CAMERA_INDOOR_GEN2") {
+        if (cam.generation >= 2 &&
+            cam.hardwareVersion !== "HOME_Eyes_Indoor" &&
+            cam.hardwareVersion !== "CAMERA_INDOOR_GEN2") {
             await this._pollGlobalLighting(token, cam.id);
         }
         // v0.8.0: alarm settings (Indoor II only) — siren_duration, alarm_activation_delay, pre_alarm_delay DPs.
-        if (cam.hardwareVersion === "HOME_Eyes_Indoor" || cam.hardwareVersion === "CAMERA_INDOOR_GEN2") {
+        if (cam.hardwareVersion === "HOME_Eyes_Indoor" ||
+            cam.hardwareVersion === "CAMERA_INDOOR_GEN2") {
             await this._pollAlarmSettings(token, cam.id);
         }
         // F4/F6 slow-tier LAN diagnostic reads — all cameras, before the Gen1/no-light
@@ -3476,8 +3487,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
             this._alarmSettingsCache.set(camId, { ...data });
             const writes = [];
             const sirenDur = typeof data.alarmDelayInSeconds === "number" ? data.alarmDelayInSeconds : undefined;
-            const actDelay = typeof data.alarmActivationDelaySeconds === "number" ? data.alarmActivationDelaySeconds : undefined;
-            const preDelay = typeof data.preAlarmDelayInSeconds === "number" ? data.preAlarmDelayInSeconds : undefined;
+            const actDelay = typeof data.alarmActivationDelaySeconds === "number"
+                ? data.alarmActivationDelaySeconds
+                : undefined;
+            const preDelay = typeof data.preAlarmDelayInSeconds === "number"
+                ? data.preAlarmDelayInSeconds
+                : undefined;
             if (sirenDur !== undefined) {
                 writes.push(this.upsertState(`cameras.${camId}.siren_duration`, sirenDur));
             }
@@ -3825,7 +3840,10 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 case "darkness_threshold": {
                     // v0.8.0: darkness threshold — PUT /lighting (Gen2 Outdoor only)
                     const camDt = this._cameras.get(camId);
-                    if (!camDt || camDt.generation < 2 || camDt.hardwareVersion === "HOME_Eyes_Indoor" || camDt.hardwareVersion === "CAMERA_INDOOR_GEN2") {
+                    if (!camDt ||
+                        camDt.generation < 2 ||
+                        camDt.hardwareVersion === "HOME_Eyes_Indoor" ||
+                        camDt.hardwareVersion === "CAMERA_INDOOR_GEN2") {
                         this.log.warn(`darkness_threshold write for ${camId.slice(0, 8)} ignored — Gen2 Outdoor only`);
                         return; // skip ack
                     }
@@ -3835,31 +3853,43 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 case "siren_duration": {
                     // v0.8.0: siren duration — PUT /alarm_settings (Indoor II only)
                     const camSd = this._cameras.get(camId);
-                    if (!camSd || (camSd.hardwareVersion !== "HOME_Eyes_Indoor" && camSd.hardwareVersion !== "CAMERA_INDOOR_GEN2")) {
+                    if (!camSd ||
+                        (camSd.hardwareVersion !== "HOME_Eyes_Indoor" &&
+                            camSd.hardwareVersion !== "CAMERA_INDOOR_GEN2")) {
                         this.log.warn(`siren_duration write for ${camId.slice(0, 8)} ignored — Indoor II only`);
                         return; // skip ack
                     }
-                    await this._handleAlarmSettingsWrite(camId, { alarmDelayInSeconds: Math.round(Number(state.val)) });
+                    await this._handleAlarmSettingsWrite(camId, {
+                        alarmDelayInSeconds: Math.round(Number(state.val)),
+                    });
                     break;
                 }
                 case "alarm_activation_delay": {
                     // v0.8.0: alarm activation delay — PUT /alarm_settings (Indoor II only)
                     const camAad = this._cameras.get(camId);
-                    if (!camAad || (camAad.hardwareVersion !== "HOME_Eyes_Indoor" && camAad.hardwareVersion !== "CAMERA_INDOOR_GEN2")) {
+                    if (!camAad ||
+                        (camAad.hardwareVersion !== "HOME_Eyes_Indoor" &&
+                            camAad.hardwareVersion !== "CAMERA_INDOOR_GEN2")) {
                         this.log.warn(`alarm_activation_delay write for ${camId.slice(0, 8)} ignored — Indoor II only`);
                         return; // skip ack
                     }
-                    await this._handleAlarmSettingsWrite(camId, { alarmActivationDelaySeconds: Math.round(Number(state.val)) });
+                    await this._handleAlarmSettingsWrite(camId, {
+                        alarmActivationDelaySeconds: Math.round(Number(state.val)),
+                    });
                     break;
                 }
                 case "pre_alarm_delay": {
                     // v0.8.0: pre-alarm LED delay — PUT /alarm_settings (Indoor II only)
                     const camPad = this._cameras.get(camId);
-                    if (!camPad || (camPad.hardwareVersion !== "HOME_Eyes_Indoor" && camPad.hardwareVersion !== "CAMERA_INDOOR_GEN2")) {
+                    if (!camPad ||
+                        (camPad.hardwareVersion !== "HOME_Eyes_Indoor" &&
+                            camPad.hardwareVersion !== "CAMERA_INDOOR_GEN2")) {
                         this.log.warn(`pre_alarm_delay write for ${camId.slice(0, 8)} ignored — Indoor II only`);
                         return; // skip ack
                     }
-                    await this._handleAlarmSettingsWrite(camId, { preAlarmDelayInSeconds: Math.round(Number(state.val)) });
+                    await this._handleAlarmSettingsWrite(camId, {
+                        preAlarmDelayInSeconds: Math.round(Number(state.val)),
+                    });
                     break;
                 }
                 default:
@@ -3985,6 +4015,8 @@ class BoschSmartHomeCamera extends utils.Adapter {
      *
      * @param camId  Camera UUID (must be Gen2)
      * @param delta  {sensitivity?, distance?}
+     * @param delta.sensitivity
+     * @param delta.distance
      */
     async _handleIntrusionWrite(camId, delta) {
         if (!this._currentAccessToken) {
@@ -4082,7 +4114,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
             throw new Error("no access token — adapter not ready");
         }
         const clamped = Math.max(0, Math.min(100, Math.round(pct)));
-        const boschValue = Math.round(clamped / 100 * 10000) / 10000; // 4 decimal places like HA
+        const boschValue = Math.round((clamped / 100) * 10000) / 10000; // 4 decimal places like HA
         const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/lighting`;
         const headers = {
             Authorization: `Bearer ${this._currentAccessToken}`,
@@ -4108,6 +4140,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
      *
      * @param camId   Camera UUID
      * @param delta   Partial update: one or more of {alarmDelayInSeconds, alarmActivationDelaySeconds, preAlarmDelayInSeconds}
+     * @param delta.alarmDelayInSeconds
+     * @param delta.alarmActivationDelaySeconds
+     * @param delta.preAlarmDelayInSeconds
      */
     async _handleAlarmSettingsWrite(camId, delta) {
         if (!this._currentAccessToken) {
@@ -4956,6 +4991,8 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * @param camId
      * @param snapUrl  Full snap.jpg URL (from buildSnapshotUrl)
      * @param session  Live session providing Digest credentials
+     * @param session.digestUser
+     * @param session.digestPassword
      */
     async _fetchSnapJpgWithRetry(camId, snapUrl, session) {
         try {

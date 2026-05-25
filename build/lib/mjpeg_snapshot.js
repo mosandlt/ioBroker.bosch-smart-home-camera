@@ -62,6 +62,9 @@ exports._spawnFn = node_child_process_1.spawn;
  * @param user       CBS username from PUT /connection (e.g. "cbs-XXXXXXXX")
  * @param password   Digest password from PUT /connection
  * @param log        ioBroker logger (or any object with .debug/.warn/.error)
+ * @param log.debug
+ * @param log.warn
+ * @param log.error
  * @param timeoutMs  Maximum ms to wait for a frame. Default 8000 ms.
  * @returns JPEG bytes as Buffer on success; null otherwise.
  */
@@ -70,19 +73,20 @@ async function fetchMjpegSnapshot(camHost, camPort, user, password, log, timeout
         log.debug("fetchMjpegSnapshot: missing required params — skipping");
         return null;
     }
-    const rtspUrl = `rtsps://${user}:${password}@${camHost}:${camPort}` +
-        `/rtsp_tunnel?inst=${exports.MJPEG_INST}`;
+    const rtspUrl = `rtsps://${user}:${password}@${camHost}:${camPort}` + `/rtsp_tunnel?inst=${exports.MJPEG_INST}`;
     const t0 = Date.now();
     let proc = null;
     return new Promise((resolve) => {
         let settled = false;
         let timeoutHandle = null;
         function settle(result) {
-            if (settled)
+            if (settled) {
                 return;
+            }
             settled = true;
-            if (timeoutHandle !== null)
+            if (timeoutHandle !== null) {
                 clearTimeout(timeoutHandle);
+            }
             resolve(result);
         }
         function killProc() {
@@ -140,8 +144,9 @@ async function fetchMjpegSnapshot(camHost, camPort, user, password, log, timeout
         });
         proc.on("close", (code) => {
             const elapsedMs = Date.now() - t0;
-            if (settled)
-                return; // timeout already fired
+            if (settled) {
+                return;
+            } // timeout already fired
             if (code !== 0) {
                 const stderrText = Buffer.concat(stderrChunks).toString("utf8", 0, 200) || "(no stderr)";
                 log.warn(`fetchMjpegSnapshot: FFmpeg exited with code ${code} for ${camHost} — ${stderrText}`);
@@ -166,8 +171,9 @@ async function fetchMjpegSnapshot(camHost, camPort, user, password, log, timeout
         });
         // Arm timeout watchdog
         timeoutHandle = setTimeout(() => {
-            if (settled)
+            if (settled) {
                 return;
+            }
             const elapsedMs = Date.now() - t0;
             log.warn(`fetchMjpegSnapshot: timeout after ${elapsedMs} ms for ${camHost}`);
             killProc();

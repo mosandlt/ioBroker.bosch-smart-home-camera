@@ -648,6 +648,8 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param camIp     Camera LAN IP address
      * @param brightness  Brightness 0–100 (clamped)
      * @param auth      Optional Digest credentials {user, password}; required for Gen2
+     * @param auth.user
+     * @param auth.password
      */
     private _localWriteFrontLight;
     /**
@@ -663,6 +665,8 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param camIp   Camera LAN IP address
      * @param enabled  true = privacy ON, false = privacy OFF
      * @param auth    Optional Digest credentials {user, password}; required for Gen2
+     * @param auth.user
+     * @param auth.password
      */
     private _localWritePrivacy;
     private onReady;
@@ -686,6 +690,7 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      *
      * @param token
      * @param cam
+     * @param doSlowTier
      */
     private _pollSingleCameraState;
     /**
@@ -813,6 +818,8 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      *
      * @param camId  Camera UUID (must be Gen2)
      * @param delta  {sensitivity?, distance?}
+     * @param delta.sensitivity
+     * @param delta.distance
      */
     private _handleIntrusionWrite;
     /**
@@ -840,6 +847,9 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      *
      * @param camId   Camera UUID
      * @param delta   Partial update: one or more of {alarmDelayInSeconds, alarmActivationDelaySeconds, preAlarmDelayInSeconds}
+     * @param delta.alarmDelayInSeconds
+     * @param delta.alarmActivationDelaySeconds
+     * @param delta.preAlarmDelayInSeconds
      */
     private _handleAlarmSettingsWrite;
     /**
@@ -1080,6 +1090,8 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param camId
      * @param snapUrl  Full snap.jpg URL (from buildSnapshotUrl)
      * @param session  Live session providing Digest credentials
+     * @param session.digestUser
+     * @param session.digestPassword
      */
     private _fetchSnapJpgWithRetry;
     /**

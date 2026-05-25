@@ -25,7 +25,11 @@
  *   Production code MUST NOT reassign `_spawnFn`.
  */
 
-import { spawn as _nodeSpawn, type ChildProcess, type SpawnOptionsWithoutStdio } from "node:child_process";
+import {
+    spawn as _nodeSpawn,
+    type ChildProcess,
+    type SpawnOptionsWithoutStdio,
+} from "node:child_process";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -43,7 +47,7 @@ const JPEG_MAGIC = Buffer.from([0xff, 0xd8]);
  *
  * @internal
  */
-export let _spawnFn: (
+export const _spawnFn: (
     command: string,
     args: string[],
     options?: SpawnOptionsWithoutStdio,
@@ -70,6 +74,9 @@ export let _spawnFn: (
  * @param user       CBS username from PUT /connection (e.g. "cbs-XXXXXXXX")
  * @param password   Digest password from PUT /connection
  * @param log        ioBroker logger (or any object with .debug/.warn/.error)
+ * @param log.debug
+ * @param log.warn
+ * @param log.error
  * @param timeoutMs  Maximum ms to wait for a frame. Default 8000 ms.
  * @returns JPEG bytes as Buffer on success; null otherwise.
  */
@@ -78,7 +85,11 @@ export async function fetchMjpegSnapshot(
     camPort: number,
     user: string,
     password: string,
-    log: { debug: (msg: string) => void; warn: (msg: string) => void; error: (msg: string) => void },
+    log: {
+        debug: (msg: string) => void;
+        warn: (msg: string) => void;
+        error: (msg: string) => void;
+    },
     timeoutMs: number = 8000,
 ): Promise<Buffer | null> {
     if (!camHost || !user || !password) {
@@ -87,8 +98,7 @@ export async function fetchMjpegSnapshot(
     }
 
     const rtspUrl =
-        `rtsps://${user}:${password}@${camHost}:${camPort}` +
-        `/rtsp_tunnel?inst=${MJPEG_INST}`;
+        `rtsps://${user}:${password}@${camHost}:${camPort}` + `/rtsp_tunnel?inst=${MJPEG_INST}`;
 
     const t0 = Date.now();
     let proc: ChildProcess | null = null;
@@ -98,9 +108,13 @@ export async function fetchMjpegSnapshot(
         let timeoutHandle: NodeJS.Timeout | null = null;
 
         function settle(result: Buffer | null): void {
-            if (settled) return;
+            if (settled) {
+                return;
+            }
             settled = true;
-            if (timeoutHandle !== null) clearTimeout(timeoutHandle);
+            if (timeoutHandle !== null) {
+                clearTimeout(timeoutHandle);
+            }
             resolve(result);
         }
 
@@ -161,10 +175,13 @@ export async function fetchMjpegSnapshot(
         proc.on("close", (code: number | null) => {
             const elapsedMs = Date.now() - t0;
 
-            if (settled) return; // timeout already fired
+            if (settled) {
+                return;
+            } // timeout already fired
 
             if (code !== 0) {
-                const stderrText = Buffer.concat(stderrChunks).toString("utf8", 0, 200) || "(no stderr)";
+                const stderrText =
+                    Buffer.concat(stderrChunks).toString("utf8", 0, 200) || "(no stderr)";
                 log.warn(
                     `fetchMjpegSnapshot: FFmpeg exited with code ${code} for ${camHost} — ${stderrText}`,
                 );
@@ -190,15 +207,15 @@ export async function fetchMjpegSnapshot(
                 return;
             }
 
-            log.debug(
-                `fetchMjpegSnapshot: ${out.length} bytes in ${elapsedMs} ms for ${camHost}`,
-            );
+            log.debug(`fetchMjpegSnapshot: ${out.length} bytes in ${elapsedMs} ms for ${camHost}`);
             settle(out);
         });
 
         // Arm timeout watchdog
         timeoutHandle = setTimeout(() => {
-            if (settled) return;
+            if (settled) {
+                return;
+            }
             const elapsedMs = Date.now() - t0;
             log.warn(`fetchMjpegSnapshot: timeout after ${elapsedMs} ms for ${camHost}`);
             killProc();

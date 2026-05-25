@@ -33,7 +33,7 @@ export declare const MJPEG_INST = 3;
  *
  * @internal
  */
-export declare let _spawnFn: (command: string, args: string[], options?: SpawnOptionsWithoutStdio) => ChildProcess;
+export declare const _spawnFn: (command: string, args: string[], options?: SpawnOptionsWithoutStdio) => ChildProcess;
 /**
  * Capture one JPEG frame from the Gen2 MJPEG stream (inst=3).
  *
@@ -53,6 +53,9 @@ export declare let _spawnFn: (command: string, args: string[], options?: SpawnOp
  * @param user       CBS username from PUT /connection (e.g. "cbs-XXXXXXXX")
  * @param password   Digest password from PUT /connection
  * @param log        ioBroker logger (or any object with .debug/.warn/.error)
+ * @param log.debug
+ * @param log.warn
+ * @param log.error
  * @param timeoutMs  Maximum ms to wait for a frame. Default 8000 ms.
  * @returns JPEG bytes as Buffer on success; null otherwise.
  */

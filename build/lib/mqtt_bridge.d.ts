@@ -15,26 +15,71 @@
  */
 /** Subset of AdapterConfig that MqttBridge needs. */
 export interface MqttBridgeConfig {
+    /**
+     *
+     */
     mqtt_enabled?: boolean;
+    /**
+     *
+     */
     mqtt_broker_host?: string;
+    /**
+     *
+     */
     mqtt_broker_port?: number;
+    /**
+     *
+     */
     mqtt_username?: string;
+    /**
+     *
+     */
     mqtt_password?: string;
+    /**
+     *
+     */
     mqtt_topic_prefix?: string;
+    /**
+     *
+     */
     mqtt_tls?: boolean;
 }
 /** Payload published on every camera event. */
 export interface MqttEventPayload {
+    /**
+     *
+     */
     timestamp: string;
+    /**
+     *
+     */
     cam_name: string;
+    /**
+     *
+     */
     event_id: string;
+    /**
+     *
+     */
     event_type: string;
 }
 /** Minimal logger interface — matches ioBroker adapter.log. */
 export interface MqttLogger {
+    /**
+     *
+     */
     info(msg: string): void;
+    /**
+     *
+     */
     warn(msg: string): void;
+    /**
+     *
+     */
     debug(msg: string): void;
+    /**
+     *
+     */
     error(msg: string): void;
 }
 /**
@@ -86,7 +131,11 @@ export declare class MqttBridge {
      * @returns Promise that resolves once the client is fully closed.
      */
     disconnect(): Promise<void>;
-    /** Map Bosch event type → MQTT sub-topic. */
+    /**
+     * Map Bosch event type → MQTT sub-topic.
+     *
+     * @param eventType
+     */
     private static eventTypeToSubtopic;
     /** Exposed for tests only — check whether a client is wired up. */
     get isConnected(): boolean;
