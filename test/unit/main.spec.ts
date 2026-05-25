@@ -1652,13 +1652,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         );
     });
 
-    // Skipped 2026-05-25 (v0.8.0) — F4/F6/F13 + Tier-2 polls shifted the
-    // axios response-queue order; the lighting response now gets consumed
-    // by a different endpoint. Real product code is correct (brightness-
-    // derived booleans work in live ioBroker). Test queue needs reorder
-    // matching the new call sequence in _pollSingleCameraState — tracked
-    // for v0.8.1.
-    it.skip("state poll derives front_light_enabled + wallwasher_enabled from brightness (forum #1339866 bug 2)", async () => {
+    it("state poll derives front_light_enabled + wallwasher_enabled from brightness (forum #1339866 bug 2)", async () => {
         const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
         // The state poll re-calls fetchCameras then fetchLightingState. Both
         // need feature flags so the Gen2 lighting block is taken.
@@ -1688,6 +1682,10 @@ describe("main adapter — v0.2.0 command handlers", () => {
                 { status: 404, data: null }, // GET /v11/video_inputs/{id}/wifiinfo
                 // v0.7.14: _pollIntrusionConfig runs between wifi and lighting for Gen2
                 { status: 404, data: null }, // GET /v11/video_inputs/{id}/intrusionDetectionConfig
+                // v0.8.0: _pollLensElevation runs after intrusion (Gen2 only)
+                { status: 404, data: null }, // GET /v11/video_inputs/{id}/lens_elevation
+                // v0.8.0: _pollGlobalLighting runs after lens elevation (Gen2 Outdoor only)
+                { status: 404, data: null }, // GET /v11/video_inputs/{id}/lighting
                 { status: 200, data: lightingResponse }, // GET /v11/video_inputs/{id}/lighting/switch
             ],
         });
@@ -1729,8 +1727,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         ).to.equal(true);
     });
 
-    // Skipped 2026-05-25 (v0.8.0) — same response-queue-shift as above.
-    it.skip("state poll clears front_light_enabled + wallwasher_enabled when both groups are off", async () => {
+    it("state poll clears front_light_enabled + wallwasher_enabled when both groups are off", async () => {
         const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
         const cameraListResponse = [
             {
@@ -1754,11 +1751,11 @@ describe("main adapter — v0.2.0 command handlers", () => {
             fetchSnapshot: sinon.stub().resolves(Buffer.from([0xff, 0xd8, 0xff, 0xe0])),
             extraAxiosResponses: [
                 { status: 200, data: cameraListResponse },
-                // v0.7.7: _pollWifiInfo runs before lighting; 404 = Ethernet cam (no-op)
                 { status: 404, data: null }, // GET /v11/video_inputs/{id}/wifiinfo
-                // v0.7.14: _pollIntrusionConfig runs between wifi and lighting for Gen2
                 { status: 404, data: null }, // GET /v11/video_inputs/{id}/intrusionDetectionConfig
-                { status: 200, data: lightingResponse },
+                { status: 404, data: null }, // GET /v11/video_inputs/{id}/lens_elevation
+                { status: 404, data: null }, // GET /v11/video_inputs/{id}/lighting
+                { status: 200, data: lightingResponse }, // GET /v11/video_inputs/{id}/lighting/switch
             ],
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
