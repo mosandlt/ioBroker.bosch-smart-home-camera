@@ -17,7 +17,7 @@ concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
 
-# Opt actions/checkout@v4 and actions/setup-node@v4 into Node 24 ahead of the
+# Opt actions/checkout@v6 and actions/setup-node@v4 into Node 24 ahead of the
 # 2026-06-02 forced switch, so the deprecation warning stops showing in run
 # annotations. Can be removed once the runners ship Node 24 as the default.
 env:
@@ -40,7 +40,7 @@ jobs:
     if: contains(github.event.head_commit.message, '[skip ci]') == false
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: '22.x'
