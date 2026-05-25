@@ -88,6 +88,9 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via five sibling p
 
 ## Changelog
 
+### 0.8.0 (2026-05-25)
+HA-feature parity wave — ONVIF Scopes, RCP version, cloud feature flags, MJPEG inst=3 snapshot, 444 session-quota proper sensor state. Repochecker bot preflight added (E1032 news count ≤ 7, E1105 visWidgets components, E0028 Node ≥ 22). Engines bumped to Node 22 LTS; matrix `[22.x, 24.x]`. `@types/node` pinned to `^22.0.0` (Dependabot major-version ignore added).
+
 ### 0.7.15 (2026-05-24)
 Hotfix — `upsertState` cache / DB divergence.
 
@@ -272,7 +275,7 @@ Older releases (0.0.1 – 0.3.3) are archived in [CHANGELOG_OLD.md](./CHANGELOG_
 
 ## Status
 
-**Beta (v0.7.15)** — verified live against 4 cameras (Gen1 + Gen2, FW 7.91.56 / 9.40.25) on a real ioBroker instance. Cloud API contracts confirmed against the iOS app via mitmproxy.
+**Beta (v0.8.0)** — verified live against 4 cameras (Gen1 + Gen2, FW 7.91.56 / 9.40.25) on a real ioBroker instance. Cloud API contracts confirmed against the iOS app via mitmproxy.
 
 What works:
 - Browser-based OAuth2 PKCE login via Bosch SingleKey ID (no programmatic password handling — captcha/MFA happen in the browser)
@@ -394,8 +397,9 @@ Quick install:
 ```bash
 cp docs/vis-2-example/vis-views.json ~/iobroker-data/files/vis-2.0/main/
 iobroker restart vis-2
-# Then open the URL: http://HOST:8082/vis-2/index.html#Cameras
 ```
+
+Then open `http://HOST:8082/vis-2/index.html#Cameras` in your browser.
 
 See [`docs/vis-2-example/README.md`](./docs/vis-2-example/README.md) for the
 walkthrough, including how to swap the camera UUIDs and how to wire go2rtc /
@@ -642,7 +646,7 @@ This adapter is part of a 5-implementation family for Bosch Smart Home Cameras:
 |---|---|---|
 | 🏆 Home Assistant Integration | [Bosch-Smart-Home-Camera-Tool-HomeAssistant](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | **v12.8.4** · HA Quality Scale **Platinum** · production-ready |
 | 🐍 Python CLI | [Bosch-Smart-Home-Camera-Tool-Python](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | v10.7.7 · Mini-NVR + SMB upload (BETA) · LAN-fallback (ping / --local) · capture / research / no-HA standalone |
-| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.7.15 · beta · npm |
+| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | v0.8.0 · beta · npm |
 | 🤖 MCP Server | [Bosch-Smart-Home-Camera-Tool-MCP](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) | v1.3.5 · LAN-ping + prefer_local · Claude Code / Claude Desktop integration |
 | 🔴 Node-RED nodes (alpha) | [Bosch-Smart-Home-Camera-Tool-NodeRED](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-NodeRED) | v0.1.0-alpha · skeleton |
 
