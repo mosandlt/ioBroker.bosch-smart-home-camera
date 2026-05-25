@@ -49,7 +49,7 @@ jobs:
     strategy:
       matrix:
         node-version: [22.x, 24.x]
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: ioBroker/testing-action-adapter@v1
         with:
