@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: ioBroker/testing-action-check@v1
         with:
-          node-version: '22.x'
+          node-version: '24.x'
           lint: true
 
   # Coverage threshold gate (lines ≥80%, functions ≥80%, branches ≥70%)
@@ -76,7 +76,20 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: ioBroker/testing-action-deploy@v1
+      # Skip publish if this version is already on npm (e.g. after a SQUASH_RELEASE
+      # force-push that re-triggers the tag workflow on an already-published version).
+      - name: Check if version already published on npm
+        id: npm_check
+        run: |
+          VERSION="${GITHUB_REF##*/v}"
+          if npm view "iobroker.bosch-smart-home-camera@${VERSION}" version --registry https://registry.npmjs.org 2>/dev/null | grep -qF "${VERSION}"; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+            echo "Version ${VERSION} already on npm — skipping publish."
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.npm_check.outputs.already_published == 'false'
+        uses: ioBroker/testing-action-deploy@v1
         with:
-          node-version: '22.x'
+          node-version: '24.x'
           github-token: ${{ secrets.GITHUB_TOKEN }}
