@@ -91,8 +91,7 @@ interface RawCameraItem {
  */
 export class UnauthorizedError extends Error {
     /**
-     *
-     * @param message
+     * @param message human-readable error detail
      */
     constructor(message: string) {
         super(message);
@@ -106,8 +105,7 @@ export class UnauthorizedError extends Error {
  */
 export class CamerasApiError extends Error {
     /**
-     *
-     * @param message
+     * @param message human-readable error detail
      */
     constructor(message: string) {
         super(message);
@@ -136,7 +134,8 @@ const GEN2_HARDWARE_VERSIONS = new Set([
  *
  * Mirrors the MODELS registry in HA models.py.
  *
- * @param hardwareVersion
+ * @param hardwareVersion raw `hardwareVersion` string from Bosch /v11/video_inputs
+ * @returns 2 for known Gen2 strings, 1 for everything else (including unknown)
  */
 export function detectGeneration(hardwareVersion: string): 1 | 2 {
     return GEN2_HARDWARE_VERSIONS.has(hardwareVersion) ? 2 : 1;
@@ -149,7 +148,8 @@ export function detectGeneration(hardwareVersion: string): 1 | 2 {
  * Returns null if the required `id` field is missing or empty.
  * Missing name/hardwareVersion/firmwareVersion fields get safe defaults.
  *
- * @param raw
+ * @param raw raw camera item from the Bosch cloud API
+ * @returns BoschCamera on success, null when the id is missing/empty
  */
 function mapCamera(raw: RawCameraItem): BoschCamera | null {
     const id = typeof raw.id === "string" ? raw.id.trim() : "";

@@ -240,6 +240,7 @@ function clamp(v: number, lo: number, hi: number): number {
  * @param brightness   New brightness 0..100; pass undefined to keep current
  * @param hexColor     New color "#RRGGBB"; pass undefined to keep current,
  *                     pass null to switch to white-balance mode (warm white)
+ * @returns updated LightingState with top + bottom LED groups changed in lockstep
  */
 export function buildWallwasherUpdate(
     current: LightingState,
