@@ -191,8 +191,8 @@ function mapCamera(raw: RawCameraItem): BoschCamera | null {
  * @param httpClient  Axios instance (allows injection for testing)
  * @param token       Current access_token (Bearer)
  * @returns           Camera list (empty array if the account has no cameras)
- * @throws UnauthorizedError  on HTTP 401 (caller should refresh token + retry)
- * @throws CamerasApiError    on HTTP 5xx or network/timeout error
+ * @throws {UnauthorizedError} on HTTP 401 (caller should refresh token + retry)
+ * @throws {CamerasApiError} on HTTP 5xx or network/timeout error
  */
 export async function fetchCameras(
     httpClient: AxiosInstance,
