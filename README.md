@@ -394,7 +394,7 @@ Quick install:
 ```bash
 cp docs/vis-2-example/vis-views.json ~/iobroker-data/files/vis-2.0/main/
 iobroker restart vis-2
-# Open http://HOST:8082/vis-2/index.html#Cameras
+# Then open the URL: http://HOST:8082/vis-2/index.html#Cameras
 ```
 
 See [`docs/vis-2-example/README.md`](./docs/vis-2-example/README.md) for the

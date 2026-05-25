@@ -260,7 +260,7 @@
       "_id": "info.fcm_active",
       "type": "state",
       "common": {
-        "role": "indicator.status",
+        "role": "text",
         "name": "FCM push listener status: healthy / stub / error / stopped",
         "type": "string",
         "read": true,
