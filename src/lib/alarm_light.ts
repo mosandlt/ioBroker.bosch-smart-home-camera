@@ -104,9 +104,10 @@ export async function setPanicAlarm(
  * Fetch the current Gen2 lighting state. Returns null on any non-200 or
  * unparseable response so callers can fall back to cached / default state.
  *
- * @param httpClient
- * @param token
- * @param cameraId
+ * @param httpClient axios instance configured with the Bosch cloud base URL
+ * @param token     Bearer access token
+ * @param cameraId  cloud camera UUID
+ * @returns the parsed LightingState on HTTP 200, or null otherwise
  */
 export async function fetchLightingState(
     httpClient: AxiosInstance,
@@ -138,10 +139,10 @@ export async function fetchLightingState(
  * light groups in the body — callers must merge their delta into a cached
  * full state before passing it here.
  *
- * @param httpClient
- * @param token
- * @param cameraId
- * @param state
+ * @param httpClient axios instance configured with the Bosch cloud base URL
+ * @param token     Bearer access token
+ * @param cameraId  cloud camera UUID
+ * @param state     full lighting state to PUT (all three light groups)
  * @returns the response body parsed into a LightingState on success, or
  * `null` on any non-2xx. The caller should update its cache with this
  * return value to keep the local view in sync with what the camera now
@@ -185,7 +186,8 @@ export async function putLightingState(
  * default group on any missing / malformed field. Defensive — the field
  * order in Bosch's responses has shifted between firmwares.
  *
- * @param raw
+ * @param raw arbitrary object from a Bosch lighting endpoint response
+ * @returns a fully-populated LightingState (missing fields fall back to defaults)
  */
 export function normaliseLightingState(raw: Record<string, unknown>): LightingState {
     return {
