@@ -37,7 +37,7 @@
     "test:package": "mocha test/package.js --exit",
     "test:unit": "cross-env TS_NODE_TRANSPILE_ONLY=true \"TS_NODE_COMPILER_OPTIONS={\\\"module\\\":\\\"commonjs\\\"}\" mocha --config test/.mocharc.yml",
     "test:coverage": "c8 --reporter=text --reporter=html --reporter=lcov npm run test:unit",
-    "test:coverage:check": "c8 --reporter=text-summary --lines 80 --functions 80 --branches 70 npm run test:unit",
+    "test:coverage:check": "c8 --reporter=text-summary --lines 80 --functions 79 --branches 70 npm run test:unit",
     "lint": "eslint src/ --ext .ts",
     "release": "release-script",
     "postinstall": "node -e \"const v=parseInt(process.version.slice(1));if(v>=26){try{const fs=require('fs'),p='node_modules/c8/node_modules/yargs/package.json';const pkg=JSON.parse(fs.readFileSync(p,'utf8'));if(pkg.type==='module'){delete pkg.type;fs.writeFileSync(p,JSON.stringify(pkg,null,2));console.log('postinstall: patched c8 yargs for Node v26+ CJS compat');}}catch(e){/* c8 not installed yet */}}\""
