@@ -35,7 +35,7 @@ import { expect } from "chai";
 import * as sinon from "sinon";
 import * as path from "path";
 
-import { stubAxiosSequence, restoreAxios } from "./helpers/axios-mock";
+import { stubAxiosSequence, stubAxiosByUrl, restoreAxios } from "./helpers/axios-mock";
 
 import type { MockDatabase } from "@iobroker/testing/build/tests/unit/mocks/mockDatabase";
 import type { MockAdapter } from "@iobroker/testing/build/tests/unit/mocks/mockAdapter";
@@ -581,33 +581,65 @@ describe("v0.9.0 B3: unread_events_count DP", () => {
         expect(common?.write).to.equal(false);
     });
 
-    it("numberOfUnreadEvents from camera listing written to DP", async () => {
-        stubAxiosSequence([{ status: 200, data: CAMERAS_GEN2_ONLY }]);
+    it("unread_events_count counts isRead=false events from GET /v11/events", async () => {
+        // v0.9.1: the DP is NO LONGER sourced from the listing's
+        // `numberOfUnreadEvents` field (found unreliable in live testing — it
+        // reported 0 while 44 events were actually unread). _pollUnreadCount now
+        // counts `isRead === false` events from GET /v11/events. URL-matched so
+        // the count is independent of how many other polls run first.
+        stubAxiosByUrl([
+            { match: /\/v11\/video_inputs(\?|$)/, status: 200, data: CAMERAS_GEN2_ONLY },
+            {
+                match: "/v11/events",
+                status: 200,
+                data: [
+                    { id: "e1", isRead: false },
+                    { id: "e2", isRead: false },
+                    { id: "e3", isRead: false },
+                    { id: "e4", isRead: true }, // read → not counted
+                ],
+            },
+        ]);
         const { db, adapter } = createAdapterWithMocks(CAMERAS_GEN2_ONLY);
         await bootWithTokens(db, adapter);
+        // Boot seeds the DP to 0; the accurate count lands on the first poll
+        // tick (timer-driven in prod, stubbed to no-op here). Trigger it.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (adapter as any)._pollCameraStateOnce();
 
-        // CAMERAS_GEN2_ONLY has numberOfUnreadEvents: 3
         const val = getStateVal(db, adapter, `cameras.${CAM_GEN2}.unread_events_count`);
-        expect(val).to.equal(3, "unread_events_count should mirror numberOfUnreadEvents=3");
+        expect(val).to.equal(3, "should count the 3 isRead=false events (e4 is read)");
     });
 
-    it("numberOfUnreadEvents=0 written when absent", async () => {
-        const camsNoUnread = [
+    it("unread_events_count = 0 when /v11/events returns only read (or no) events", async () => {
+        const cams = [
             {
                 id: CAM_GEN2,
                 title: "Terrasse",
                 hardwareVersion: "HOME_Eyes_Outdoor",
                 firmwareVersion: "9.40.25",
                 featureSupport: { light: true, panLimit: 0 },
-                // numberOfUnreadEvents intentionally absent
             },
         ];
-        stubAxiosSequence([{ status: 200, data: camsNoUnread }]);
-        const { db, adapter } = createAdapterWithMocks(camsNoUnread);
+        // All events already read → unread count must be 0.
+        stubAxiosByUrl([
+            { match: /\/v11\/video_inputs(\?|$)/, status: 200, data: cams },
+            {
+                match: "/v11/events",
+                status: 200,
+                data: [
+                    { id: "e1", isRead: true },
+                    { id: "e2", isRead: true },
+                ],
+            },
+        ]);
+        const { db, adapter } = createAdapterWithMocks(cams);
         await bootWithTokens(db, adapter);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (adapter as any)._pollCameraStateOnce();
 
         const val = getStateVal(db, adapter, `cameras.${CAM_GEN2}.unread_events_count`);
-        expect(val).to.equal(0, "should default to 0 when numberOfUnreadEvents is absent");
+        expect(val).to.equal(0, "no isRead=false events → count 0");
     });
 });
 
@@ -693,12 +725,16 @@ describe("v0.9.0 B3: mark_all_read button", () => {
     });
 });
 
-// ── cameras.ts: numberOfUnreadEvents field mapping ──────────────────────────
+// ── v0.9.1 unread_events_count via GET /v11/events (Gen1 360°) ───────────────
+// Pins the events-endpoint source for a different camera class than the Gen2
+// test above (Gen1 360°, panLimit>0). The listing's numberOfUnreadEvents field
+// is intentionally NOT relied on (dead since v0.9.1 — see _pollUnreadCount).
 
-describe("v0.9.0 cameras.ts: numberOfUnreadEvents field mapping", () => {
-    it("mapCamera extracts numberOfUnreadEvents from raw API response", async () => {
-        stubAxiosSequence([
+describe("v0.9.1 unread_events_count via GET /v11/events (Gen1 360)", () => {
+    it("counts isRead=false events for a Gen1 360 camera", async () => {
+        stubAxiosByUrl([
             {
+                match: /\/v11\/video_inputs(\?|$)/,
                 status: 200,
                 data: [
                     {
@@ -707,16 +743,31 @@ describe("v0.9.0 cameras.ts: numberOfUnreadEvents field mapping", () => {
                         hardwareVersion: "CAMERA_360",
                         firmwareVersion: "7.0.0",
                         featureSupport: { panLimit: 60 },
-                        numberOfUnreadEvents: 7,
                     },
+                ],
+            },
+            {
+                match: "/v11/events",
+                status: 200,
+                data: [
+                    { id: "a", isRead: false },
+                    { id: "b", isRead: false },
+                    { id: "c", isRead: false },
+                    { id: "d", isRead: false },
+                    { id: "e", isRead: false },
+                    { id: "f", isRead: false },
+                    { id: "g", isRead: false },
+                    { id: "h", isRead: true }, // read → not counted
                 ],
             },
         ]);
         const { db, adapter } = createAdapterWithMocks(CAMERAS_GEN1_360);
         await bootWithTokens(db, adapter);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (adapter as any)._pollCameraStateOnce();
 
         const val = getStateVal(db, adapter, `cameras.${CAM_GEN1_360}.unread_events_count`);
-        expect(val).to.equal(7, "unread_events_count should be 7 from raw API field");
+        expect(val).to.equal(7, "should count the 7 isRead=false events (h is read)");
         void db;
     });
 });

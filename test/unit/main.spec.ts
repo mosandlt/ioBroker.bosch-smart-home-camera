@@ -37,7 +37,12 @@ import { expect } from "chai";
 import * as sinon from "sinon";
 import * as path from "path";
 
-import { stubAxiosSequence, restoreAxios } from "./helpers/axios-mock";
+import {
+    stubAxiosSequence,
+    stubAxiosByUrl,
+    restoreAxios,
+    type UrlMatcher,
+} from "./helpers/axios-mock";
 
 // Type-only imports — not loaded at runtime
 import type { MockDatabase } from "@iobroker/testing/build/tests/unit/mocks/mockDatabase";
@@ -562,6 +567,14 @@ describe("main adapter — v0.2.0 command handlers", () => {
                     headers: Record<string, string | string[]>;
                 }>
             >;
+            /**
+             * URL-matched HTTP responses. When provided, axios is stubbed by URL
+             * (via stubAxiosByUrl) instead of by call ORDER — use this for tests
+             * that run the per-camera state poll, whose endpoint count shifts
+             * every release and breaks positional `extraAxiosResponses`.
+             * Mutually exclusive with extraAxiosResponses (axiosByUrl wins).
+             */
+            axiosByUrl?: UrlMatcher[];
         } = {},
     ): { db: MockDatabase; adapter: TestAdapter } {
         // ── Fake live session (LOCAL) ──────────────────────────────────────────
@@ -667,11 +680,19 @@ describe("main adapter — v0.2.0 command handlers", () => {
         // Stub axios for camera discovery (no live-session calls needed in onReady),
         // plus any extra responses the test wants to provide for later HTTP calls
         // (e.g. cloud-API PUT /privacy in handlePrivacyToggle).
-        const axiosSeq: Array<
-            Partial<{ status: number; data: unknown; headers: Record<string, string | string[]> }>
-        > = [{ status: 200, data: CAMERAS_BODY }, ...(opts.extraAxiosResponses ?? [])];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        stubAxiosSequence(axiosSeq as any);
+        if (opts.axiosByUrl) {
+            stubAxiosByUrl(opts.axiosByUrl);
+        } else {
+            const axiosSeq: Array<
+                Partial<{
+                    status: number;
+                    data: unknown;
+                    headers: Record<string, string | string[]>;
+                }>
+            > = [{ status: 200, data: CAMERAS_BODY }, ...(opts.extraAxiosResponses ?? [])];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            stubAxiosSequence(axiosSeq as any);
+        }
 
         const { db, adapter } = createAdapter();
 
@@ -1674,19 +1695,18 @@ describe("main adapter — v0.2.0 command handlers", () => {
             bottomLedLightSettings: { brightness: 0, color: null, whiteBalance: 0.0 },
         };
 
+        // URL-matched (not positional): the per-camera poll inserts new
+        // endpoints almost every release (wifiinfo, intrusion, lens_elevation,
+        // global-lighting, unread-events, privacy-sound …). A positional queue
+        // kept shifting and breaking this test (skipped v0.8.0, mis-fixed
+        // v0.8.x). Matching by URL makes lighting/switch return lightingResponse
+        // regardless of how many other polls run first.
+        // NB: "/lighting/switch" MUST precede "/lighting" (substring order).
         const { db, adapter } = createAdapterWithMocks({
             fetchSnapshot: sinon.stub().resolves(Buffer.from([0xff, 0xd8, 0xff, 0xe0])),
-            extraAxiosResponses: [
-                { status: 200, data: cameraListResponse }, // GET /v11/video_inputs (re-poll)
-                // v0.7.7: _pollWifiInfo runs before lighting; 404 = Ethernet cam (no-op)
-                { status: 404, data: null }, // GET /v11/video_inputs/{id}/wifiinfo
-                // v0.7.14: _pollIntrusionConfig runs between wifi and lighting for Gen2
-                { status: 404, data: null }, // GET /v11/video_inputs/{id}/intrusionDetectionConfig
-                // v0.8.0: _pollLensElevation runs after intrusion (Gen2 only)
-                { status: 404, data: null }, // GET /v11/video_inputs/{id}/lens_elevation
-                // v0.8.0: _pollGlobalLighting runs after lens elevation (Gen2 Outdoor only)
-                { status: 404, data: null }, // GET /v11/video_inputs/{id}/lighting
-                { status: 200, data: lightingResponse }, // GET /v11/video_inputs/{id}/lighting/switch
+            axiosByUrl: [
+                { match: "/lighting/switch", status: 200, data: lightingResponse },
+                { match: /\/v11\/video_inputs(\?|$)/, status: 200, data: cameraListResponse },
             ],
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1747,15 +1767,12 @@ describe("main adapter — v0.2.0 command handlers", () => {
             bottomLedLightSettings: { brightness: 0, color: null, whiteBalance: 0.0 },
         };
 
+        // URL-matched (see sibling test above) — immune to poll-order drift.
         const { db, adapter } = createAdapterWithMocks({
             fetchSnapshot: sinon.stub().resolves(Buffer.from([0xff, 0xd8, 0xff, 0xe0])),
-            extraAxiosResponses: [
-                { status: 200, data: cameraListResponse },
-                { status: 404, data: null }, // GET /v11/video_inputs/{id}/wifiinfo
-                { status: 404, data: null }, // GET /v11/video_inputs/{id}/intrusionDetectionConfig
-                { status: 404, data: null }, // GET /v11/video_inputs/{id}/lens_elevation
-                { status: 404, data: null }, // GET /v11/video_inputs/{id}/lighting
-                { status: 200, data: lightingResponse }, // GET /v11/video_inputs/{id}/lighting/switch
+            axiosByUrl: [
+                { match: "/lighting/switch", status: 200, data: lightingResponse },
+                { match: /\/v11\/video_inputs(\?|$)/, status: 200, data: cameraListResponse },
             ],
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
