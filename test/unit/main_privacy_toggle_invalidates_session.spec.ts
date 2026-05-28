@@ -75,6 +75,8 @@ interface PollStub {
     // v0.9.0
     _pollPrivacySound: sinon.SinonStub;
     _pollAutofollow: sinon.SinonStub;
+    // v0.9.1 — _pollUnreadCount replaced cam.numberOfUnreadEvents listing-field read
+    _pollUnreadCount: sinon.SinonStub;
     log: { info: sinon.SinonStub; debug: sinon.SinonStub; warn: sinon.SinonStub };
 }
 
@@ -116,6 +118,8 @@ function makeStub(opts: {
         // v0.9.0
         _pollPrivacySound: sinon.stub().resolves(),
         _pollAutofollow: sinon.stub().resolves(),
+        // v0.9.1
+        _pollUnreadCount: sinon.stub().resolves(),
         log: { info: sinon.stub(), debug: sinon.stub(), warn: sinon.stub() },
     };
     if (opts.hasSession) {
