@@ -4327,10 +4327,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
             const events = Array.isArray(resp.data)
                 ? (resp.data as Array<Record<string, unknown>>)
                 : [];
-            const unread = events.reduce(
-                (n, ev) => (ev.isRead === false ? n + 1 : n),
-                0,
-            );
+            const unread = events.reduce((n, ev) => (ev.isRead === false ? n + 1 : n), 0);
             await this.upsertState(`cameras.${camId}.unread_events_count`, unread);
             this._recordPollResult(camId, "unread_events", true);
         } catch (err: unknown) {
