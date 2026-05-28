@@ -40,7 +40,10 @@ exports.FcmListener = exports.FcmRegistrationError = exports.FcmCbsRegistrationE
 const node_events_1 = require("node:events");
 const fcm_1 = require("@aracna/fcm");
 // ── Constants (from Python fcm.py) ───────────────────────────────────────────
-exports.CLOUD_API = "https://residential.cbs.boschsecurity.com";
+const auth_1 = require("./auth");
+var auth_2 = require("./auth");
+Object.defineProperty(exports, "CLOUD_API", { enumerable: true, get: function () { return auth_2.CLOUD_API; } });
+const CLOUD_API = auth_1.CLOUD_API; // local alias for use within this module
 exports.FCM_SENDER_ID = "404630424405";
 exports.FCM_ANDROID_APP_ID = `1:${exports.FCM_SENDER_ID}:android:9e5b6b58e4c70075`;
 // Firebase project ID — Bosch Smart Camera Firebase project
@@ -322,7 +325,7 @@ class FcmListener extends node_events_1.EventEmitter {
      */
     async _registerWithCbs(token) {
         const deviceType = "ANDROID";
-        const resp = await this._httpClient.post(`${exports.CLOUD_API}/v11/devices`, { deviceType, deviceToken: token }, {
+        const resp = await this._httpClient.post(`${CLOUD_API}/v11/devices`, { deviceType, deviceToken: token }, {
             headers: {
                 Authorization: `Bearer ${this._bearerToken}`,
                 "Content-Type": "application/json",

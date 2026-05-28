@@ -65,6 +65,11 @@ export interface BoschCamera {
      * Gates `pan_position` and `pan_preset` DPs.
      */
     panLimit: number;
+    /**
+     * Number of unread cloud events as reported by the camera listing endpoint.
+     * Mirrors `numberOfUnreadEvents` from GET /v11/video_inputs.
+     */
+    numberOfUnreadEvents: number;
 }
 /**
  * The cameras API rejected the token (HTTP 401).
@@ -72,8 +77,7 @@ export interface BoschCamera {
  */
 export declare class UnauthorizedError extends Error {
     /**
-     *
-     * @param message
+     * @param message human-readable error detail
      */
     constructor(message: string);
 }
@@ -83,8 +87,7 @@ export declare class UnauthorizedError extends Error {
  */
 export declare class CamerasApiError extends Error {
     /**
-     *
-     * @param message
+     * @param message human-readable error detail
      */
     constructor(message: string);
 }
@@ -96,7 +99,8 @@ export declare class CamerasApiError extends Error {
  *
  * Mirrors the MODELS registry in HA models.py.
  *
- * @param hardwareVersion
+ * @param hardwareVersion raw `hardwareVersion` string from Bosch /v11/video_inputs
+ * @returns 2 for known Gen2 strings, 1 for everything else (including unknown)
  */
 export declare function detectGeneration(hardwareVersion: string): 1 | 2;
 /**
@@ -108,8 +112,8 @@ export declare function detectGeneration(hardwareVersion: string): 1 | 2;
  * @param httpClient  Axios instance (allows injection for testing)
  * @param token       Current access_token (Bearer)
  * @returns           Camera list (empty array if the account has no cameras)
- * @throws UnauthorizedError  on HTTP 401 (caller should refresh token + retry)
- * @throws CamerasApiError    on HTTP 5xx or network/timeout error
+ * @throws {UnauthorizedError} on HTTP 401 (caller should refresh token + retry)
+ * @throws {CamerasApiError} on HTTP 5xx or network/timeout error
  */
 export declare function fetchCameras(httpClient: AxiosInstance, token: string): Promise<BoschCamera[]>;
 //# sourceMappingURL=cameras.d.ts.map

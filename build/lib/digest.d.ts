@@ -85,8 +85,9 @@ export interface DigestResponse {
  * Parse the WWW-Authenticate: Digest header into a DigestChallenge object.
  * Mirrors Python _parse_digest_challenge() in auth_utils.py.
  *
- * @param wwwAuthenticate
- * @throws Error if the header is not a Digest challenge or missing `nonce`
+ * @param wwwAuthenticate raw header value from a 401 response (e.g. `Digest realm="...", nonce="..."`)
+ * @returns parsed `DigestChallenge` (realm, nonce, qop, algorithm, opaque)
+ * @throws {Error} if the header is not a Digest challenge or missing `nonce`
  */
 export declare function parseDigestChallenge(wwwAuthenticate: string): DigestChallenge;
 /**

@@ -85,8 +85,7 @@ export interface PkcePair {
  */
 export declare class RefreshTokenInvalidError extends Error {
     /**
-     *
-     * @param message
+     * @param message human-readable error detail
      */
     constructor(message: string);
 }
@@ -96,14 +95,15 @@ export declare class RefreshTokenInvalidError extends Error {
  */
 export declare class AuthServerOutageError extends Error {
     /**
-     *
-     * @param message
+     * @param message human-readable error detail
      */
     constructor(message: string);
 }
 /**
  * Generate a PKCE code_verifier + code_challenge pair (S256 method).
  * Mirrors Python's _pkce_pair() in config_flow.py.
+ *
+ * @returns object with `verifier` (random 64-byte base64url) and `challenge` (SHA-256 of verifier, base64url)
  */
 export declare function generatePkcePair(): PkcePair;
 /**
@@ -169,6 +169,8 @@ export declare function detectTokenClientId(bearerToken: string): string | null;
  *      reference implementation (HA integration, CLI) passes `ssl=False` for the
  *      same reason. Domain pinning (we only ever call `*.boschsecurity.com` and
  *      `*.bosch.com`) keeps the security posture acceptable.
+ *
+ * @returns Axios instance configured for Bosch cloud + LAN endpoints (15 s timeout, TLS verification off)
  */
 export declare function createHttpClient(): AxiosInstance;
 export { crypto };

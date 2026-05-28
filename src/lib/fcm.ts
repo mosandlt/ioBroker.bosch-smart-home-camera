@@ -47,7 +47,9 @@ import {
 
 // ── Constants (from Python fcm.py) ───────────────────────────────────────────
 
-export const CLOUD_API = "https://residential.cbs.boschsecurity.com";
+import { CLOUD_API as _CLOUD_API_IMPORT } from "./auth";
+export { CLOUD_API } from "./auth";
+const CLOUD_API = _CLOUD_API_IMPORT; // local alias for use within this module
 export const FCM_SENDER_ID = "404630424405";
 export const FCM_ANDROID_APP_ID = `1:${FCM_SENDER_ID}:android:9e5b6b58e4c70075`;
 

@@ -1,8 +1,12 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "0.8.0",
+        "version": "1.0.0",
         "news": {
+            "1.0.0": {
+                "en": "v1.0.0 — out of beta. v0.9.0 features (privacy_sound_enabled, autofollow_enabled for 360° cams, unread_events_count, mark_all_read button, last_seen_event_id persisted across restarts) + v0.9.1 four follow-up bug fixes from live testing: 442-unsupported-feature cache (no more warn-storm for Outdoor privacy_sound), unread count via GET /v11/events (Bosch's numberOfUnreadEvents field was unreliable — found 0 reported when 44 events were actually unread), exponential backoff (30→60→120→300s cap) on WiFi/autofollow/privacy_sound polls returning HTTP 444. CLOUD_API consolidated to single source of truth, cache-guard before merge-PUTs. 699 tests pass.",
+                "de": "v1.0.0 — raus aus Beta. v0.9.0 Features (privacy_sound_enabled, autofollow_enabled für 360°-Kameras, unread_events_count, mark_all_read Button, last_seen_event_id über Restarts persistent) + v0.9.1 vier Bugfixes aus Live-Tests: 442-unsupported-Feature-Cache (kein warn-storm mehr für Outdoor privacy_sound), unread-count via GET /v11/events (Boschs numberOfUnreadEvents Feld war unzuverlässig — meldete 0 wenn 44 Events tatsächlich ungelesen waren), exponential Backoff (30→60→120→300s Cap) für WiFi/Autofollow/privacy_sound Polls mit HTTP 444. CLOUD_API zentralisiert, Cache-Guard vor Merge-PUTs. 699 Tests grün."
+            },
             "0.8.0": {
                 "en": "v0.8.0: ported HA v13.2.x features — F1 MJPEG snapshot (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 RCP-Version DP, F13 Cloud Feature-Flags DPs, Tier-2 gap-list (lens_elevation, darkness_threshold, alarm-system numbers), 444 SessionLimit handling with 60s auto-retry. +90 tests.",
                 "de": "v0.8.0: HA v13.2.x Features portiert — F1 MJPEG-Snapshot (Gen2 LAN, opt-in), F4 ONVIF-Scopes DP, F6 RCP-Version DP, F13 Cloud-Feature-Flags DPs, Tier-2 Gap-Liste (lens_elevation, darkness_threshold, Alarm-System-Numbers), 444 SessionLimit-Behandlung mit 60s Auto-Retry. +90 Tests.",

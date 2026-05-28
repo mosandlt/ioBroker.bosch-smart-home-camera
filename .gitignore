@@ -41,3 +41,4 @@ simon42-*.md
 
 # Integration tests rely on live cameras + manual env vars — keep out of CI/release
 test/integration/
+backups/

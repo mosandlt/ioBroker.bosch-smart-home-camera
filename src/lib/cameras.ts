@@ -70,6 +70,11 @@ export interface BoschCamera {
      * Gates `pan_position` and `pan_preset` DPs.
      */
     panLimit: number;
+    /**
+     * Number of unread cloud events as reported by the camera listing endpoint.
+     * Mirrors `numberOfUnreadEvents` from GET /v11/video_inputs.
+     */
+    numberOfUnreadEvents: number;
 }
 
 /** Raw camera object returned by GET /v11/video_inputs */
@@ -169,6 +174,10 @@ function mapCamera(raw: RawCameraItem): BoschCamera | null {
         featureLight = typeof fs.light === "boolean" ? fs.light : undefined;
         panLimit = typeof fs.panLimit === "number" && fs.panLimit > 0 ? fs.panLimit : 0;
     }
+    const numberOfUnreadEvents =
+        typeof raw.numberOfUnreadEvents === "number" && raw.numberOfUnreadEvents >= 0
+            ? raw.numberOfUnreadEvents
+            : 0;
     return {
         id,
         name,
@@ -179,6 +188,7 @@ function mapCamera(raw: RawCameraItem): BoschCamera | null {
         privacyMode,
         featureLight,
         panLimit,
+        numberOfUnreadEvents,
     };
 }
 

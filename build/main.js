@@ -136,6 +136,24 @@ class BoschSmartHomeCamera extends utils.Adapter {
     static SESSION_QUOTA_WINDOW_MS = 300_000; // 5 minutes
     static SESSION_QUOTA_NOTIFY_THRESHOLD = 3;
     /**
+     * v0.9.1: per-(camId,feature) cache for endpoints that responded HTTP 442
+     * (feature not supported on this hardware). Eliminates the warn-storm where
+     * every privacy_sound_override write to an Outdoor camera produced the same
+     * 442 + the same warn log. Once a feature is in this set, subsequent writes
+     * and polls return early without any HTTP call.
+     */
+    _unsupportedFeatures = new Map();
+    /**
+     * v0.9.1: per-(camId,poll-endpoint) exponential backoff for pollers that
+     * receive consistent 444 (Bosch session-quota / "no content for this
+     * period"). Without this the WiFi-info poll for offline cameras spammed
+     * the debug log every 30 s forever. Sequence: 30s, 60s, 120s, 300s cap.
+     * Resets to 30s on first success.
+     */
+    _pollBackoff = new Map();
+    static POLL_BACKOFF_BASE_MS = 30_000;
+    static POLL_BACKOFF_CAP_MS = 300_000;
+    /**
      * Polling timer for /v11/events when FCM push registration failed.
      * Drives event ingestion without push so motion/audio events still surface.
      * Null when FCM is healthy (push is the primary path).
@@ -1834,6 +1852,20 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     native: {},
                 });
             }
+            // v0.9.0: persisted last-seen event ID — survives adapter restarts so
+            // fetchAndProcessEvents() does not re-fire side effects for historical events.
+            await this.setObjectNotExistsAsync(`${prefix}.last_seen_event_id`, {
+                type: "state",
+                common: {
+                    role: "value",
+                    name: "ID of the last cloud event processed (persisted, diagnostic)",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "",
+                },
+                native: {},
+            });
             // F4: ONVIF scopes (LAN RCP 0x0a98, slow-tier 300s, diagnostic)
             await this.setObjectNotExistsAsync(`${prefix}.onvif_scopes`, {
                 type: "state",
@@ -1860,12 +1892,75 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 },
                 native: {},
             });
+            // v0.9.0: privacy_sound_enabled — plays audible indicator on privacy mode change.
+            // API: GET/PUT /v11/video_inputs/{id}/privacy_sound_override  body: {"result": bool}
+            // All camera generations support this endpoint (442 = not supported, handled gracefully).
+            await this.setObjectNotExistsAsync(`${prefix}.privacy_sound_enabled`, {
+                type: "state",
+                common: {
+                    name: "Privacy sound — plays a sound when privacy mode changes",
+                    role: "switch",
+                    type: "boolean",
+                    read: true,
+                    write: true,
+                    def: false,
+                },
+                native: {},
+            });
+            // v0.9.0: autofollow_enabled — Gen1 360° only (CAMERA_360, panLimit > 0).
+            // API: GET/PUT /v11/video_inputs/{id}/autofollow  body: {"result": bool}
+            if (cam.panLimit > 0) {
+                await this.setObjectNotExistsAsync(`${prefix}.autofollow_enabled`, {
+                    type: "state",
+                    common: {
+                        name: "Auto-follow mode — camera tracks motion automatically (Gen1 360° only)",
+                        role: "switch",
+                        type: "boolean",
+                        read: true,
+                        write: true,
+                        def: false,
+                    },
+                    native: {},
+                });
+            }
+            // v0.9.0: unread_events_count — count from numberOfUnreadEvents in camera listing.
+            await this.setObjectNotExistsAsync(`${prefix}.unread_events_count`, {
+                type: "state",
+                common: {
+                    name: "Number of unread cloud events",
+                    role: "value",
+                    type: "number",
+                    read: true,
+                    write: false,
+                    def: 0,
+                },
+                native: {},
+            });
+            // v0.9.0: mark_all_read — button to mark all events as read.
+            // Writes PUT /v11/events with {id, isRead: true} for each recent unread event.
+            await this.setObjectNotExistsAsync(`${prefix}.mark_all_read`, {
+                type: "state",
+                common: {
+                    name: "Mark all camera events as read (write true to trigger)",
+                    role: "button",
+                    type: "boolean",
+                    read: false,
+                    write: true,
+                    def: false,
+                },
+                native: {},
+            });
             // Set initial values
             await this.upsertState(`${prefix}.name`, cam.name);
             await this.upsertState(`${prefix}.firmware_version`, cam.firmwareVersion);
             await this.upsertState(`${prefix}.hardware_version`, cam.hardwareVersion);
             await this.upsertState(`${prefix}.generation`, cam.generation);
             await this.upsertState(`${prefix}.online`, cam.online);
+            // v0.9.1: seed unread_events_count from cached state if any, else 0.
+            // The accurate value lands on the first poll tick via _pollUnreadCount
+            // (listing's `numberOfUnreadEvents` is unreliable — see v0.9.1 notes).
+            const unreadState = await this.getStateAsync(`${prefix}.unread_events_count`);
+            await this.upsertState(`${prefix}.unread_events_count`, typeof unreadState?.val === "number" ? unreadState.val : 0);
             // Seed in-memory livestream flag from the persisted state so a
             // restart preserves whatever the user toggled before. Default
             // false when no state exists yet (fresh install).
@@ -3021,6 +3116,14 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (this._lanIpMap.size > 0) {
             this.log.info(`Loaded ${this._lanIpMap.size} persisted LAN IP(s) for cloud-degraded LAN ping`);
         }
+        // v0.9.0: restore persisted last-seen event IDs so side effects (motion_active,
+        // auto-snapshot, MQTT) are not re-fired for events we already processed before restart.
+        for (const cam of cameras) {
+            const evIdState = await this.getStateAsync(`cameras.${cam.id}.last_seen_event_id`);
+            if (typeof evIdState?.val === "string" && evIdState.val) {
+                this._lastSeenEventId[cam.id] = evIdState.val;
+            }
+        }
         // Subscribe to all camera states so onStateChange receives user writes
         await this.subscribeStatesAsync("cameras.*");
         // ── Step 4: Mark connected + arm refresh loop ──────────────────────
@@ -3311,6 +3414,17 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (doSlowTier) {
             await this._pollLanDiagnostics(cam.id);
         }
+        // v0.9.1: unread_events_count — sourced from GET /v11/events (count of
+        // isRead=false events). The listing's `cam.numberOfUnreadEvents` field
+        // was found unreliable in live testing 2026-05-28 (reported 0 while
+        // 44 events were actually unread on the-gen2-outdoor). See _pollUnreadCount.
+        await this._pollUnreadCount(token, cam.id);
+        // v0.9.0: privacy_sound_enabled — poll current state for all cameras.
+        await this._pollPrivacySound(token, cam.id);
+        // v0.9.0: autofollow_enabled — Gen1 360° only (panLimit > 0).
+        if (cam.panLimit > 0) {
+            await this._pollAutofollow(token, cam.id);
+        }
         // ── Gen2 lighting/switch — seed cache + sync wallwasher DPs ────────
         // /lighting/switch is a separate endpoint (not in /v11/video_inputs),
         // so we fetch it per-camera. Only Gen2 cams with featureSupport.light
@@ -3371,7 +3485,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
      */
     async _pollIntrusionConfig(token, camId) {
         try {
-            const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/intrusionDetectionConfig`;
+            const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/intrusionDetectionConfig`;
             const resp = await this._httpClient.get(url, {
                 headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
                 // 443 = privacy mode active, settings frozen (HA convention).
@@ -3412,7 +3526,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
      */
     async _pollLensElevation(token, camId) {
         try {
-            const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/lens_elevation`;
+            const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/lens_elevation`;
             const resp = await this._httpClient.get(url, {
                 headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
                 validateStatus: (s) => (s >= 200 && s < 300) || s === 404 || s === 443,
@@ -3443,7 +3557,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
      */
     async _pollGlobalLighting(token, camId) {
         try {
-            const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/lighting`;
+            const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/lighting`;
             const resp = await this._httpClient.get(url, {
                 headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
                 validateStatus: (s) => (s >= 200 && s < 300) || s === 404 || s === 443,
@@ -3475,7 +3589,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
      */
     async _pollAlarmSettings(token, camId) {
         try {
-            const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/alarm_settings`;
+            const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/alarm_settings`;
             const resp = await this._httpClient.get(url, {
                 headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
                 validateStatus: (s) => (s >= 200 && s < 300) || s === 404 || s === 443,
@@ -3590,20 +3704,69 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * @param token  Current access_token
      * @param camId  Camera UUID
      */
+    // ── v0.9.1 helpers ────────────────────────────────────────────────────────
+    /** v0.9.1 — return true if (camId, feature) hit HTTP 442 before. */
+    _isFeatureUnsupported(camId, feature) {
+        return this._unsupportedFeatures.get(camId)?.has(feature) ?? false;
+    }
+    /** v0.9.1 — record that (camId, feature) hit HTTP 442; future calls short-circuit. */
+    _markFeatureUnsupported(camId, feature) {
+        let set = this._unsupportedFeatures.get(camId);
+        if (!set) {
+            set = new Set();
+            this._unsupportedFeatures.set(camId, set);
+        }
+        set.add(feature);
+    }
+    /** v0.9.1 — backoff key for (camId, endpoint). */
+    _backoffKey(camId, endpoint) {
+        return `${camId}:${endpoint}`;
+    }
+    /** v0.9.1 — return true if this poll should be skipped due to backoff. */
+    _shouldSkipPoll(camId, endpoint) {
+        const entry = this._pollBackoff.get(this._backoffKey(camId, endpoint));
+        return entry !== undefined && Date.now() < entry.nextAttempt;
+    }
+    /**
+     * v0.9.1 — record poll outcome and update backoff window.
+     * On success: clear backoff entry (next poll runs immediately).
+     * On 444/failure: exponential backoff 30→60→120→300s (cap).
+     */
+    _recordPollResult(camId, endpoint, success) {
+        const key = this._backoffKey(camId, endpoint);
+        if (success) {
+            this._pollBackoff.delete(key);
+            return;
+        }
+        const prev = this._pollBackoff.get(key);
+        const failCount = (prev?.failCount ?? 0) + 1;
+        const delay = Math.min(BoschSmartHomeCamera.POLL_BACKOFF_BASE_MS * Math.pow(2, failCount - 1), BoschSmartHomeCamera.POLL_BACKOFF_CAP_MS);
+        this._pollBackoff.set(key, { failCount, nextAttempt: Date.now() + delay });
+    }
     async _pollWifiInfo(token, camId) {
+        // v0.9.1: skip when backoff window is open (camera returning consistent 444).
+        if (this._shouldSkipPoll(camId, "wifiinfo")) {
+            return;
+        }
         try {
-            const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/wifiinfo`;
+            const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/wifiinfo`;
             const resp = await this._httpClient.get(url, {
                 headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-                validateStatus: (s) => (s >= 200 && s < 300) || s === 404,
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 404 || s === 444,
             });
+            if (resp.status === 444) {
+                // Camera returns 444 when it has no recent data for this window —
+                // typical for offline cams or just-after-quota. Apply backoff.
+                this._recordPollResult(camId, "wifiinfo", false);
+                return;
+            }
             if (resp.status === 404) {
                 // Camera on Ethernet — no WiFi data, leave DPs as-is
                 return;
             }
             const data = resp.data;
             // v0.7.14: Bosch's wifiinfo response uses `signalStrength` as a
-            // PERCENTAGE 0-100, not dBm. Verified live against EF791764
+            // PERCENTAGE 0-100, not dBm. Verified live against the-gen2-outdoor
             // (signalStrength=86) and 20E053B5 (signalStrength=100) on
             // FW 9.40.25. The `signalStrengthPercentage` field that v0.7.7
             // looked for never existed — dead lookup removed.
@@ -3617,9 +3780,46 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 writes.push(this.upsertState(`cameras.${camId}.wifi_signal_pct`, pct));
             }
             await Promise.all(writes);
+            // v0.9.1: record success — reset backoff window
+            this._recordPollResult(camId, "wifiinfo", true);
         }
         catch (err) {
+            this._recordPollResult(camId, "wifiinfo", false);
             this.log.debug(`WiFi info poll for ${camId.slice(0, 8)} failed: ` +
+                `${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+    /**
+     * v0.9.1 — replaces the misleading `cam.numberOfUnreadEvents` listing field.
+     * Live testing 2026-05-28 showed `numberOfUnreadEvents` reports 0 even when
+     * GET /v11/events returns dozens of `isRead=false` events for the same camera
+     * (mark_all_read found 44/44 unread that the listing claimed didn't exist).
+     * This poller does its own count via the events endpoint.
+     */
+    async _pollUnreadCount(token, camId) {
+        if (this._shouldSkipPoll(camId, "unread_events")) {
+            return;
+        }
+        try {
+            const url = `${auth_1.CLOUD_API}/v11/events?videoInputId=${camId}&limit=50`;
+            const resp = await this._httpClient.get(url, {
+                headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 444,
+            });
+            if (resp.status === 444) {
+                this._recordPollResult(camId, "unread_events", false);
+                return;
+            }
+            const events = Array.isArray(resp.data)
+                ? resp.data
+                : [];
+            const unread = events.reduce((n, ev) => (ev.isRead === false ? n + 1 : n), 0);
+            await this.upsertState(`cameras.${camId}.unread_events_count`, unread);
+            this._recordPollResult(camId, "unread_events", true);
+        }
+        catch (err) {
+            this._recordPollResult(camId, "unread_events", false);
+            this.log.debug(`Unread events poll for ${camId.slice(0, 8)} failed: ` +
                 `${err instanceof Error ? err.message : String(err)}`);
         }
     }
@@ -3892,6 +4092,29 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     });
                     break;
                 }
+                case "privacy_sound_enabled": {
+                    // v0.9.0: privacy sound override — GET/PUT /privacy_sound_override
+                    await this._handlePrivacySoundWrite(camId, Boolean(state.val));
+                    break;
+                }
+                case "autofollow_enabled": {
+                    // v0.9.0: autofollow — Gen1 360° only (panLimit > 0)
+                    const camAf = this._cameras.get(camId);
+                    if (!camAf || camAf.panLimit <= 0) {
+                        this.log.warn(`autofollow_enabled write for ${camId.slice(0, 8)} ignored — Gen1 360° only`);
+                        return; // skip ack
+                    }
+                    await this._handleAutofollowWrite(camId, Boolean(state.val));
+                    break;
+                }
+                case "mark_all_read": {
+                    // v0.9.0: mark all events as read
+                    if (state.val) {
+                        await this._handleMarkAllRead(camId);
+                        await this.setStateAsync(id, false, true);
+                    }
+                    return; // skip generic ack below (button pattern)
+                }
                 default:
                     return; // unknown writable state — no-op
             }
@@ -3996,7 +4219,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         }
         const clamped = Math.max(0, Math.min(100, Math.round(level)));
         const body = field === "microphone" ? { microphoneLevel: clamped } : { speakerLevel: clamped };
-        const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/audio`;
+        const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/audio`;
         const resp = await this._httpClient.put(url, body, {
             headers: {
                 Authorization: `Bearer ${this._currentAccessToken}`,
@@ -4022,7 +4245,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (!this._currentAccessToken) {
             throw new Error("no access token — adapter not ready");
         }
-        const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/intrusionDetectionConfig`;
+        const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/intrusionDetectionConfig`;
         const headers = {
             Authorization: `Bearer ${this._currentAccessToken}`,
             "Content-Type": "application/json",
@@ -4087,7 +4310,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
             throw new Error("no access token — adapter not ready");
         }
         const clamped = Math.max(0.5, Math.min(5.0, Math.round(elevation * 100) / 100));
-        const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/lens_elevation`;
+        const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/lens_elevation`;
         const resp = await this._httpClient.put(url, { elevation: clamped }, {
             headers: {
                 Authorization: `Bearer ${this._currentAccessToken}`,
@@ -4115,14 +4338,28 @@ class BoschSmartHomeCamera extends utils.Adapter {
         }
         const clamped = Math.max(0, Math.min(100, Math.round(pct)));
         const boschValue = Math.round((clamped / 100) * 10000) / 10000; // 4 decimal places like HA
-        const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/lighting`;
+        const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/lighting`;
         const headers = {
             Authorization: `Bearer ${this._currentAccessToken}`,
             "Content-Type": "application/json",
             Accept: "application/json",
         };
-        // Bosch requires full body — merge with cached softLightFading if available
-        const cached = this._globalLightingCache.get(camId) ?? {};
+        // Bosch requires full body — seed cache from GET when empty (e.g. after restart)
+        let cached = this._globalLightingCache.get(camId);
+        if (!cached) {
+            try {
+                const getResp = await this._httpClient.get(url, {
+                    headers,
+                    validateStatus: (s) => s >= 200 && s < 300,
+                });
+                cached = getResp.data ?? {};
+                this._globalLightingCache.set(camId, { ...cached });
+            }
+            catch {
+                this.log.warn(`darkness_threshold: failed to load current config for ${camId.slice(0, 8)}, using defaults`);
+                cached = {};
+            }
+        }
         const softLightFading = typeof cached.softLightFading === "boolean" ? cached.softLightFading : true;
         const body = { darknessThreshold: boschValue, softLightFading };
         const resp = await this._httpClient.put(url, body, {
@@ -4148,7 +4385,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (!this._currentAccessToken) {
             throw new Error("no access token — adapter not ready");
         }
-        const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/alarm_settings`;
+        const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/alarm_settings`;
         const headers = {
             Authorization: `Bearer ${this._currentAccessToken}`,
             "Content-Type": "application/json",
@@ -4240,6 +4477,217 @@ class BoschSmartHomeCamera extends utils.Adapter {
         this._sirenState.set(camId, enabled);
         this.log.info(`Siren ${enabled ? "TRIGGERED" : "stopped"} for camera ${camId.slice(0, 8)}`);
     }
+    // ── v0.9.0 privacy sound handler ─────────────────────────────────────────
+    /**
+     * Set privacy sound override (audible indicator on privacy mode change).
+     * GET/PUT /v11/video_inputs/{id}/privacy_sound_override  body: {"result": bool}
+     * HTTP 442 = endpoint not supported on this camera model (silently ignored).
+     *
+     * @param camId    Camera UUID
+     * @param enabled  true = play sound when privacy mode changes
+     */
+    async _handlePrivacySoundWrite(camId, enabled) {
+        // v0.9.1: previous warn-storm finding — every write to an Outdoor camera
+        // returned HTTP 442 and emitted the same warn line. Outdoor cameras don't
+        // have the speaker hardware for privacy-toggle audio confirmation, so the
+        // feature is unsupported by design. Once we see 442 we cache it and short-
+        // circuit subsequent writes for this camera without any HTTP call.
+        if (this._isFeatureUnsupported(camId, "privacy_sound")) {
+            this.log.debug(`privacy_sound_override skipped for ${camId.slice(0, 8)} — cached as unsupported (442)`);
+            return;
+        }
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/privacy_sound_override`;
+        const resp = await this._httpClient.put(url, { result: enabled }, {
+            headers: {
+                Authorization: `Bearer ${this._currentAccessToken}`,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+            validateStatus: (s) => (s >= 200 && s < 300) || s === 442,
+        });
+        if (resp.status === 442) {
+            this._markFeatureUnsupported(camId, "privacy_sound");
+            this.log.warn(`privacy_sound_override not supported on camera ${camId.slice(0, 8)} (HTTP 442) — ` +
+                `caching as unsupported; further writes will short-circuit`);
+            return;
+        }
+        this.log.info(`Privacy sound ${enabled ? "enabled" : "disabled"} for ${camId.slice(0, 8)} (HTTP ${resp.status})`);
+    }
+    /**
+     * Poll privacy sound state from GET /v11/video_inputs/{id}/privacy_sound_override.
+     * Best-effort — errors and HTTP 442 swallowed.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    async _pollPrivacySound(token, camId) {
+        // v0.9.1: skip if cached unsupported or in backoff window.
+        if (this._isFeatureUnsupported(camId, "privacy_sound")) {
+            return;
+        }
+        if (this._shouldSkipPoll(camId, "privacy_sound")) {
+            return;
+        }
+        try {
+            const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/privacy_sound_override`;
+            const resp = await this._httpClient.get(url, {
+                headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 442 || s === 444,
+            });
+            if (resp.status === 442) {
+                this._markFeatureUnsupported(camId, "privacy_sound");
+                return;
+            }
+            if (resp.status === 444) {
+                this._recordPollResult(camId, "privacy_sound", false);
+                return;
+            }
+            if (!resp.data) {
+                return;
+            }
+            const data = resp.data;
+            const enabled = typeof data.result === "boolean" ? data.result : undefined;
+            if (enabled !== undefined) {
+                await this.upsertState(`cameras.${camId}.privacy_sound_enabled`, enabled);
+            }
+            this._recordPollResult(camId, "privacy_sound", true);
+        }
+        catch (err) {
+            this._recordPollResult(camId, "privacy_sound", false);
+            this.log.debug(`Privacy sound poll for ${camId.slice(0, 8)} failed: ` +
+                `${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+    // ── v0.9.0 autofollow handler ─────────────────────────────────────────────
+    /**
+     * Set autofollow state for a Gen1 360° camera.
+     * GET/PUT /v11/video_inputs/{id}/autofollow  body: {"result": bool}
+     * Only supported when panLimit > 0 (CAMERA_360).
+     *
+     * @param camId    Camera UUID (must have panLimit > 0)
+     * @param enabled  true = enable auto-follow
+     */
+    async _handleAutofollowWrite(camId, enabled) {
+        const cam = this._cameras.get(camId);
+        if (!cam || cam.panLimit <= 0) {
+            throw new Error(`Autofollow not supported for camera ${camId.slice(0, 8)} (panLimit=0)`);
+        }
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/autofollow`;
+        const resp = await this._httpClient.put(url, { result: enabled }, {
+            headers: {
+                Authorization: `Bearer ${this._currentAccessToken}`,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+            validateStatus: (s) => (s >= 200 && s < 300) || s === 442,
+        });
+        if (resp.status === 442) {
+            this.log.warn(`Autofollow not supported on ${camId.slice(0, 8)} (HTTP 442)`);
+            return;
+        }
+        this.log.info(`Autofollow ${enabled ? "enabled" : "disabled"} for ${camId.slice(0, 8)} (HTTP ${resp.status})`);
+    }
+    /**
+     * Poll autofollow state from GET /v11/video_inputs/{id}/autofollow.
+     * Best-effort — errors swallowed.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID (panLimit > 0 expected)
+     */
+    async _pollAutofollow(token, camId) {
+        // v0.9.1: skip if cached unsupported or in backoff window.
+        if (this._isFeatureUnsupported(camId, "autofollow")) {
+            return;
+        }
+        if (this._shouldSkipPoll(camId, "autofollow")) {
+            return;
+        }
+        try {
+            const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/autofollow`;
+            const resp = await this._httpClient.get(url, {
+                headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 442 || s === 404 || s === 444,
+            });
+            if (resp.status === 442 || resp.status === 404) {
+                this._markFeatureUnsupported(camId, "autofollow");
+                return;
+            }
+            if (resp.status === 444) {
+                this._recordPollResult(camId, "autofollow", false);
+                return;
+            }
+            if (!resp.data) {
+                return;
+            }
+            const data = resp.data;
+            const enabled = typeof data.result === "boolean" ? data.result : undefined;
+            if (enabled !== undefined) {
+                await this.upsertState(`cameras.${camId}.autofollow_enabled`, enabled);
+            }
+            this._recordPollResult(camId, "autofollow", true);
+        }
+        catch (err) {
+            this._recordPollResult(camId, "autofollow", false);
+            this.log.debug(`Autofollow poll for ${camId.slice(0, 8)} failed: ` +
+                `${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+    // ── v0.9.0 mark-all-read handler ─────────────────────────────────────────
+    /**
+     * Mark all recent events as read for a camera.
+     * Fetches the last 20 events, then calls PUT /v11/events with {id, isRead: true}
+     * for each one. Best-effort — individual failures are swallowed.
+     * Python CLI reference: api_mark_events_read() (PUT /v11/events per event).
+     *
+     * @param camId  Camera UUID
+     */
+    async _handleMarkAllRead(camId) {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const token = this._currentAccessToken;
+        const headers = {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        };
+        // Fetch recent events to get their IDs
+        const listUrl = `${auth_1.CLOUD_API}/v11/events?videoInputId=${camId}&limit=20`;
+        const listResp = await this._httpClient.get(listUrl, {
+            headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+            validateStatus: (s) => s >= 200 && s < 300,
+        });
+        const events = Array.isArray(listResp.data)
+            ? listResp.data
+            : [];
+        if (events.length === 0) {
+            this.log.info(`mark_all_read: no events to mark for ${camId.slice(0, 8)}`);
+            return;
+        }
+        let marked = 0;
+        for (const ev of events) {
+            const evId = typeof ev.id === "string" ? ev.id : null;
+            if (!evId) {
+                continue;
+            }
+            try {
+                await this._httpClient.put(`${auth_1.CLOUD_API}/v11/events`, { id: evId, isRead: true }, { headers, validateStatus: (s) => s >= 200 && s < 300 });
+                marked++;
+            }
+            catch {
+                // best-effort
+            }
+        }
+        // Update unread count to 0 after marking
+        await this.upsertState(`cameras.${camId}.unread_events_count`, 0);
+        this.log.info(`mark_all_read: marked ${marked}/${events.length} events as read for ${camId.slice(0, 8)}`);
+    }
     /**
      * Pan the Gen1 360° camera to an absolute position.
      *
@@ -4259,7 +4707,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
             throw new Error("no access token — adapter not ready");
         }
         const clamped = Math.max(-cam.panLimit, Math.min(cam.panLimit, position));
-        const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/pan`;
+        const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/pan`;
         const resp = await this._httpClient.put(url, {
             absolutePosition: clamped,
         }, {
@@ -4527,7 +4975,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
         for (const [camId] of this._cameras) {
             try {
-                const url = `https://residential.cbs.boschsecurity.com/v11/events?videoInputId=${camId}&limit=5`;
+                const url = `${auth_1.CLOUD_API}/v11/events?videoInputId=${camId}&limit=5`;
                 const resp = await this._httpClient.get(url, {
                     headers,
                     validateStatus: () => true,
@@ -4544,6 +4992,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     continue;
                 }
                 this._lastSeenEventId[camId] = newestId;
+                // v0.9.0: persist so restarts don't re-fire side effects for old events
+                void this.setStateAsync(`cameras.${camId}.last_seen_event_id`, newestId, true).catch((err) => {
+                    this.log.debug(`last_seen_event_id persist for ${camId.slice(0, 8)} failed: ` +
+                        `${err instanceof Error ? err.message : String(err)}`);
+                });
                 // Normalise event type — mirrors HA fcm.py PERSON upgrade logic
                 const rawType = (newest.eventType ?? "").toUpperCase();
                 const tags = (newest.eventTags ?? []);
@@ -4651,7 +5104,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // (mirrors HA's async_cloud_set_privacy_mode + rcp_local_write_privacy chain).
         let cloudErr = null;
         if (this._currentAccessToken) {
-            const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/privacy`;
+            const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/privacy`;
             const body = { privacyMode: enabled ? "ON" : "OFF", durationInSeconds: null };
             try {
                 const resp = await this._httpClient.put(url, body, {
@@ -4799,7 +5252,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         let cloudFrontErr = null;
         let cloudFrontOk = false;
         if (isGen2) {
-            const base = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/lighting/switch`;
+            const base = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/lighting/switch`;
             try {
                 const [r1, r2] = await Promise.all([
                     this._httpClient.put(`${base}/front`, { enabled: state.frontLight }, { headers, validateStatus: () => true }),
@@ -4851,7 +5304,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
             }
         }
         else {
-            const url = `https://residential.cbs.boschsecurity.com/v11/video_inputs/${camId}/lighting_override`;
+            const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/lighting_override`;
             const body = {
                 frontLightOn: state.frontLight,
                 wallwasherOn: state.wallwasher,

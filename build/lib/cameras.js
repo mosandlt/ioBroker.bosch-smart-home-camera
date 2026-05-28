@@ -40,8 +40,7 @@ const auth_1 = require("./auth");
  */
 class UnauthorizedError extends Error {
     /**
-     *
-     * @param message
+     * @param message human-readable error detail
      */
     constructor(message) {
         super(message);
@@ -55,8 +54,7 @@ exports.UnauthorizedError = UnauthorizedError;
  */
 class CamerasApiError extends Error {
     /**
-     *
-     * @param message
+     * @param message human-readable error detail
      */
     constructor(message) {
         super(message);
@@ -83,7 +81,8 @@ const GEN2_HARDWARE_VERSIONS = new Set([
  *
  * Mirrors the MODELS registry in HA models.py.
  *
- * @param hardwareVersion
+ * @param hardwareVersion raw `hardwareVersion` string from Bosch /v11/video_inputs
+ * @returns 2 for known Gen2 strings, 1 for everything else (including unknown)
  */
 function detectGeneration(hardwareVersion) {
     return GEN2_HARDWARE_VERSIONS.has(hardwareVersion) ? 2 : 1;
@@ -94,7 +93,8 @@ function detectGeneration(hardwareVersion) {
  * Returns null if the required `id` field is missing or empty.
  * Missing name/hardwareVersion/firmwareVersion fields get safe defaults.
  *
- * @param raw
+ * @param raw raw camera item from the Bosch cloud API
+ * @returns BoschCamera on success, null when the id is missing/empty
  */
 function mapCamera(raw) {
     const id = typeof raw.id === "string" ? raw.id.trim() : "";
@@ -113,6 +113,9 @@ function mapCamera(raw) {
         featureLight = typeof fs.light === "boolean" ? fs.light : undefined;
         panLimit = typeof fs.panLimit === "number" && fs.panLimit > 0 ? fs.panLimit : 0;
     }
+    const numberOfUnreadEvents = typeof raw.numberOfUnreadEvents === "number" && raw.numberOfUnreadEvents >= 0
+        ? raw.numberOfUnreadEvents
+        : 0;
     return {
         id,
         name,
@@ -123,6 +126,7 @@ function mapCamera(raw) {
         privacyMode,
         featureLight,
         panLimit,
+        numberOfUnreadEvents,
     };
 }
 /**
@@ -134,8 +138,8 @@ function mapCamera(raw) {
  * @param httpClient  Axios instance (allows injection for testing)
  * @param token       Current access_token (Bearer)
  * @returns           Camera list (empty array if the account has no cameras)
- * @throws UnauthorizedError  on HTTP 401 (caller should refresh token + retry)
- * @throws CamerasApiError    on HTTP 5xx or network/timeout error
+ * @throws {UnauthorizedError} on HTTP 401 (caller should refresh token + retry)
+ * @throws {CamerasApiError} on HTTP 5xx or network/timeout error
  */
 async function fetchCameras(httpClient, token) {
     try {

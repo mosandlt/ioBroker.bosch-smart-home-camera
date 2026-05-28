@@ -97,8 +97,7 @@ exports.CLOUD_API = "https://residential.cbs.boschsecurity.com";
  */
 class RefreshTokenInvalidError extends Error {
     /**
-     *
-     * @param message
+     * @param message human-readable error detail
      */
     constructor(message) {
         super(message);
@@ -112,8 +111,7 @@ exports.RefreshTokenInvalidError = RefreshTokenInvalidError;
  */
 class AuthServerOutageError extends Error {
     /**
-     *
-     * @param message
+     * @param message human-readable error detail
      */
     constructor(message) {
         super(message);
@@ -125,6 +123,8 @@ exports.AuthServerOutageError = AuthServerOutageError;
 /**
  * Generate a PKCE code_verifier + code_challenge pair (S256 method).
  * Mirrors Python's _pkce_pair() in config_flow.py.
+ *
+ * @returns object with `verifier` (random 64-byte base64url) and `challenge` (SHA-256 of verifier, base64url)
  */
 function generatePkcePair() {
     const verifier = crypto.randomBytes(64).toString("base64url");
@@ -319,6 +319,8 @@ function detectTokenClientId(bearerToken) {
  *      reference implementation (HA integration, CLI) passes `ssl=False` for the
  *      same reason. Domain pinning (we only ever call `*.boschsecurity.com` and
  *      `*.bosch.com`) keeps the security posture acceptable.
+ *
+ * @returns Axios instance configured for Bosch cloud + LAN endpoints (15 s timeout, TLS verification off)
  */
 function createHttpClient() {
     return axios_1.default.create({

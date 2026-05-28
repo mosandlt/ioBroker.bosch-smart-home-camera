@@ -79,6 +79,24 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private static readonly SESSION_QUOTA_WINDOW_MS;
     private static readonly SESSION_QUOTA_NOTIFY_THRESHOLD;
     /**
+     * v0.9.1: per-(camId,feature) cache for endpoints that responded HTTP 442
+     * (feature not supported on this hardware). Eliminates the warn-storm where
+     * every privacy_sound_override write to an Outdoor camera produced the same
+     * 442 + the same warn log. Once a feature is in this set, subsequent writes
+     * and polls return early without any HTTP call.
+     */
+    private _unsupportedFeatures;
+    /**
+     * v0.9.1: per-(camId,poll-endpoint) exponential backoff for pollers that
+     * receive consistent 444 (Bosch session-quota / "no content for this
+     * period"). Without this the WiFi-info poll for offline cameras spammed
+     * the debug log every 30 s forever. Sequence: 30s, 60s, 120s, 300s cap.
+     * Resets to 30s on first success.
+     */
+    private _pollBackoff;
+    private static readonly POLL_BACKOFF_BASE_MS;
+    private static readonly POLL_BACKOFF_CAP_MS;
+    /**
      * Polling timer for /v11/events when FCM push registration failed.
      * Drives event ingestion without push so motion/audio events still surface.
      * Null when FCM is healthy (push is the primary path).
@@ -760,7 +778,29 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param token  Current access_token
      * @param camId  Camera UUID
      */
+    /** v0.9.1 — return true if (camId, feature) hit HTTP 442 before. */
+    private _isFeatureUnsupported;
+    /** v0.9.1 — record that (camId, feature) hit HTTP 442; future calls short-circuit. */
+    private _markFeatureUnsupported;
+    /** v0.9.1 — backoff key for (camId, endpoint). */
+    private _backoffKey;
+    /** v0.9.1 — return true if this poll should be skipped due to backoff. */
+    private _shouldSkipPoll;
+    /**
+     * v0.9.1 — record poll outcome and update backoff window.
+     * On success: clear backoff entry (next poll runs immediately).
+     * On 444/failure: exponential backoff 30→60→120→300s (cap).
+     */
+    private _recordPollResult;
     private _pollWifiInfo;
+    /**
+     * v0.9.1 — replaces the misleading `cam.numberOfUnreadEvents` listing field.
+     * Live testing 2026-05-28 showed `numberOfUnreadEvents` reports 0 even when
+     * GET /v11/events returns dozens of `isRead=false` events for the same camera
+     * (mark_all_read found 44/44 unread that the listing claimed didn't exist).
+     * This poller does its own count via the events endpoint.
+     */
+    private _pollUnreadCount;
     /**
      * Called whenever a subscribed state changes.
      * Only acts on ack=false states (user commands, not adapter-reported values).
@@ -882,6 +922,49 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param enabled  true → trigger siren, false → silence
      */
     private handleSirenToggle;
+    /**
+     * Set privacy sound override (audible indicator on privacy mode change).
+     * GET/PUT /v11/video_inputs/{id}/privacy_sound_override  body: {"result": bool}
+     * HTTP 442 = endpoint not supported on this camera model (silently ignored).
+     *
+     * @param camId    Camera UUID
+     * @param enabled  true = play sound when privacy mode changes
+     */
+    private _handlePrivacySoundWrite;
+    /**
+     * Poll privacy sound state from GET /v11/video_inputs/{id}/privacy_sound_override.
+     * Best-effort — errors and HTTP 442 swallowed.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private _pollPrivacySound;
+    /**
+     * Set autofollow state for a Gen1 360° camera.
+     * GET/PUT /v11/video_inputs/{id}/autofollow  body: {"result": bool}
+     * Only supported when panLimit > 0 (CAMERA_360).
+     *
+     * @param camId    Camera UUID (must have panLimit > 0)
+     * @param enabled  true = enable auto-follow
+     */
+    private _handleAutofollowWrite;
+    /**
+     * Poll autofollow state from GET /v11/video_inputs/{id}/autofollow.
+     * Best-effort — errors swallowed.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID (panLimit > 0 expected)
+     */
+    private _pollAutofollow;
+    /**
+     * Mark all recent events as read for a camera.
+     * Fetches the last 20 events, then calls PUT /v11/events with {id, isRead: true}
+     * for each one. Best-effort — individual failures are swallowed.
+     * Python CLI reference: api_mark_events_read() (PUT /v11/events per event).
+     *
+     * @param camId  Camera UUID
+     */
+    private _handleMarkAllRead;
     /**
      * Pan the Gen1 360° camera to an absolute position.
      *

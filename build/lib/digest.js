@@ -71,7 +71,8 @@ const axios_1 = __importDefault(require("axios"));
  * Compute MD5 hex digest of a UTF-8 string.
  * Mirrors Python _md5() in auth_utils.py.
  *
- * @param input
+ * @param input UTF-8 string to hash
+ * @returns lowercase hex MD5 digest (32 chars)
  */
 function md5(input) {
     return crypto.createHash("md5").update(input, "utf-8").digest("hex");
@@ -80,7 +81,8 @@ function md5(input) {
  * Compute SHA-256 hex digest of a UTF-8 string.
  * Mirrors Python _sha256() in auth_utils.py.
  *
- * @param input
+ * @param input UTF-8 string to hash
+ * @returns lowercase hex SHA-256 digest (64 chars)
  */
 function sha256(input) {
     return crypto.createHash("sha256").update(input, "utf-8").digest("hex");
@@ -89,7 +91,8 @@ function sha256(input) {
  * Select the hash function based on the Digest algorithm directive.
  * Defaults to MD5 if algorithm is absent or unrecognized.
  *
- * @param algorithm
+ * @param algorithm `algorithm` directive value from the WWW-Authenticate header (e.g. "MD5", "SHA-256")
+ * @returns hash function `(input: string) => string` matching the algorithm
  */
 function selectHashFn(algorithm) {
     const alg = (algorithm ?? "MD5").toUpperCase();
@@ -102,8 +105,9 @@ function selectHashFn(algorithm) {
  * Parse the WWW-Authenticate: Digest header into a DigestChallenge object.
  * Mirrors Python _parse_digest_challenge() in auth_utils.py.
  *
- * @param wwwAuthenticate
- * @throws Error if the header is not a Digest challenge or missing `nonce`
+ * @param wwwAuthenticate raw header value from a 401 response (e.g. `Digest realm="...", nonce="..."`)
+ * @returns parsed `DigestChallenge` (realm, nonce, qop, algorithm, opaque)
+ * @throws {Error} if the header is not a Digest challenge or missing `nonce`
  */
 function parseDigestChallenge(wwwAuthenticate) {
     const [scheme, ...rest] = wwwAuthenticate.trim().split(/\s+/);

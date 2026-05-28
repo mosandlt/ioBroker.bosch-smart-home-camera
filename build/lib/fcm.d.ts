@@ -37,7 +37,7 @@
 import { EventEmitter } from "node:events";
 import type { AxiosInstance } from "axios";
 import { FcmClient, createFcmECDH, generateFcmAuthSecret, registerToFCM } from "@aracna/fcm";
-export declare const CLOUD_API = "https://residential.cbs.boschsecurity.com";
+export { CLOUD_API } from "./auth";
 export declare const FCM_SENDER_ID = "404630424405";
 export declare const FCM_ANDROID_APP_ID = "1:404630424405:android:9e5b6b58e4c70075";
 /**
