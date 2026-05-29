@@ -39,11 +39,24 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FcmListener = exports.FcmRegistrationError = exports.FcmCbsRegistrationError = exports.FCM_ANDROID_APP_ID = exports.FCM_SENDER_ID = exports.CLOUD_API = void 0;
 const node_events_1 = require("node:events");
 const fcm_1 = require("@aracna/fcm");
+const core_1 = require("@aracna/core");
 // ── Constants (from Python fcm.py) ───────────────────────────────────────────
 const auth_1 = require("./auth");
 var auth_2 = require("./auth");
 Object.defineProperty(exports, "CLOUD_API", { enumerable: true, get: function () { return auth_2.CLOUD_API; } });
 const CLOUD_API = auth_1.CLOUD_API; // local alias for use within this module
+// @aracna/fcm routes its internal logging through @aracna/core's Logger. Silence
+// the request/class/function loggers — they print raw
+// "postAcgRegister -> ... PHONE_REGISTRATION_ERROR" lines straight to the console
+// on every (re)registration attempt, which floods the ioBroker log and the test
+// output. FCM health is surfaced via info.fcm_active instead. instanceof-guarded
+// so an @aracna/* version bump can't throw here. (This also keeps @aracna/core —
+// a peerDependency of @aracna/fcm — referenced in scanned source: repochecker W5060.)
+for (const _fcmLogger of [fcm_1.FcmClassLogger, fcm_1.FcmFunctionLogger, fcm_1.FcmRequestLogger]) {
+    if (_fcmLogger instanceof core_1.Logger) {
+        _fcmLogger.disable();
+    }
+}
 exports.FCM_SENDER_ID = "404630424405";
 exports.FCM_ANDROID_APP_ID = `1:${exports.FCM_SENDER_ID}:android:9e5b6b58e4c70075`;
 // Firebase project ID — Bosch Smart Camera Firebase project

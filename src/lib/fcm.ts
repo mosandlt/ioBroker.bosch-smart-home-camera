@@ -39,17 +39,34 @@ import { EventEmitter } from "node:events";
 import type { AxiosInstance } from "axios";
 import {
     FcmClient,
+    FcmClassLogger,
+    FcmFunctionLogger,
+    FcmRequestLogger,
     createFcmECDH,
     generateFcmAuthSecret,
     registerToFCM,
     type FcmClientMessageData,
 } from "@aracna/fcm";
+import { Logger } from "@aracna/core";
 
 // ── Constants (from Python fcm.py) ───────────────────────────────────────────
 
 import { CLOUD_API as _CLOUD_API_IMPORT } from "./auth";
 export { CLOUD_API } from "./auth";
 const CLOUD_API = _CLOUD_API_IMPORT; // local alias for use within this module
+
+// @aracna/fcm routes its internal logging through @aracna/core's Logger. Silence
+// the request/class/function loggers — they print raw
+// "postAcgRegister -> ... PHONE_REGISTRATION_ERROR" lines straight to the console
+// on every (re)registration attempt, which floods the ioBroker log and the test
+// output. FCM health is surfaced via info.fcm_active instead. instanceof-guarded
+// so an @aracna/* version bump can't throw here. (This also keeps @aracna/core —
+// a peerDependency of @aracna/fcm — referenced in scanned source: repochecker W5060.)
+for (const _fcmLogger of [FcmClassLogger, FcmFunctionLogger, FcmRequestLogger]) {
+    if (_fcmLogger instanceof Logger) {
+        _fcmLogger.disable();
+    }
+}
 export const FCM_SENDER_ID = "404630424405";
 export const FCM_ANDROID_APP_ID = `1:${FCM_SENDER_ID}:android:9e5b6b58e4c70075`;
 

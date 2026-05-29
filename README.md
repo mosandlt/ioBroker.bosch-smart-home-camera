@@ -88,6 +88,9 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via five sibling p
 
 ## Changelog
 
+### 1.0.2 (2026-05-29)
+Removed the `@aracna/fcm` registration log noise: the library no longer prints raw `postAcgRegister` / `PHONE_REGISTRATION_ERROR` lines to the ioBroker log on every push-registration attempt — its internal loggers (which run through `@aracna/core`'s `Logger`) are disabled at import. FCM health is still reported via `info.fcm_active`. As a side effect this references `@aracna/core` explicitly in source, satisfying repository-checker W5060. No functional changes.
+
 ### 1.0.1 (2026-05-29)
 Repository-checker compliance hotfix: news entries translated into all 11 languages (E1054); current version listed in the README changelog (E6006); changelog consolidated into the README, with old entries archived in `CHANGELOG_OLD.md` (W6017/W6018/W6020); prettier config added (W0076); admin and vis-widget i18n completed for all 11 languages and migrated to the short `{lang}.json` format (W5612/W5603/S5601); obsolete eslint devDependencies dropped (W0078); dependencies refreshed — axios, axios-cookiejar-support, typescript, c8, eslint — and a `@tsconfig/node22` base added (W0083/S0085/S0088). No functional changes.
 
