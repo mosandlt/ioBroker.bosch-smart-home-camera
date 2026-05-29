@@ -89,7 +89,7 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via five sibling p
 ## Changelog
 
 ### 1.0.1 (2026-05-29)
-Repository-checker compliance hotfix: news entries translated into all 11 languages (E1054); current version listed in the README changelog (E6006); changelog consolidated into the README (W6017/W6018); prettier config added (W0076); admin and vis-widget i18n completed for all 11 languages (W5612/W5603). No functional changes.
+Repository-checker compliance hotfix: news entries translated into all 11 languages (E1054); current version listed in the README changelog (E6006); changelog consolidated into the README, with old entries archived in `CHANGELOG_OLD.md` (W6017/W6018/W6020); prettier config added (W0076); admin and vis-widget i18n completed for all 11 languages and migrated to the short `{lang}.json` format (W5612/W5603/S5601); obsolete eslint devDependencies dropped (W0078); dependencies refreshed — axios, axios-cookiejar-support, typescript, c8, eslint — and a `@tsconfig/node22` base added (W0083/S0085/S0088). No functional changes.
 
 ### 1.0.0 (2026-05-28)
 Out of beta. v0.9.0 features — `privacy_sound_enabled`, `autofollow_enabled` (360° cameras), `unread_events_count` + `mark_all_read` button, `last_seen_event_id` persisted across restarts — plus v0.9.1 follow-up fixes: 442-unsupported-feature cache (no warn-storm for the Outdoor privacy_sound poll), unread count sourced from `GET /v11/events` (the listing's `numberOfUnreadEvents` field proved unreliable), and exponential backoff (30→300 s) on WiFi / autofollow / privacy-sound polls returning HTTP 444.
