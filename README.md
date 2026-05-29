@@ -88,6 +88,12 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via five sibling p
 
 ## Changelog
 
+### 1.0.3 (2026-05-29)
+Write-path fixes (cross-version with the Home Assistant integration and Python CLI), live-verified on the dev sandbox against firmware 9.40.102:
+- **Intrusion detection distance** now clamps to 1–8 m. The camera rejects values above 8 with HTTP 400, so writing `intrusion_distance` = 9 or 10 previously failed with `Failed to handle intrusion_distance … status code 400`. The datapoint maximum, label and acked value now all reflect the 1–8 range.
+- **Intercom audio levels** are written as the full `{audioEnabled, microphoneLevel, speakerLevel}` body (read-merge-write). Setting `speaker_level` no longer silently wipes `microphone_level`.
+- **Pan** acks the clamped angle that was actually written instead of the raw user value, and a busy camera (HTTP 444, too many simultaneous live sessions) is now reported as a session-quota warning instead of a hard error.
+
 ### 1.0.2 (2026-05-29)
 Removed the `@aracna/fcm` registration log noise: the library no longer prints raw `postAcgRegister` / `PHONE_REGISTRATION_ERROR` lines to the ioBroker log on every push-registration attempt — its internal loggers (which run through `@aracna/core`'s `Logger`) are disabled at import. FCM health is still reported via `info.fcm_active`. As a side effect this references `@aracna/core` explicitly in source, satisfying repository-checker W5060. No functional changes.
 

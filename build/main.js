@@ -327,6 +327,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
     // user-write handler can merge a single field (sensitivity/distance)
     // into the full body. Bosch rejects DELTA PUTs with HTTP 400.
     _intrusionConfigCache = new Map();
+    // v1.0.3: cached /audio body from cloud GET so the audio-level write
+    // handler can merge a single field (microphoneLevel/speakerLevel) into
+    // the full body. Bosch's /audio PUT requires the FULL body — a partial
+    // PUT silently drops the other level (and audioEnabled). Mirrors the
+    // intrusionDetectionConfig GET→merge→PUT pattern.
+    _audioCache = new Map();
     // v0.8.0: lens elevation cache (Gen2, float 0.5–5.0 m).
     // Seeded by slow-tier GET /lens_elevation poll; used by write handler to confirm value.
     _lensElevationCache = new Map();
@@ -1714,11 +1720,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 await this.setObjectNotExistsAsync(`${prefix}.intrusion_distance`, {
                     type: "state",
                     common: {
-                        name: "Intrusion detection distance 1–10 m (Gen2) — write to change",
+                        name: "Intrusion detection distance 1–8 m (Gen2) — write to change",
                         role: "level",
                         type: "number",
                         min: 1,
-                        max: 10,
+                        max: 8,
                         unit: "m",
                         read: true,
                         write: true,
@@ -3988,10 +3994,16 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         this.log.warn(`intrusion_distance write for ${camId.slice(0, 8)} ignored — Gen2 only`);
                         return; // skip ack
                     }
-                    await this._handleIntrusionWrite(camId, {
-                        distance: Math.round(Number(state.val)),
-                    });
-                    break;
+                    {
+                        // v1.0.3: clamp to the valid 1–8 m range (Bosch rejects
+                        // > 8 with HTTP 400) and ack the CLAMPED value so the UI
+                        // doesn't show an out-of-range distance the camera never
+                        // received (object max is 8).
+                        const reqDistance = Math.max(1, Math.min(8, Math.round(Number(state.val))));
+                        await this._handleIntrusionWrite(camId, { distance: reqDistance });
+                        await this.setStateAsync(id, reqDistance, true);
+                    }
+                    return; // already acked clamped value
                 }
                 case "pan_position": {
                     // v0.7.8: absolute pan position — Gen1 CAMERA_360 only (panLimit > 0)
@@ -4000,8 +4012,18 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         this.log.warn(`pan_position write for ${camId.slice(0, 8)} ignored — camera has no pan hardware`);
                         return; // skip ack
                     }
-                    await this._handlePanWrite(camId, Math.round(Number(state.val)));
-                    break;
+                    {
+                        // v1.0.3: ack the CLAMPED position (not the raw user
+                        // value) so the UI reflects where the camera actually
+                        // moved. _handlePanWrite clamps to ±panLimit.
+                        const appliedPan = await this._handlePanWrite(camId, Math.round(Number(state.val)));
+                        // null = session-quota 444 (handled as warn) → leave
+                        // the position un-acked so it shows as pending.
+                        if (appliedPan !== null) {
+                            await this.setStateAsync(id, appliedPan, true);
+                        }
+                    }
+                    return; // already acked clamped value (or skipped on 444)
                 }
                 case "pan_preset": {
                     // v0.7.8: named pan preset — Gen1 CAMERA_360 only (panLimit > 0)
@@ -4022,9 +4044,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         this.log.warn(`pan_preset write for ${camId.slice(0, 8)}: unknown preset "${presetName}" — ignored`);
                         return; // skip ack
                     }
-                    await this._handlePanWrite(camId, PAN_PRESET_MAP[presetName]);
-                    // Also ack the position DP so UI stays in sync
-                    await this.setStateAsync(`cameras.${camId}.pan_position`, PAN_PRESET_MAP[presetName], true);
+                    const appliedPreset = await this._handlePanWrite(camId, PAN_PRESET_MAP[presetName]);
+                    // Also ack the position DP so UI stays in sync — use the
+                    // clamped value actually written (v1.0.3). null = 444
+                    // session-quota (handled as warn) → skip position sync.
+                    if (appliedPreset !== null) {
+                        await this.setStateAsync(`cameras.${camId}.pan_position`, appliedPreset, true);
+                    }
                     break;
                 }
                 case "lens_elevation": {
@@ -4218,16 +4244,43 @@ class BoschSmartHomeCamera extends utils.Adapter {
             throw new Error("no access token — adapter not ready");
         }
         const clamped = Math.max(0, Math.min(100, Math.round(level)));
-        const body = field === "microphone" ? { microphoneLevel: clamped } : { speakerLevel: clamped };
         const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/audio`;
-        const resp = await this._httpClient.put(url, body, {
-            headers: {
-                Authorization: `Bearer ${this._currentAccessToken}`,
-                "Content-Type": "application/json",
-                Accept: "application/json",
-            },
+        const headers = {
+            Authorization: `Bearer ${this._currentAccessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        };
+        // v1.0.3: Bosch's /audio PUT requires the FULL body
+        // {audioEnabled, microphoneLevel, speakerLevel}. A partial PUT with
+        // only the changed level silently drops the other level (and
+        // audioEnabled). GET current → merge the one field → PUT full body,
+        // mirroring _handleIntrusionWrite. Bug: setting speaker_level wiped
+        // microphone_level back to the device default.
+        let audio;
+        const cached = this._audioCache.get(camId);
+        if (cached) {
+            audio = { ...cached };
+        }
+        else {
+            const getResp = await this._httpClient.get(url, {
+                headers,
+                validateStatus: (s) => s >= 200 && s < 300,
+            });
+            audio = getResp.data ?? {};
+        }
+        if (field === "microphone") {
+            audio.microphoneLevel = clamped;
+        }
+        else {
+            audio.speakerLevel = clamped;
+        }
+        const resp = await this._httpClient.put(url, audio, {
+            headers,
             validateStatus: (s) => s >= 200 && s < 300,
         });
+        // Cache the full body we just wrote so the next single-field write
+        // doesn't need another GET.
+        this._audioCache.set(camId, { ...audio });
         this.log.info(`Audio ${field} level set to ${clamped} for ${camId.slice(0, 8)} (HTTP ${resp.status})`);
     }
     // ── v0.7.7 intrusion-detection handler ─────────────────────────────────
@@ -4279,7 +4332,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
             cfg.sensitivity = Math.max(0, Math.min(7, Math.round(delta.sensitivity)));
         }
         if (delta.distance !== undefined) {
-            cfg.distance = Math.max(1, Math.min(10, Math.round(delta.distance)));
+            // v1.0.3: Bosch rejects distance > 8 with HTTP 400 (verified live
+            // FW 9.40.102). Was min(10) → sending 9/10 returned 400. Clamp to 8.
+            cfg.distance = Math.max(1, Math.min(8, Math.round(delta.distance)));
         }
         // v0.7.14: HTTP 443 from Bosch = "cam is in privacy mode, config
         // writes are rejected". HA's same response shows a localised
@@ -4715,11 +4770,35 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 Authorization: `Bearer ${this._currentAccessToken}`,
                 "Content-Type": "application/json",
             },
+            // v1.0.3: allow 444 through so we can treat the session-quota
+            // case as a graceful warn instead of a hard error (below).
+            validateStatus: (s) => (s >= 200 && s < 300) || s === 444,
         });
+        if (resp.status === 444) {
+            // v1.0.3: pan needs a live session; Bosch returns 444 when the
+            // camera's session slots are full (Bosch App / parallel HA / Python
+            // clients on the same physical camera). Mirror the stream path's
+            // graceful session-quota treatment — warn + set the session_limit_hit
+            // DP — instead of logging a hard "Failed to handle pan_position"
+            // error. Return null so the caller leaves the position un-acked.
+            this.log.warn(`[session-quota] pan for camera ${camId.slice(0, 8)} rejected with HTTP 444 — ` +
+                `too many simultaneous live sessions. Close other Bosch clients and retry.`);
+            try {
+                await this.setStateAsync(`cameras.${camId}.session_limit_hit`, true, true);
+            }
+            catch (err) {
+                this.log.debug(`session_limit_hit DP write failed for ${camId.slice(0, 8)} (non-fatal): ` +
+                    `${err instanceof Error ? err.message : String(err)}`);
+            }
+            return null;
+        }
         if (resp.status !== 200) {
             throw new Error(`PUT /pan returned HTTP ${resp.status} for camera ${camId.slice(0, 8)}`);
         }
         this.log.info(`Pan → ${clamped}° for camera ${camId.slice(0, 8)}`);
+        // v1.0.3: return the value actually written so the caller acks the
+        // clamped position, not the raw (possibly out-of-range) user input.
+        return clamped;
     }
     /**
      * Apply a wallwasher (top + bottom LED) update to a Gen2 camera.

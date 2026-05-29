@@ -6,7 +6,8 @@
     "src-widgets/**",
     "widgets/**",
     "build/lib/digest.js",
-    "src/lib/digest.ts"
+    "src/lib/digest.ts",
+    "**/*.d.ts"
   ],
   "extension": [".ts", ".js"],
   "sourcemap": true,

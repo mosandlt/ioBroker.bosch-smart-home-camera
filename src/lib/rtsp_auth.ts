@@ -150,6 +150,7 @@ export function attachRtspAuthHandler(opts: RtspAuthOptions): void {
                     log(
                         "debug",
                         `RTSP auth ${camLabel}: header injection failed, forwarding raw — ` +
+                            /* c8 ignore next */ // non-Error throw from buildDigestHeader requires module mock
                             `${err instanceof Error ? err.message : String(err)}`,
                     );
                 }
@@ -183,6 +184,7 @@ export function attachRtspAuthHandler(opts: RtspAuthOptions): void {
                             "warn",
                             `RTSP auth ${camLabel}: failed to parse WWW-Authenticate, ` +
                                 `forwarding 401 to client — ` +
+                                /* c8 ignore next */ // non-Error throw from parseDigestChallenge requires module mock
                                 `${err instanceof Error ? err.message : String(err)}`,
                         );
                         challenge = null;

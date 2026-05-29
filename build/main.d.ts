@@ -267,6 +267,7 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _lightingCache;
     private _intrusionConfigCache;
+    private _audioCache;
     private _lensElevationCache;
     private _globalLightingCache;
     private _alarmSettingsCache;

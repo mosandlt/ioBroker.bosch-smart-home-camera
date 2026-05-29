@@ -184,6 +184,7 @@ function parseWindow(text, pubDateIso) {
     try {
         startLocalMs = Date.UTC(year, mon - 1, day, h1, m1, 0) - offsetMin * 60_000;
         endLocalMs = Date.UTC(year, mon - 1, day, h2, m2, 0) - offsetMin * 60_000;
+        // c8 ignore next 3 — Date.UTC never throws in V8; defensive guard for non-standard runtimes
     }
     catch {
         return [null, null];
