@@ -1,0 +1,18 @@
+{
+    "Bosch Camera Tile": "Bosch Camerategel",
+    "Camera ID datapoint": "Camera-ID-gegevenspunt",
+    "Light OFF": "Licht UIT",
+    "Light ON": "Licht AAN",
+    "Motion": "Beweging",
+    "Offline": "Offline",
+    "Online": "Online",
+    "Privacy": "Privacy",
+    "Privacy OFF": "Privacy UIT",
+    "Privacy ON": "Privacy AAN",
+    "Select a camera datapoint": "Selecteer een cameradatapunt",
+    "Show light button": "Toon lichtknop",
+    "Snapshot refresh (seconds)": "Vernieuwing momentopname (seconden)",
+    "Tile width (px, 0 = 100%)": "Tegelbreedte (px, 0 = 100%)",
+    "Waiting for snapshot…": "Wachten op momentopname...",
+    "bosch_camera_widget_set_label": "Bosch Smart Home-camera"
+}

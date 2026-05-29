@@ -1,0 +1,18 @@
+{
+    "Bosch Camera Tile": "Плитка для камеры Bosch",
+    "Camera ID datapoint": "Точка данных идентификатора камеры",
+    "Light OFF": "Свет ВЫКЛ.",
+    "Light ON": "Свет включен",
+    "Motion": "Движение",
+    "Offline": "Оффлайн",
+    "Online": "Онлайн",
+    "Privacy": "Конфиденциальность",
+    "Privacy OFF": "Конфиденциальность ВЫКЛ.",
+    "Privacy ON": "Конфиденциальность включена",
+    "Select a camera datapoint": "Выберите точку данных камеры",
+    "Show light button": "Показать кнопку освещения",
+    "Snapshot refresh (seconds)": "Обновление снимка (секунды)",
+    "Tile width (px, 0 = 100%)": "Ширина плитки (пикселей, 0 = 100%)",
+    "Waiting for snapshot…": "Ждем снимок…",
+    "bosch_camera_widget_set_label": "Умная домашняя камера Bosch"
+}

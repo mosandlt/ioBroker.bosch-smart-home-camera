@@ -1,0 +1,18 @@
+{
+    "Bosch Camera Tile": "Камерна плитка Bosch",
+    "Camera ID datapoint": "Точка даних ідентифікатора камери",
+    "Light OFF": "Світло ВИМКНЕНО",
+    "Light ON": "Світло увімкнено",
+    "Motion": "Рух",
+    "Offline": "Офлайн",
+    "Online": "Онлайн",
+    "Privacy": "Конфіденційність",
+    "Privacy OFF": "Конфіденційність ВИМКНЕНО",
+    "Privacy ON": "Конфіденційність УВІМКНЕНО",
+    "Select a camera datapoint": "Виберіть точку даних камери",
+    "Show light button": "Показати кнопку підсвічування",
+    "Snapshot refresh (seconds)": "Оновлення знімка (секунди)",
+    "Tile width (px, 0 = 100%)": "Ширина плитки (px, 0 = 100%)",
+    "Waiting for snapshot…": "Очікування знімка…",
+    "bosch_camera_widget_set_label": "Розумна домашня камера Bosch"
+}

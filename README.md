@@ -88,6 +88,12 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via five sibling p
 
 ## Changelog
 
+### 1.0.1 (2026-05-29)
+Repository-checker compliance hotfix: news entries translated into all 11 languages (E1054); current version listed in the README changelog (E6006); changelog consolidated into the README (W6017/W6018); prettier config added (W0076); admin and vis-widget i18n completed for all 11 languages (W5612/W5603). No functional changes.
+
+### 1.0.0 (2026-05-28)
+Out of beta. v0.9.0 features — `privacy_sound_enabled`, `autofollow_enabled` (360° cameras), `unread_events_count` + `mark_all_read` button, `last_seen_event_id` persisted across restarts — plus v0.9.1 follow-up fixes: 442-unsupported-feature cache (no warn-storm for the Outdoor privacy_sound poll), unread count sourced from `GET /v11/events` (the listing's `numberOfUnreadEvents` field proved unreliable), and exponential backoff (30→300 s) on WiFi / autofollow / privacy-sound polls returning HTTP 444.
+
 ### 0.8.0 (2026-05-25)
 HA-feature parity wave — ONVIF Scopes, RCP version, cloud feature flags, MJPEG inst=3 snapshot, 444 session-quota proper sensor state. Repochecker bot preflight added (E1032 news count ≤ 7, E1105 visWidgets components, E0028 Node ≥ 22). Engines bumped to Node 22 LTS; matrix `[22.x, 24.x]`. `@types/node` pinned to `^22.0.0` (Dependabot major-version ignore added).
 
@@ -275,7 +281,7 @@ Older releases (0.0.1 – 0.3.3) are archived in [CHANGELOG_OLD.md](./CHANGELOG_
 
 ## Status
 
-**Beta (v0.8.0)** — verified live against 4 cameras (Gen1 + Gen2, FW 7.91.56 / 9.40.25) on a real ioBroker instance. Cloud API contracts confirmed against the iOS app via mitmproxy.
+**Stable (v1.0.1)** — verified live against 4 cameras (Gen1 + Gen2, FW 7.91.56 / 9.40.102) on a real ioBroker instance. Cloud API contracts confirmed against the iOS app via mitmproxy.
 
 What works:
 - Browser-based OAuth2 PKCE login via Bosch SingleKey ID (no programmatic password handling — captcha/MFA happen in the browser)
@@ -578,7 +584,7 @@ Frigate, Zigbee2MQTT sidecars, any standard MQTT subscriber.
 
 **Example Node-RED subscription:**
 ```
-bosch/cameras/EF791764-.../motion
+bosch/cameras/<camera-id>/motion
 ```
 
 Wire it to a Telegram notification, a Frigate alert, or a Home Assistant

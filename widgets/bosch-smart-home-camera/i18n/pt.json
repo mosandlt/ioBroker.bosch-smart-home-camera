@@ -1,0 +1,18 @@
+{
+    "Bosch Camera Tile": "Bloco de câmera Bosch",
+    "Camera ID datapoint": "Ponto de dados de ID da câmera",
+    "Light OFF": "Luz apagada",
+    "Light ON": "Luz acesa",
+    "Motion": "Movimento",
+    "Offline": "Off-line",
+    "Online": "On-line",
+    "Privacy": "Privacidade",
+    "Privacy OFF": "Privacidade DESATIVADA",
+    "Privacy ON": "Privacidade ATIVADA",
+    "Select a camera datapoint": "Selecione um ponto de dados da câmera",
+    "Show light button": "Mostrar botão de luz",
+    "Snapshot refresh (seconds)": "Atualização do instantâneo (segundos)",
+    "Tile width (px, 0 = 100%)": "Largura do bloco (px, 0 = 100%)",
+    "Waiting for snapshot…": "Aguardando instantâneo…",
+    "bosch_camera_widget_set_label": "Câmera doméstica inteligente Bosch"
+}

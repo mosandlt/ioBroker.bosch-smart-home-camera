@@ -1,0 +1,18 @@
+{
+    "Bosch Camera Tile": "Pannello fotocamera Bosch",
+    "Camera ID datapoint": "Punto dati ID telecamera",
+    "Light OFF": "Luce spenta",
+    "Light ON": "Luce accesa",
+    "Motion": "Movimento",
+    "Offline": "Non in linea",
+    "Online": "In linea",
+    "Privacy": "Privacy",
+    "Privacy OFF": "Privacy disattivata",
+    "Privacy ON": "Privacy attivata",
+    "Select a camera datapoint": "Seleziona un punto dati della telecamera",
+    "Show light button": "Mostra il pulsante della luce",
+    "Snapshot refresh (seconds)": "Aggiornamento dell'istantanea (secondi)",
+    "Tile width (px, 0 = 100%)": "Larghezza della piastrella (px, 0 = 100%)",
+    "Waiting for snapshot…": "In attesa dell'istantanea...",
+    "bosch_camera_widget_set_label": "Telecamera per la casa intelligente Bosch"
+}
