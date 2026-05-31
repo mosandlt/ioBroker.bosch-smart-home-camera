@@ -156,9 +156,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
     /**
      * Polling timer for /v11/events when FCM push registration failed.
      * Drives event ingestion without push so motion/audio events still surface.
-     * Null when FCM is healthy (push is the primary path).
+     * Undefined when FCM is healthy (push is the primary path).
      */
-    _eventPollTimer = null;
+    _eventPollTimer = undefined;
     /** Event-poll interval (ms) when FCM push is unavailable. */
     static EVENT_POLL_INTERVAL_MS = 30_000;
     /**
@@ -187,7 +187,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * Forum #84538: user set privacy_enabled via ioBroker, toggled it off
      * via the app, ioBroker DP stayed `true` because we only fetched once.
      */
-    _statePollTimer = null;
+    _statePollTimer = undefined;
     /** Camera-state poll interval (ms). */
     static STATE_POLL_INTERVAL_MS = 30_000;
     /**
@@ -195,7 +195,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * Fetches Bosch community RSS feeds every hour and surfaces the latest
      * maintenance window in `info.maintenance.*` state objects.
      */
-    _maintenanceTimer = null;
+    _maintenanceTimer = undefined;
     /** Maintenance poll interval (ms). */
     static MAINTENANCE_POLL_INTERVAL_MS = 3_600_000; // 1 hour
     /**
@@ -942,13 +942,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (this._maintenanceTimer) {
             return;
         }
-        const timer = setInterval(() => {
+        const timer = this.setInterval(() => {
             void this._refreshMaintenanceStatus().catch((err) => {
                 const msg = err instanceof Error ? err.message : String(err);
                 this.log.debug(`Maintenance poll tick error: ${msg}`);
             });
         }, BoschSmartHomeCamera.MAINTENANCE_POLL_INTERVAL_MS);
-        timer.unref();
         this._maintenanceTimer = timer;
     }
     /**
@@ -2158,6 +2157,8 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     void this._handleRenewalFailure(camId, err);
                 },
                 log: (level, msg) => this.log[level](msg),
+                setTimeout: this.setTimeout.bind(this),
+                clearTimeout: (t) => this.clearTimeout(t),
             });
             watchdog.start(session);
             this._sessionWatchdogs.set(camId, watchdog);
@@ -2317,6 +2318,8 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         void this._handleRenewalFailure(camId, renewErr);
                     },
                     log: (level, msg) => this.log[level](msg),
+                    setTimeout: this.setTimeout.bind(this),
+                    clearTimeout: (t) => this.clearTimeout(t),
                 });
                 watchdog.start(newSession);
                 this._sessionWatchdogs.set(camId, watchdog);
@@ -2698,17 +2701,17 @@ class BoschSmartHomeCamera extends utils.Adapter {
         }
         const result = await new Promise((resolve) => {
             const sock = net.createConnection({ host: ip, port: 443 });
-            const timer = setTimeout(() => {
+            const timer = this.setTimeout(() => {
                 sock.destroy();
                 resolve(false);
             }, BoschSmartHomeCamera.LAN_PING_TIMEOUT_MS);
             sock.once("connect", () => {
-                clearTimeout(timer);
+                this.clearTimeout(timer);
                 sock.destroy();
                 resolve(true);
             });
             sock.once("error", () => {
-                clearTimeout(timer);
+                this.clearTimeout(timer);
                 resolve(false);
             });
         });
@@ -3261,13 +3264,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (this._statePollTimer) {
             return;
         }
-        const timer = setInterval(() => {
+        const timer = this.setInterval(() => {
             void this._pollCameraStateOnce().catch((err) => {
                 const msg = err instanceof Error ? err.message : String(err);
                 this.log.debug(`Camera state poll tick failed: ${msg}`);
             });
         }, BoschSmartHomeCamera.STATE_POLL_INTERVAL_MS);
-        timer.unref();
         this._statePollTimer = timer;
     }
     /**
@@ -5540,7 +5542,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 throw err;
             }
             this.log.debug(`Snapshot retry for ${camId.slice(0, 8)}: ${msg}`);
-            await new Promise((r) => setTimeout(r, 800));
+            await new Promise((r) => {
+                this.setTimeout(() => r(), 800);
+            });
             try {
                 return await (0, snapshot_1.fetchSnapshot)(snapUrl, session.digestUser, session.digestPassword);
             }
@@ -5563,17 +5567,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (this._eventPollTimer) {
             return;
         }
-        const timer = setInterval(() => {
+        const timer = this.setInterval(() => {
             void this.fetchAndProcessEvents().catch((err) => {
                 const msg = err instanceof Error ? err.message : String(err);
                 this.log.debug(`Event polling tick failed: ${msg}`);
             });
         }, BoschSmartHomeCamera.EVENT_POLL_INTERVAL_MS);
-        // unref() so the timer doesn't keep the Node event loop alive on its
-        // own — important for mocha which won't exit while pending intervals
-        // exist. Production: ioBroker holds the loop open via other handles, so
-        // unref() has no effect on uptime.
-        timer.unref();
         this._eventPollTimer = timer;
     }
     /**
@@ -5825,18 +5824,18 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 }
                 // Stop event polling timer (only set when FCM fell back to polling)
                 if (this._eventPollTimer) {
-                    clearInterval(this._eventPollTimer);
-                    this._eventPollTimer = null;
+                    this.clearInterval(this._eventPollTimer);
+                    this._eventPollTimer = undefined;
                 }
                 // Stop camera-state poll timer (always armed when adapter is healthy)
                 if (this._statePollTimer) {
-                    clearInterval(this._statePollTimer);
-                    this._statePollTimer = null;
+                    this.clearInterval(this._statePollTimer);
+                    this._statePollTimer = undefined;
                 }
                 // v0.7.0: stop maintenance poll timer
                 if (this._maintenanceTimer) {
-                    clearInterval(this._maintenanceTimer);
-                    this._maintenanceTimer = null;
+                    this.clearInterval(this._maintenanceTimer);
+                    this._maintenanceTimer = undefined;
                 }
                 // v0.6.2: cancel any pending FCM reconnect timer BEFORE
                 // nulling the listener — otherwise a timer that fires during

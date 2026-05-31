@@ -173,6 +173,10 @@ function createAdapter(configOverrides: Record<string, unknown> = {}): {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (adapter as any).clearTimeout = (_h: unknown) => undefined;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (adapter as any).setInterval = (_fn: () => void, _ms: number) => null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (adapter as any).clearInterval = (_h: unknown) => undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (adapter as any).terminate = () => undefined;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (adapter as any).writeFileAsync = sinon.stub().resolves();

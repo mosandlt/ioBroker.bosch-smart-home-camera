@@ -538,21 +538,17 @@ export type FetchResult = [number, string] | null;
  * @param timeoutMs
  */
 export async function fetchOne(url: string, timeoutMs: number = 8_000): Promise<FetchResult> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
         const resp = await fetch(url, {
-            signal: controller.signal,
+            signal: AbortSignal.timeout(timeoutMs),
             headers: { "User-Agent": BROWSER_UA },
         });
-        clearTimeout(timer);
         if (resp.status !== 200) {
             return null;
         }
         const text = await resp.text();
         return [resp.status, text];
     } catch {
-        clearTimeout(timer);
         return null;
     }
 }

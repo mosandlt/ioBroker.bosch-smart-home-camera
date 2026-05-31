@@ -437,14 +437,11 @@ function parseHtmlFallback(html, sourceUrl) {
  * @param timeoutMs
  */
 async function fetchOne(url, timeoutMs = 8_000) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
         const resp = await fetch(url, {
-            signal: controller.signal,
+            signal: AbortSignal.timeout(timeoutMs),
             headers: { "User-Agent": BROWSER_UA },
         });
-        clearTimeout(timer);
         if (resp.status !== 200) {
             return null;
         }
@@ -452,7 +449,6 @@ async function fetchOne(url, timeoutMs = 8_000) {
         return [resp.status, text];
     }
     catch {
-        clearTimeout(timer);
         return null;
     }
 }

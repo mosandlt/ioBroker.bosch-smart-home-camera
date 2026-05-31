@@ -99,7 +99,7 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     /**
      * Polling timer for /v11/events when FCM push registration failed.
      * Drives event ingestion without push so motion/audio events still surface.
-     * Null when FCM is healthy (push is the primary path).
+     * Undefined when FCM is healthy (push is the primary path).
      */
     private _eventPollTimer;
     /** Event-poll interval (ms) when FCM push is unavailable. */

@@ -30,6 +30,8 @@ class SessionWatchdog {
     _onError;
     _log;
     _renewLeadMs;
+    _setTimeout;
+    _clearTimeout;
     _session = null;
     _timer = null;
     _running = false;
@@ -43,6 +45,12 @@ class SessionWatchdog {
         this._onError = opts.onError;
         this._log = opts.log;
         this._renewLeadMs = opts.renewLeadMs ?? 60_000;
+        this._setTimeout = opts.setTimeout ?? setTimeout;
+        // Global clearTimeout accepts `NodeJS.Timeout | string | number | undefined`, not
+        // the wider `unknown` that _clearTimeout is typed as. Wrap it in a lambda so the
+        // assignment is type-safe regardless of whether the adapter-managed or global path
+        // is used — both accept the `unknown` timer handle stored in _timer.
+        this._clearTimeout = opts.clearTimeout ?? ((t) => clearTimeout(t));
     }
     /**
      * Start the watchdog with the given initial session.
@@ -62,7 +70,7 @@ class SessionWatchdog {
     stop() {
         this._running = false;
         if (this._timer !== null) {
-            clearTimeout(this._timer);
+            this._clearTimeout(this._timer);
             this._timer = null;
         }
         this._session = null;
@@ -93,13 +101,16 @@ class SessionWatchdog {
         this._log("debug", `SessionWatchdog: arming renewal for camera ${session.cameraId.slice(0, 8)} ` +
             `in ${Math.round(delay / 1000)} s ` +
             `(session expires in ~${Math.round(durationMs / 1000)} s)`);
-        const timer = setTimeout(() => {
+        const timer = this._setTimeout(() => {
             this._timer = null;
             void this._renew();
         }, delay);
-        // .unref() so the timer does not prevent Node / mocha from exiting when
-        // all tests complete — production: ioBroker keeps the loop alive anyway.
-        timer.unref();
+        // .unref() only on the plain-setTimeout fallback path (unit tests / standalone Node).
+        // The adapter-managed this.setTimeout handle is a number — calling .unref() on it
+        // would throw. Guard: only call .unref if the handle actually has that method.
+        if (typeof timer.unref === "function") {
+            timer.unref();
+        }
         this._timer = timer;
     }
     /** Perform the renewal: open a new session, invoke onRenew, re-arm. */

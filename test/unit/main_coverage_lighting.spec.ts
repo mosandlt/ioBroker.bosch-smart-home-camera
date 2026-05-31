@@ -259,6 +259,10 @@ function makeAdapter(opts: MakeAdapterOpts = {}): { db: MockDatabase; adapter: T
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (adapter as any).clearTimeout = (_h: unknown) => undefined;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (adapter as any).setInterval = (_fn: () => void, _ms: number) => null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (adapter as any).clearInterval = (_h: unknown) => undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (adapter as any).terminate = () => undefined;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (adapter as any).writeFileAsync = sinon.stub().resolves();
@@ -700,6 +704,10 @@ describe("coverage: Indoor II no-light gate (L6004-6009)", function () {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (adapter as any).clearTimeout = () => undefined;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (adapter as any).setInterval = (_fn: () => void, _ms: number) => null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (adapter as any).clearInterval = (_h: unknown) => undefined;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (adapter as any).terminate = () => undefined;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (adapter as any).writeFileAsync = sinon.stub().resolves();
@@ -1094,6 +1102,10 @@ describe("coverage: _handleSessionLimitError via real adapter (L6413-6468)", fun
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (adapter as any).clearTimeout = () => undefined;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (adapter as any).setInterval = (_fn: () => void, _ms: number) => null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (adapter as any).clearInterval = (_h: unknown) => undefined;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (adapter as any).terminate = () => undefined;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (adapter as any).writeFileAsync = sinon.stub().resolves();
@@ -1197,6 +1209,10 @@ describe("coverage: _handleSessionLimitError via real adapter (L6413-6468)", fun
         (adapter as any).setTimeout = setTimeoutSpy;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (adapter as any).clearTimeout = () => undefined;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (adapter as any).setInterval = (_fn: () => void, _ms: number) => null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (adapter as any).clearInterval = (_h: unknown) => undefined;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (adapter as any).terminate = () => undefined;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

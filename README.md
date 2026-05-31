@@ -604,6 +604,12 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.0.4 (2026-05-31)
+Internal hardening release, no functional changes:
+- All polling and watchdog timers (event poll, state poll, maintenance poll, session-renewal, LAN ping, snapshot retry) are now created through the adapter-core `setInterval` / `setTimeout`, so the adapter core cancels them automatically on unload — no orphaned timers outliving `onUnload`. HTTP fetch timeouts now use `AbortSignal.timeout()`.
+- New CI security layer: CodeQL static analysis (Python and JavaScript/TypeScript), gitleaks full-history secret scanning, and a dependency-review gate, plus least-privilege `permissions` on every workflow and a `docs/ci-cd.md` pipeline document.
+- README restructured to match the Home Assistant project layout; copyright line switched to ASCII `(c)` (repository-checker E6033).
+
 ### 1.0.3 (2026-05-29)
 Write-path fixes (cross-version with the Home Assistant integration and Python CLI), live-verified on the dev sandbox against firmware 9.40.102:
 - **Intrusion detection distance** now clamps to 1–8 m. The camera rejects values above 8 with HTTP 400, so writing `intrusion_distance` = 9 or 10 previously failed with `Failed to handle intrusion_distance … status code 400`. The datapoint maximum, label and acked value now all reflect the 1–8 range.
@@ -804,4 +810,4 @@ Older releases (0.0.1 – 0.3.3) are archived in [CHANGELOG_OLD.md](./CHANGELOG_
 
 MIT License — see [LICENSE](./LICENSE).
 
-Copyright © 2026 mosandlt
+Copyright (c) 2026 mosandlt

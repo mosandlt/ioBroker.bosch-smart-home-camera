@@ -186,6 +186,10 @@ function createAdapter(configOverrides: Record<string, unknown> = {}): {
     (adapter as any).setTimeout = (_fn: () => void, _ms: number) => ({ __mockTimer: true });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (adapter as any).clearTimeout = (_handle: unknown) => undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (adapter as any).setInterval = (_fn: () => void, _ms: number) => null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (adapter as any).clearInterval = (_h: unknown) => undefined;
     // The mock's terminate() throws an Error object which propagates from onReady;
     // stub it as no-op so the adapter can call terminate() without crashing the test.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -39,6 +39,18 @@ export interface SessionWatchdogOptions {
      * Default: 60_000 ms (60 s).
      */
     renewLeadMs?: number;
+    /**
+     * Optional adapter-managed setTimeout. When provided (production), the
+     * timer is tracked by adapter-core and auto-cancelled on unload.
+     * Falls back to the global setTimeout when absent (unit tests).
+     */
+    setTimeout?: (cb: () => void, ms: number) => unknown;
+    /**
+     * Optional adapter-managed clearTimeout. Must be provided when setTimeout
+     * is provided above.
+     * Falls back to the global clearTimeout when absent (unit tests).
+     */
+    clearTimeout?: (timer: unknown) => void;
 }
 /**
  * Schedules automatic renewal of a Bosch LOCAL live session before it expires.
@@ -55,6 +67,8 @@ export declare class SessionWatchdog {
     private readonly _onError;
     private readonly _log;
     private readonly _renewLeadMs;
+    private readonly _setTimeout;
+    private readonly _clearTimeout;
     private _session;
     private _timer;
     private _running;

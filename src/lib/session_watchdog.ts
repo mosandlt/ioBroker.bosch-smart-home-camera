@@ -44,6 +44,18 @@ export interface SessionWatchdogOptions {
      * Default: 60_000 ms (60 s).
      */
     renewLeadMs?: number;
+    /**
+     * Optional adapter-managed setTimeout. When provided (production), the
+     * timer is tracked by adapter-core and auto-cancelled on unload.
+     * Falls back to the global setTimeout when absent (unit tests).
+     */
+    setTimeout?: (cb: () => void, ms: number) => unknown;
+    /**
+     * Optional adapter-managed clearTimeout. Must be provided when setTimeout
+     * is provided above.
+     * Falls back to the global clearTimeout when absent (unit tests).
+     */
+    clearTimeout?: (timer: unknown) => void;
 }
 
 // ── SessionWatchdog ────────────────────────────────────────────────────────────
@@ -63,9 +75,11 @@ export class SessionWatchdog {
     private readonly _onError: (err: Error) => void;
     private readonly _log: LogFn;
     private readonly _renewLeadMs: number;
+    private readonly _setTimeout: (cb: () => void, ms: number) => unknown;
+    private readonly _clearTimeout: (timer: unknown) => void;
 
     private _session: LiveSession | null = null;
-    private _timer: ReturnType<typeof setTimeout> | null = null;
+    private _timer: unknown = null;
     private _running = false;
 
     /**
@@ -78,6 +92,12 @@ export class SessionWatchdog {
         this._onError = opts.onError;
         this._log = opts.log;
         this._renewLeadMs = opts.renewLeadMs ?? 60_000;
+        this._setTimeout = opts.setTimeout ?? setTimeout;
+        // Global clearTimeout accepts `NodeJS.Timeout | string | number | undefined`, not
+        // the wider `unknown` that _clearTimeout is typed as. Wrap it in a lambda so the
+        // assignment is type-safe regardless of whether the adapter-managed or global path
+        // is used — both accept the `unknown` timer handle stored in _timer.
+        this._clearTimeout = opts.clearTimeout ?? ((t) => clearTimeout(t as NodeJS.Timeout));
     }
 
     /**
@@ -99,7 +119,7 @@ export class SessionWatchdog {
     public stop(): void {
         this._running = false;
         if (this._timer !== null) {
-            clearTimeout(this._timer);
+            this._clearTimeout(this._timer);
             this._timer = null;
         }
         this._session = null;
@@ -141,14 +161,17 @@ export class SessionWatchdog {
                 `(session expires in ~${Math.round(durationMs / 1000)} s)`,
         );
 
-        const timer = setTimeout(() => {
+        const timer = this._setTimeout(() => {
             this._timer = null;
             void this._renew();
         }, delay);
 
-        // .unref() so the timer does not prevent Node / mocha from exiting when
-        // all tests complete — production: ioBroker keeps the loop alive anyway.
-        timer.unref();
+        // .unref() only on the plain-setTimeout fallback path (unit tests / standalone Node).
+        // The adapter-managed this.setTimeout handle is a number — calling .unref() on it
+        // would throw. Guard: only call .unref if the handle actually has that method.
+        if (typeof (timer as { unref?: unknown }).unref === "function") {
+            (timer as NodeJS.Timeout).unref();
+        }
         this._timer = timer;
     }
 
