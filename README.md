@@ -361,7 +361,7 @@ dropped onto any VIS-2 view without importing a JSON file.
 ## Example Automations
 
 A growing library of 20 ready-to-import scripts lives in
-[`examples/`](./examples/) — 8 Blockly XML files for the visual editor and
+[`docs/examples/`](./docs/examples/) — 8 Blockly XML files for the visual editor and
 12 plain JavaScript snippets side-by-side. Themes covered:
 
 - **Master switches** — one virtual datapoint flips wallwasher / privacy
@@ -378,7 +378,7 @@ A growing library of 20 ready-to-import scripts lives in
   monitor, panic-siren trigger, weather-suppressed alerts, sleep-mode
   mute, garage-door coordination, night-mode schedule.
 - **Snapshot scheduler / time-lapse** —
-  [`examples/snapshot-blockly.md`](./examples/snapshot-blockly.md):
+  [`docs/examples/snapshot-blockly.md`](./docs/examples/snapshot-blockly.md):
   hourly Blockly XML + JavaScript scheduler (06:00–22:00 cron), plus a
   motion-triggered variant with 15-minute throttle. Writes
   `snapshot_trigger`, reads back `snapshot_path`. Includes an ffmpeg
@@ -387,7 +387,7 @@ A growing library of 20 ready-to-import scripts lives in
 Open javascript adapter → Scripts → new Blockly (or JavaScript) → paste.
 Replace the `<CAM_UUID>` / `<PRESENCE_OID>` / lux-sensor / Telegram-bot
 placeholders with your actual object IDs from the Objects tab. The
-folder's [README](./examples/README.md) has the full index, prerequisites,
+folder's [README](./docs/examples/README.md) has the full index, prerequisites,
 and notification-adapter call patterns (Telegram, signal-cmb, Pushover,
 email).
 
