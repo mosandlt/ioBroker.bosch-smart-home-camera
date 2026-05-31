@@ -6295,6 +6295,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     session.digestUser,
                     session.digestPassword,
                     this.log,
+                    8000,
+                    {
+                        set: (cb: () => void, ms: number) => this.setTimeout(cb, ms),
+                        clear: (h: unknown) => this.clearTimeout(h as ioBroker.Timeout | undefined),
+                    },
                 );
                 if (mjpegBuf !== null) {
                     buf = mjpegBuf;

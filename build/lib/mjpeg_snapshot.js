@@ -68,7 +68,7 @@ exports._spawnFn = node_child_process_1.spawn;
  * @param timeoutMs  Maximum ms to wait for a frame. Default 8000 ms.
  * @returns JPEG bytes as Buffer on success; null otherwise.
  */
-async function fetchMjpegSnapshot(camHost, camPort, user, password, log, timeoutMs = 8000) {
+async function fetchMjpegSnapshot(camHost, camPort, user, password, log, timeoutMs = 8000, timers = { set: globalThis.setTimeout, clear: (h) => clearTimeout(h) }) {
     if (!camHost || !user || !password) {
         log.debug("fetchMjpegSnapshot: missing required params — skipping");
         return null;
@@ -85,7 +85,7 @@ async function fetchMjpegSnapshot(camHost, camPort, user, password, log, timeout
             }
             settled = true;
             if (timeoutHandle !== null) {
-                clearTimeout(timeoutHandle);
+                timers.clear(timeoutHandle);
             }
             resolve(result);
         }
@@ -170,7 +170,7 @@ async function fetchMjpegSnapshot(camHost, camPort, user, password, log, timeout
             settle(out);
         });
         // Arm timeout watchdog
-        timeoutHandle = setTimeout(() => {
+        timeoutHandle = timers.set(() => {
             if (settled) {
                 return;
             }

@@ -91,6 +91,10 @@ export async function fetchMjpegSnapshot(
         error: (msg: string) => void;
     },
     timeoutMs: number = 8000,
+    timers: {
+        set: (cb: () => void, ms: number) => unknown;
+        clear: (handle: unknown) => void;
+    } = { set: globalThis.setTimeout, clear: (h) => clearTimeout(h as NodeJS.Timeout) },
 ): Promise<Buffer | null> {
     if (!camHost || !user || !password) {
         log.debug("fetchMjpegSnapshot: missing required params — skipping");
@@ -105,7 +109,7 @@ export async function fetchMjpegSnapshot(
 
     return new Promise<Buffer | null>((resolve) => {
         let settled = false;
-        let timeoutHandle: NodeJS.Timeout | null = null;
+        let timeoutHandle: unknown = null;
 
         function settle(result: Buffer | null): void {
             if (settled) {
@@ -113,7 +117,7 @@ export async function fetchMjpegSnapshot(
             }
             settled = true;
             if (timeoutHandle !== null) {
-                clearTimeout(timeoutHandle);
+                timers.clear(timeoutHandle);
             }
             resolve(result);
         }
@@ -212,7 +216,7 @@ export async function fetchMjpegSnapshot(
         });
 
         // Arm timeout watchdog
-        timeoutHandle = setTimeout(() => {
+        timeoutHandle = timers.set(() => {
             if (settled) {
                 return;
             }

@@ -5479,7 +5479,10 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 session.digestPassword;
             if (useMjpeg) {
                 const lanIp = this._lanIpMap.get(camId) ?? session.lanAddress.split(":")[0];
-                const mjpegBuf = await (0, mjpeg_snapshot_1.fetchMjpegSnapshot)(lanIp, 443, session.digestUser, session.digestPassword, this.log);
+                const mjpegBuf = await (0, mjpeg_snapshot_1.fetchMjpegSnapshot)(lanIp, 443, session.digestUser, session.digestPassword, this.log, 8000, {
+                    set: (cb, ms) => this.setTimeout(cb, ms),
+                    clear: (h) => this.clearTimeout(h),
+                });
                 if (mjpegBuf !== null) {
                     buf = mjpegBuf;
                 }

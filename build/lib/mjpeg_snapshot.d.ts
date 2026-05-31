@@ -63,5 +63,8 @@ export declare function fetchMjpegSnapshot(camHost: string, camPort: number, use
     debug: (msg: string) => void;
     warn: (msg: string) => void;
     error: (msg: string) => void;
-}, timeoutMs?: number): Promise<Buffer | null>;
+}, timeoutMs?: number, timers?: {
+    set: (cb: () => void, ms: number) => unknown;
+    clear: (handle: unknown) => void;
+}): Promise<Buffer | null>;
 //# sourceMappingURL=mjpeg_snapshot.d.ts.map
