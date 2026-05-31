@@ -1,5 +1,9 @@
 # Testing & Quality Guide
 
+> The concrete CI/CD pipeline — workflows, test layers, security scanning and the
+> release flow, with diagrams — lives in [`ci-cd.md`](./ci-cd.md). This document
+> covers the *quality standards* (ioBroker Latest→Stable, repochecker dimensions).
+
 ## Quality Standards Overview
 
 ioBroker has **no Bronze/Silver/Gold/Platinum scale** analogous to Home Assistant's Quality Scale.

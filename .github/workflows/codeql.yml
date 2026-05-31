@@ -1,0 +1,42 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    - cron: "27 3 * * 1" # weekly, Monday 03:27 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (javascript-typescript)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # upload SARIF to the Security tab
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          queries: security-extended
+          # Scan our own TypeScript source + admin/widgets UI only — skip the
+          # tsc build output, vendored deps, coverage and backups.
+          config: |
+            paths-ignore:
+              - build
+              - node_modules
+              - coverage
+              - backups
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"

@@ -533,6 +533,18 @@ npm run test:coverage          # coverage report → coverage/index.html (HTML) 
 npm run test:coverage:check    # enforce thresholds: 80% lines/functions, 70% branches
 ```
 
+### CI/CD & testing
+
+The full pipeline — test layers (lint → unit + coverage → package validation →
+CodeQL/gitleaks/dependency-review → adapter integration → repochecker → release
+smoke), all GitHub Actions workflows, and the release flow — is documented with
+diagrams in [`docs/ci-cd.md`](./docs/ci-cd.md). Quality standards and the
+ioBroker Latest→Stable progression are in
+[`docs/TESTING_AND_QUALITY.md`](./docs/TESTING_AND_QUALITY.md).
+
+Security layer (GitHub Actions): **CodeQL** (SAST), **gitleaks** (secret scan),
+**dependency-review** + **Dependabot**, with least-privilege workflow permissions.
+
 ### Manual deploy to a local ioBroker test instance
 
 ```bash

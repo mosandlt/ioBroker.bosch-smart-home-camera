@@ -1,0 +1,33 @@
+# gitleaks config — extends the built-in default ruleset with narrow allowlists
+# for this adapter's known, intentionally-present values, so CI secret-scanning
+# stays green while still catching real, accidentally-committed credentials.
+
+title = "iobroker.bosch-smart-home-camera gitleaks config"
+
+[extend]
+useDefault = true
+
+# Public Bosch Smart Camera app credentials shipped in every copy of the APK —
+# NOT secrets:
+#   1. the Firebase API key, base64-encoded in src/build fcm (`Buffer.from("QUl6…")`).
+#      gitleaks base64-decode is opt-in (off in CI), so the encoded form only
+#      trips a local decode-on scan; we still allowlist it by the encoded string
+#      (contains no `AIza…` trigger).
+#   2. the public FCM server key (`BDOU99…`) — a well-known Google FCM client
+#      constant, plaintext, so it IS flagged and must be allowlisted by value.
+[[allowlists]]
+regexes = [
+  '''QUl6YVN5Q0toaGZ4ZlRzMUc3V3Z6VERBaU8wQWlzN0VIMjVEYk9z''',
+  '''BDOU99-h67HcA6JeFXHbSNMu7e2yNNu3RzoMj8TM4W88jITfq7ZmPvIM1Iv-4_l2LxQcYwhqby2xGpWwzjfAnG4''',
+]
+
+# Generated / vendored / fixture trees. `build/` is the tsc output of `src/`
+# (src is still scanned); `test/` holds only throwaway tokens + RSA keys
+# generated for unit tests; backups/ + coverage/ are gitignored anyway.
+[[allowlists]]
+paths = [
+  '''build/.*''',
+  '''test/.*''',
+  '''backups/.*''',
+  '''coverage/.*''',
+]
