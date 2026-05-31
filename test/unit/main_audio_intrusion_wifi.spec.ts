@@ -380,6 +380,40 @@ describe("v0.7.7 intrusion_sensitivity", () => {
         expect(state?.ack).to.equal(true);
     });
 
+    it("Gen2: out-of-range write (10) is acked CLAMPED to 7 (v1.0.5)", async () => {
+        // Regression: the generic ack path wrote the raw state.val, so a write
+        // of 10 acked 10 even though _handleIntrusionWrite clamps the PUT to 7.
+        // The handler now clamps + acks the clamped value (mirrors distance).
+        stubAxiosSequence([
+            { status: 200, data: CAMERAS_GEN2_ONLY }, // boot cameras
+            {
+                status: 200,
+                data: {
+                    enabled: true,
+                    sensitivity: 3,
+                    detectionMode: "ALL_MOTIONS",
+                    distance: 5,
+                },
+            }, // GET /intrusionDetectionConfig (cache miss)
+            { status: 204, data: null }, // PUT /intrusionDetectionConfig (full body)
+        ]);
+        const { db, adapter } = createAdapterWithMocks(CAMERAS_GEN2_ONLY);
+        await bootWithTokens(db, adapter);
+
+        const isId = `${adapter.namespace}.cameras.${CAM_GEN2}.intrusion_sensitivity`;
+        await adapter.stateChangeHandler!(isId, {
+            val: 10,
+            ack: false,
+            ts: Date.now(),
+            lc: Date.now(),
+            from: "user",
+        });
+
+        const state = db.getState(isId) as ioBroker.State | null;
+        expect(state?.val).to.equal(7, "out-of-range sensitivity must be acked clamped to 7");
+        expect(state?.ack).to.equal(true);
+    });
+
     it("Gen2: write rejected with HTTP 443 (privacy mode) → clear error (v0.7.14)", async () => {
         // v0.7.14 maps Bosch's 443 to "cam is in privacy mode, disable
         // privacy first" instead of bubbling up a generic axios error.

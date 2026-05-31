@@ -4533,10 +4533,15 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         );
                         return; // skip ack
                     }
-                    await this._handleIntrusionWrite(camId, {
-                        sensitivity: Math.round(Number(state.val)),
-                    });
-                    break;
+                    {
+                        // v1.0.5: clamp to the valid 0–7 range and ack the CLAMPED
+                        // value (mirrors intrusion_distance) so the UI never shows a
+                        // sensitivity the camera never received (object max is 7).
+                        const reqSensitivity = Math.max(0, Math.min(7, Math.round(Number(state.val))));
+                        await this._handleIntrusionWrite(camId, { sensitivity: reqSensitivity });
+                        await this.setStateAsync(id, reqSensitivity, true);
+                    }
+                    return; // already acked clamped value
                 }
                 case "intrusion_distance": {
                     // v0.7.7: intrusion detection config (Gen2)
