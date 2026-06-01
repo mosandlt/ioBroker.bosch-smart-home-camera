@@ -604,6 +604,9 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.0.5 (2026-06-01)
+- `intrusion_sensitivity` now acknowledges the clamped 0-7 value instead of the raw input (mirroring `intrusion_distance`, fixed in 1.0.3), so the datapoint never shows a sensitivity the camera did not actually receive.
+
 ### 1.0.4 (2026-05-31)
 Internal hardening release, no functional changes:
 - All polling and watchdog timers (event poll, state poll, maintenance poll, session-renewal, LAN ping, snapshot retry) are now created through the adapter-core `setInterval` / `setTimeout`, so the adapter core cancels them automatically on unload — no orphaned timers outliving `onUnload`. HTTP fetch timeouts now use `AbortSignal.timeout()`.

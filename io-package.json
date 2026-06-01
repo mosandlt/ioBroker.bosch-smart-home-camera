@@ -1,287 +1,287 @@
 {
-  "common": {
-    "name": "bosch-smart-home-camera",
-    "version": "1.0.4",
-    "news": {
-      "1.0.4": {
-        "en": "Internal hardening release, no functional changes. Polling and watchdog timers are now managed by the adapter core and cancelled reliably on unload; HTTP timeouts use AbortSignal.timeout. Added a CI security layer (CodeQL, gitleaks, dependency review).",
-        "de": "Internes Hardening-Release, keine funktionalen Änderungen. Poll- und Watchdog-Timer laufen jetzt über den Adapter-Core und werden beim Entladen zuverlässig abgebrochen; HTTP-Timeouts nutzen AbortSignal.timeout. Neue CI-Security-Schicht (CodeQL, gitleaks, Dependency-Review).",
-        "ru": "Внутренняя закалка, никаких функциональных изменений. Таймеры опроса и сторожевые таймеры теперь управляются ядром адаптера и надежно отменяются при выгрузке; Тайм-ауты HTTP используют AbortSignal.timeout. Добавлен уровень безопасности CI (CodeQL, gitleaks, проверка зависимостей).",
-        "pt": "Liberação de endurecimento interno, sem alterações funcionais. Os temporizadores de polling e watchdog agora são gerenciados pelo núcleo do adaptador e cancelados de forma confiável no descarregamento; Os tempos limite de HTTP usam AbortSignal.timeout. Adicionada uma camada de segurança CI (CodeQL, gileaks, revisão de dependência).",
-        "nl": "Interne verhardingsvrijgave, geen functionele veranderingen. Polling- en watchdog-timers worden nu beheerd door de adapterkern en betrouwbaar geannuleerd bij het ontladen; HTTP-time-outs gebruiken AbortSignal.timeout. Een CI-beveiligingslaag toegevoegd (CodeQL, gitleaks, afhankelijkheidsbeoordeling).",
-        "fr": "Libération de durcissement interne, aucune modification fonctionnelle. Les minuteries d'interrogation et de surveillance sont désormais gérées par le cœur de l'adaptateur et annulées de manière fiable lors du déchargement ; Les délais d'expiration HTTP utilisent AbortSignal.timeout. Ajout d'une couche de sécurité CI (CodeQL, gitleaks, révision des dépendances).",
-        "it": "Rilascio indurente interno, nessuna modifica funzionale. I timer di polling e watchdog sono ora gestiti dal core dell'adattatore e annullati in modo affidabile durante lo scaricamento; I timeout HTTP utilizzano AbortSignal.timeout. Aggiunto un livello di sicurezza CI (CodeQL, gitleaks, revisione delle dipendenze).",
-        "es": "Liberación del endurecimiento interno, sin cambios funcionales. Los temporizadores de sondeo y vigilancia ahora son administrados por el núcleo del adaptador y se cancelan de manera confiable durante la descarga; Los tiempos de espera HTTP utilizan AbortSignal.timeout. Se agregó una capa de seguridad de CI (CodeQL, gitleaks, revisión de dependencias).",
-        "pl": "Wewnętrzne zwolnienie hartowania, bez zmian funkcjonalnych. Zegary odpytywania i watchdoga są teraz zarządzane przez rdzeń adaptera i niezawodnie kasowane po rozładowaniu; Limity czasu HTTP używają AbortSignal.timeout. Dodano warstwę zabezpieczeń CI (CodeQL, gitleaks, przegląd zależności).",
-        "uk": "Внутрішнє зміцнення, без функціональних змін. Таймери опитування та контролю тепер керуються ядром адаптера та надійно скасовуються під час вивантаження; Час очікування HTTP використовує AbortSignal.timeout. Додано рівень безпеки CI (CodeQL, gitleaks, перегляд залежностей).",
-        "zh-cn": "内部硬化释放，无功能变化。轮询和看门狗定时器现在由适配器核心管理，并在卸载时可靠地取消； HTTP 超时使用 AbortSignal.timeout。添加了 CI 安全层（CodeQL、gitleaks、依赖项审查）。"
-      },
-      "1.0.3": {
-        "en": "v1.0.3 — write-path fixes: intrusion detection distance now clamps to 1-8 m (the camera rejects values above 8 with HTTP 400); intercom audio levels are written as the full body so setting the speaker level no longer wipes the microphone level; out-of-range pan positions are clamped; a busy camera (HTTP 444) is reported as a session-quota warning instead of an error.",
-        "de": "v1.0.3 — Schreibpfad-Korrekturen: Einbruchs-Distanz wird auf 1-8 m begrenzt (Kamera lehnt Werte über 8 mit HTTP 400 ab); Gegensprech-Audiopegel werden als vollständiger Body geschrieben, das Setzen des Lautsprecherpegels löscht nicht mehr den Mikrofonpegel; Pan-Werte außerhalb des Bereichs werden begrenzt; ausgelastete Kamera (HTTP 444) wird als Sitzungslimit-Warnung statt Fehler gemeldet.",
-        "ru": "v1.0.3 — исправления пути записи: расстояние обнаружения вторжения теперь ограничивается 1-8 м (камера отклоняет значения выше 8 с HTTP 400); уровни звука внутренней связи записываются как все тело, поэтому настройка уровня динамика больше не стирает уровень микрофона; положения панорамирования, выходящие за пределы диапазона, фиксируются; о занятости камеры (HTTP 444) сообщается как предупреждение о квоте сеанса, а не как ошибка.",
-        "pt": "v1.0.3 — correções no caminho de gravação: a distância de detecção de intrusão agora é fixada em 1-8 m (a câmera rejeita valores acima de 8 com HTTP 400); os níveis de áudio do intercomunicador são escritos como corpo inteiro, portanto, definir o nível do alto-falante não apaga mais o nível do microfone; posições de pan fora da faixa são fixadas; uma câmera ocupada (HTTP 444) é relatada como um aviso de cota de sessão em vez de um erro.",
-        "nl": "v1.0.3 — Oplossingen voor schrijfpaden: de afstand voor inbraakdetectie bedraagt ​​nu 1-8 m (de camera verwerpt waarden boven 8 met HTTP 400); intercomaudioniveaus zijn geschreven als het volledige lichaam, zodat het instellen van het luidsprekerniveau niet langer het microfoonniveau wist; panposities buiten bereik worden vastgeklemd; een drukke camera (HTTP 444) wordt gerapporteerd als een waarschuwing voor sessiequota in plaats van als een fout.",
-        "fr": "v1.0.3 — corrections du chemin d'écriture : la distance de détection d'intrusion se limite désormais à 1-8 m (la caméra rejette les valeurs supérieures à 8 avec HTTP 400) ; les niveaux audio de l'interphone sont écrits pour le corps entier, de sorte que le réglage du niveau du haut-parleur n'efface plus le niveau du microphone ; les positions de panoramique hors de portée sont bloquées ; une caméra occupée (HTTP 444) est signalée comme un avertissement de quota de session au lieu d'une erreur.",
-        "it": "v1.0.3 — correzioni del percorso di scrittura: la distanza di rilevamento delle intrusioni ora è limitata a 1-8 m (la fotocamera rifiuta valori superiori a 8 con HTTP 400); i livelli audio dell'interfono vengono scritti come corpo intero, quindi l'impostazione del livello dell'altoparlante non cancella più il livello del microfono; le posizioni pan fuori range vengono bloccate; una telecamera occupata (HTTP 444) viene segnalata come avviso di quota sessione anziché come errore.",
-        "es": "v1.0.3: correcciones de ruta de escritura: la distancia de detección de intrusiones ahora se limita a 1-8 m (la cámara rechaza valores superiores a 8 con HTTP 400); los niveles de audio del intercomunicador se escriben como el cuerpo completo, por lo que configurar el nivel del altavoz ya no borra el nivel del micrófono; las posiciones panorámicas fuera de rango están fijadas; una cámara ocupada (HTTP 444) se informa como una advertencia de cuota de sesión en lugar de un error.",
-        "pl": "v1.0.3 — poprawki ścieżki zapisu: odległość wykrywania włamań ogranicza się teraz do 1-8 m (kamera odrzuca wartości powyżej 8 przy HTTP 400); poziomy dźwięku interkomu są zapisywane jako całe ciało, więc ustawienie poziomu głośnika nie powoduje już wymazywania poziomu mikrofonu; pozycje pan poza zakresem są zablokowane; zajęta kamera (HTTP 444) jest zgłaszana jako ostrzeżenie o limitze sesji, a nie jako błąd.",
-        "uk": "v1.0.3 — виправлення шляху запису: відстань виявлення вторгнення тепер обмежена 1-8 м (камера відхиляє значення вище 8 за допомогою HTTP 400); Рівні звуку інтеркому записуються як повне тіло, тому налаштування рівня гучномовців більше не знищує рівень мікрофона; позиції панорамування за межами діапазону фіксуються; зайнята камера (HTTP 444) повідомляється як попередження про квоту сесії замість помилки.",
-        "zh-cn": "v1.0.3 — 写入路径修复：入侵检测距离现在限制为 1-8 m（摄像头使用 HTTP 400 拒绝高于 8 的值）；对讲机音频电平被写为整体，因此设置扬声器电平不再擦除麦克风电平；超出范围的平移位置被夹紧；繁忙的摄像头 (HTTP 444) 将被报告为会话配额警告而不是错误。"
-      },
-      "1.0.2": {
-        "en": "v1.0.2 — removed the @aracna/fcm registration log noise: the library no longer prints raw postAcgRegister / PHONE_REGISTRATION_ERROR lines to the ioBroker log on every push-registration attempt (FCM health is still reported via info.fcm_active). @aracna/core is now referenced explicitly in source (repository-checker W5060). No functional changes.",
-        "de": "v1.0.2 — Log-Rauschen von @aracna/fcm entfernt: die Bibliothek gibt bei jedem Push-Registrierungsversuch keine rohen postAcgRegister-/PHONE_REGISTRATION_ERROR-Zeilen mehr ins ioBroker-Log aus (FCM-Status weiterhin über info.fcm_active). @aracna/core wird jetzt explizit im Quellcode referenziert (Repository-Checker W5060). Keine funktionalen Änderungen.",
-        "ru": "v1.0.2 — удален шум в журнале регистрации @aracna/fcm: библиотека больше не печатает необработанные строки postAcgRegister / PHONE_REGISTRATION_ERROR в журнал ioBroker при каждой попытке принудительной регистрации (о состоянии FCM по-прежнему сообщается через info.fcm_active). @aracna/core теперь явно упоминается в исходном коде (проверка репозитория W5060). Никаких функциональных изменений.",
-        "pt": "v1.0.2 — removido o ruído do log de registro @aracna/fcm: a biblioteca não imprime mais linhas postAcgRegister / PHONE_REGISTRATION_ERROR brutas no log do ioBroker em cada tentativa de registro push (a integridade do FCM ainda é relatada via info.fcm_active). @aracna/core agora é referenciado explicitamente na fonte (verificador de repositório W5060). Sem alterações funcionais.",
-        "nl": "v1.0.2 - verwijderde de @aracna/fcm-registratielogruis: de bibliotheek drukt niet langer onbewerkte postAcgRegister / PHONE_REGISTRATION_ERROR-regels af naar het ioBroker-logboek bij elke push-registratiepoging (FCM-status wordt nog steeds gerapporteerd via info.fcm_active). Er wordt nu expliciet naar @aracna/core verwezen in de broncode (repository-checker W5060). Geen functionele wijzigingen.",
-        "fr": "v1.0.2 — suppression du bruit du journal d'enregistrement @aracna/fcm : la bibliothèque n'imprime plus les lignes brutes postAcgRegister / PHONE_REGISTRATION_ERROR dans le journal ioBroker à chaque tentative d'enregistrement push (l'état du FCM est toujours signalé via info.fcm_active). @aracna/core est désormais référencé explicitement dans les sources (vérificateur de référentiel W5060). Aucun changement fonctionnel.",
-        "it": "v1.0.2 — rimosso il rumore del registro di registrazione @aracna/fcm: la libreria non stampa più righe postAcgRegister / PHONE_REGISTRATION_ERROR grezze nel registro ioBroker ad ogni tentativo di registrazione push (lo stato di FCM viene ancora segnalato tramite info.fcm_active). @aracna/core è ora menzionato esplicitamente nel codice sorgente (repository-checker W5060). Nessuna modifica funzionale.",
-        "es": "v1.0.2: se eliminó el ruido del registro de registro @aracna/fcm: la biblioteca ya no imprime líneas postAcgRegister / PHONE_REGISTRATION_ERROR sin procesar en el registro de ioBroker en cada intento de registro push (el estado de FCM aún se informa a través de info.fcm_active). Ahora se hace referencia explícita a @aracna/core en la fuente (repository-checker W5060). Sin cambios funcionales.",
-        "pl": "v1.0.2 — usunięto szum dziennika rejestracji @aracna/fcm: biblioteka nie drukuje już surowych linii postAcgRegister / PHONE_REGISTRATION_ERROR w dzienniku ioBroker przy każdej próbie rejestracji push (kondycja FCM jest nadal raportowana za pośrednictwem info.fcm_active). @aracna/core jest teraz wyraźnie przywoływana w źródle (program sprawdzający repozytorium W5060). Żadnych zmian funkcjonalnych.",
-        "uk": "v1.0.2 — видалено шум журналу реєстрації @aracna/fcm: бібліотека більше не друкує необроблені рядки postAcgRegister / PHONE_REGISTRATION_ERROR у журнал ioBroker під час кожної спроби push-реєстрації (справність FCM усе ще повідомляється через info.fcm_active). @aracna/core тепер явно вказується в джерелі (перевірка сховища W5060). Без функціональних змін.",
-        "zh-cn": "v1.0.2 — 删除了 @aracna/fcm 注册日志噪音：库不再在每次推送注册尝试时将原始 postAcgRegister / PHONE_REGISTRATION_ERROR 行打印到 ioBroker 日志（FCM 运行状况仍通过 info.fcm_active 报告）。 @aracna/core 现在在源代码（存储库检查器 W5060）中明确引用。没有功能变化。"
-      },
-      "1.0.1": {
-        "en": "v1.0.1 — repository-checker compliance hotfix. All common.news entries are now translated into the full set of 11 languages; the current version is listed in the README changelog; the changelog was consolidated into the README; a prettier config was added; admin and vis-widget i18n were completed for every language. No functional changes.",
-        "de": "v1.0.1 — Repository-Checker-Konformitäts-Hotfix. Alle common.news-Einträge sind jetzt in alle 11 Sprachen übersetzt; die aktuelle Version steht im README-Changelog; das Changelog wurde ins README zusammengeführt; eine Prettier-Konfiguration wurde ergänzt; Admin- und vis-Widget-i18n wurden für jede Sprache vervollständigt. Keine funktionalen Änderungen.",
-        "ru": "v1.0.1 — исправление соответствия средства проверки репозитория. Все записи common.news теперь переведены на полный набор из 11 языков; текущая версия указана в журнале изменений README; список изменений был объединен в README; добавлен более красивый конфиг; admin и vis-widget i18n были доработаны для каждого языка. Никаких функциональных изменений.",
-        "pt": "v1.0.1 — hotfix de conformidade do verificador de repositório. Todas as entradas do common.news agora estão traduzidas para o conjunto completo de 11 idiomas; a versão atual está listada no changelog README; o changelog foi consolidado no README; uma configuração mais bonita foi adicionada; admin e vis-widget i18n foram concluídos para todos os idiomas. Sem alterações funcionais.",
-        "nl": "v1.0.1 — hotfix voor naleving van repository-checker. Alle common.news-berichten zijn nu vertaald in de volledige set van 11 talen; de huidige versie wordt vermeld in de README-wijzigingslog; de changelog werd geconsolideerd in de README; er is een mooiere configuratie toegevoegd; admin en vis-widget i18n zijn voor elke taal voltooid. Geen functionele wijzigingen.",
-        "fr": "v1.0.1 — correctif de conformité du vérificateur de référentiel. Toutes les entrées de common.news sont désormais traduites dans l'ensemble complet des 11 langues ; la version actuelle est répertoriée dans le journal des modifications README ; le journal des modifications a été consolidé dans le README ; une configuration plus jolie a été ajoutée ; admin et vis-widget i18n ont été complétés pour chaque langue. Aucun changement fonctionnel.",
-        "it": "v1.0.1: hotfix per la conformità del controllo repository. Tutte le voci di common.news sono ora tradotte nell'insieme completo di 11 lingue; la versione attuale è elencata nel changelog README; il changelog è stato consolidato nel README; è stata aggiunta una configurazione più carina; completati admin e vis-widget i18n per ogni lingua. Nessuna modifica funzionale.",
-        "es": "v1.0.1: revisión de cumplimiento del verificador del repositorio. Todas las entradas de common.news ahora están traducidas al conjunto completo de 11 idiomas; la versión actual aparece en el registro de cambios README; el registro de cambios se consolidó en el archivo README; se agregó una configuración más bonita; Se completaron admin y vis-widget i18n para cada idioma. Sin cambios funcionales.",
-        "pl": "v1.0.1 — poprawka dotycząca zgodności modułu sprawdzania repozytorium. Wszystkie wpisy w common.news są teraz przetłumaczone na pełny zestaw 11 języków; bieżąca wersja jest wymieniona w dzienniku zmian README; dziennik zmian został skonsolidowany w pliku README; dodano ładniejszą konfigurację; admin i vis-widget i18n zostały ukończone dla każdego języka. Żadnych zmian funkcjonalnych.",
-        "uk": "v1.0.1 — виправлення відповідності репозиторію перевірки. Усі записи common.news тепер перекладено повним набором з 11 мов; поточна версія вказана в журналі змін README; журнал змін було об’єднано в README; додано кращу конфігурацію; admin і vis-widget i18n були завершені для кожної мови. Без функціональних змін.",
-        "zh-cn": "v1.0.1 — 存储库检查器合规性修补程序。所有 common.news 条目现已翻译成全套 11 种语言；当前版本列在自述文件变更日志中；变更日志已合并到自述文件中；添加了更漂亮的配置； admin 和 vis-widget i18n 已针对每种语言完成。没有功能变化。"
-      },
-      "1.0.0": {
-        "en": "v1.0.0 — out of beta. v0.9.0 features (privacy_sound_enabled, autofollow_enabled for 360° cams, unread_events_count, mark_all_read button, last_seen_event_id persisted across restarts) + v0.9.1 four follow-up bug fixes from live testing: 442-unsupported-feature cache (no more warn-storm for Outdoor privacy_sound), unread count via GET /v11/events (Bosch's numberOfUnreadEvents field was unreliable — found 0 reported when 44 events were actually unread), exponential backoff (30→60→120→300s cap) on WiFi/autofollow/privacy_sound polls returning HTTP 444. CLOUD_API consolidated to single source of truth, cache-guard before merge-PUTs. 699 tests pass.",
-        "de": "v1.0.0 — raus aus Beta. v0.9.0 Features (privacy_sound_enabled, autofollow_enabled für 360°-Kameras, unread_events_count, mark_all_read Button, last_seen_event_id über Restarts persistent) + v0.9.1 vier Bugfixes aus Live-Tests: 442-unsupported-Feature-Cache (kein warn-storm mehr für Outdoor privacy_sound), unread-count via GET /v11/events (Boschs numberOfUnreadEvents Feld war unzuverlässig — meldete 0 wenn 44 Events tatsächlich ungelesen waren), exponential Backoff (30→60→120→300s Cap) für WiFi/Autofollow/privacy_sound Polls mit HTTP 444. CLOUD_API zentralisiert, Cache-Guard vor Merge-PUTs. 699 Tests grün.",
-        "ru": "v1.0.0 — вышла из бета-версии. Функции версии 0.9.0 (privacy_sound_enabled, autofollow_enabled для камер с обзором 360°, unread_events_count, кнопка mark_all_read, Last_seen_event_id сохраняются при перезапусках) + четыре дополнительных исправления ошибок версии 0.9.1 по результатам живого тестирования: кеш 442-неподдерживаемых функций (больше никаких предупреждений для Outdoor Privacy_sound), счетчик непрочитанных ошибок через GET /v11/events (поле Bosch numberOfUnreadEvents было ненадежным — обнаружено 0, когда 44 события были фактически непрочитаны), экспоненциальная отсрочка (ограничение 30 → 60 → 120 → 300 с) в опросах WiFi/autofollow/privacy_sound, возвращающих HTTP 444. CLOUD_API консолидируется в единый источник достоверной информации, защита кэша перед слиянием-PUT. Пройдено 699 тестов.",
-        "pt": "v1.0.0 – fora da versão beta. Recursos v0.9.0 (privacy_sound_enabled, autofollow_enabled para câmeras de 360°, unread_events_count, botão mark_all_read, last_seen_event_id persistido durante as reinicializações) + v0.9.1 quatro correções de bugs de acompanhamento de testes ao vivo: cache de 442 recursos não suportados (não há mais tempestade de avisos para Outdoor Privacy_sound), contagem de não lidos via GET /v11/events (o campo numberOfUnreadEvents da Bosch não era confiável - encontrado 0 relatado quando 44 eventos não foram realmente lidos), espera exponencial (30→60→120→300s cap) em pesquisas WiFi/autofollow/privacy_sound retornando HTTP 444. CLOUD_API consolidada para uma única fonte de verdade, proteção de cache antes de mesclar-PUTs. 699 testes foram aprovados.",
-        "nl": "v1.0.0 — uit bèta. v0.9.0-functies (privacy_sound_enabled, autofollow_enabled voor 360° cams, unread_events_count, mark_all_read-knop, last_seen_event_id bleef behouden bij opnieuw opstarten) + v0.9.1 vier vervolgbugfixes van live testen: 442-unsupported-feature cache (geen waarschuwingsstorm meer voor Outdoor privacy_sound), ongelezen aantal via GET /v11/events (het veld numberOfUnreadEvents van Bosch was onbetrouwbaar - 0 gerapporteerd terwijl 44 gebeurtenissen daadwerkelijk ongelezen waren), exponentiële uitstel (limiet van 30 → 60 → 120 → 300s) op WiFi/autofollow/privacy_sound polls die HTTP 444 retourneerden. CLOUD_API geconsolideerd tot één bron van waarheid, cache-guard vóór merge-PUTs. 699 tests zijn geslaagd.",
-        "fr": "v1.0.0 – hors version bêta. Fonctionnalités v0.9.0 (privacy_sound_enabled, autofollow_enabled pour les caméras à 360°, unread_events_count, bouton mark_all_read, last_seen_event_id persisté lors des redémarrages) + v0.9.1 quatre corrections de bogues de suivi issues des tests en direct : 442 cache de fonctionnalités non prises en charge (plus de tempête d'avertissement pour Outdoor Privacy_sound), nombre de non lus via GET /v11/events (le champ numberOfUnreadEvents de Bosch n'était pas fiable - trouvé 0 signalé lorsque 44 événements n'étaient réellement pas lus), interruption exponentielle (cap de 30 → 60 → 120 → 300 s) sur les sondages WiFi/autofollow/privacy_sound renvoyant HTTP 444. CLOUD_API consolidé en une source unique de vérité, garde de cache avant la fusion-PUT. 699 tests réussissent.",
-        "it": "v1.0.0 — fuori beta. Funzionalità v0.9.0 (privacy_sound_enabled, autofollow_enabled per webcam a 360°, unread_events_count, pulsante mark_all_read, last_seen_event_id persistente tra i riavvii) + v0.9.1 quattro correzioni di bug successive dai test dal vivo: cache di funzionalità 442 non supportate (non più warn-storm per Outdoor privacy_sound), conteggio non letti tramite GET /v11/events (il campo numberOfUnreadEvents di Bosch era inaffidabile — trovato 0 segnalato quando 44 eventi erano effettivamente non letti), backoff esponenziale (30→60→120→300 limiti) sui sondaggi WiFi/autofollow/privacy_sound che restituivano HTTP 444. CLOUD_API consolidata su un'unica fonte di verità, protezione della cache prima dei merge-PUT. Superati 699 test.",
-        "es": "v1.0.0 — fuera de la versión beta. Funciones v0.9.0 (privacy_sound_enabled, autofollow_enabled para cámaras de 360°, unread_events_count, botón mark_all_read, last_seen_event_id persistió durante los reinicios) + v0.9.1 cuatro correcciones de errores de seguimiento de las pruebas en vivo: caché de 442 funciones no admitidas (no más tormentas de advertencia para Outdoor Privacy_Sound), recuento de no leídos a través de GET /v11/events (el campo numberOfUnreadEvents de Bosch no era confiable; se encontró 0 reportado cuando en realidad no se leyeron 44 eventos), retroceso exponencial (límite de 30→60→120→300s) en encuestas de WiFi/autofollow/privacy_sound que devolvían HTTP 444. CLOUD_API se consolidó en una única fuente de verdad, protección de caché antes de fusionar-PUT. Pasan 699 pruebas.",
-        "pl": "v1.0.0 — wersja beta. funkcje v0.9.0 (privacy_sound_enabled, autofollow_enabled dla kamer 360°, unread_events_count, przycisk mark_all_read, last_seen_event_id utrzymywane przy ponownym uruchomieniu) + v0.9.1 cztery kolejne poprawki błędów z testów na żywo: pamięć podręczna 442 nieobsługiwanych funkcji (koniec z burzą ostrzegawczą dla dźwięku prywatności na zewnątrz), liczba nieprzeczytanych przez GET /v11/events (pole Bosch numberOfUnreadEvents było niewiarygodne — znaleziono 0 zgłoszonych, gdy 44 zdarzenia były faktycznie nieprzeczytane), wykładnicze wycofywanie (30 → 60 → 120 → 300 s) w ankietach WiFi/autofollow/privacy_sound zwracających HTTP 444. CLOUD_API skonsolidowane w jedno źródło prawdy, ochrona pamięci podręcznej przed połączeniem PUT. 699 testów przechodzi pomyślnie.",
-        "uk": "v1.0.0 — поза бета-версією. Функції v0.9.0 (privacy_sound_enabled, autofollow_enabled для 360° камер, unread_events_count, mark_all_read кнопка, last_seen_event_id зберігається під час перезапусків) + v0.9.1 чотири наступні виправлення помилок під час тестування в реальному часі: кеш 442 непідтримуваних функцій (більше немає попереджень для Outdoor privacy_sound), підрахунок непрочитаних через GET /v11/events (поле Bosch numberOfUnreadEvents було ненадійним — було виявлено 0, коли 44 події фактично були непрочитаними), експоненціальне відставання (30→60→120→300 с обмеження) для опитувань Wi-Fi/autofollow/privacy_sound, які повертають HTTP 444. CLOUD_API консолідовано в один джерело правди, захист кешу перед об’єднанням. Пройдено 699 тестів.",
-        "zh-cn": "v1.0.0 — 已结束测试版。 v0.9.0 功能（privacy_sound_enabled、360° 摄像头的 autofollow_enabled、unread_events_count、mark_all_read 按钮、last_seen_event_id 在重新启动后仍然存在）+ v0.9.1 实时测试中的四个后续错误修复：442-unsupported-feature 缓存（户外 Privacy_sound 不再有警告风暴）、通过 GET /v11/events 的未读计数（博世的 numberOfUnreadEvents 字段不可靠 - 发现 0 报告时有 44 个事件实际上未读），WiFi/autofollow/privacy_sound 轮询上的指数退避（30→60→120→300 秒上限）返回 HTTP 444。CLOUD_API 合并为单一事实来源，在合并 PUT 之前进行缓存保护。 699 项测试通过。"
-      },
-      "0.8.0": {
-        "en": "v0.8.0: ported HA v13.2.x features — F1 MJPEG snapshot (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 RCP-Version DP, F13 Cloud Feature-Flags DPs, Tier-2 gap-list (lens_elevation, darkness_threshold, alarm-system numbers), 444 SessionLimit handling with 60s auto-retry. +90 tests.",
-        "de": "v0.8.0: HA v13.2.x Features portiert — F1 MJPEG-Snapshot (Gen2 LAN, opt-in), F4 ONVIF-Scopes DP, F6 RCP-Version DP, F13 Cloud-Feature-Flags DPs, Tier-2 Gap-Liste (lens_elevation, darkness_threshold, Alarm-System-Numbers), 444 SessionLimit-Behandlung mit 60s Auto-Retry. +90 Tests.",
-        "ru": "v0.8.0: портированы функции HA v13.2.x — F1 MJPEG-снимок (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 RCP-Version DP, F13 Cloud Feature-Flags, Tier-2 (lens_elevation, darkness_threshold, alarm-system), обработка 444 SessionLimit с авто-повтором 60с. +90 тестов.",
-        "pt": "v0.8.0: funcionalidades HA v13.2.x portadas — F1 instantâneo MJPEG (Gen2 LAN, opcional), F4 ONVIF Scopes DP, F6 versão RCP DP, F13 flags de funcionalidade, Tier-2 (lens_elevation, darkness_threshold, alarme), tratamento 444 SessionLimit com auto-retry 60s. +90 testes.",
-        "nl": "v0.8.0: HA v13.2.x features geport — F1 MJPEG snapshot (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 RCP-versie DP, F13 Cloud Feature-Flags, Tier-2 (lens_elevation, darkness_threshold, alarm-system), 444 SessionLimit-afhandeling met 60s auto-retry. +90 tests.",
-        "fr": "v0.8.0: fonctionnalités HA v13.2.x portées — F1 capture MJPEG (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 version RCP DP, F13 indicateurs de fonctionnalités, Tier-2 (lens_elevation, darkness_threshold, alarme), gestion 444 SessionLimit avec réessai auto 60s. +90 tests.",
-        "it": "v0.8.0: funzionalità HA v13.2.x portate — F1 snapshot MJPEG (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 versione RCP DP, F13 flag funzionalità, Tier-2 (lens_elevation, darkness_threshold, allarme), gestione 444 SessionLimit con auto-retry 60s. +90 test.",
-        "es": "v0.8.0: funciones HA v13.2.x portadas — F1 instantánea MJPEG (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 versión RCP DP, F13 banderas de funciones, Tier-2 (lens_elevation, darkness_threshold, alarma), manejo 444 SessionLimit con reintento auto 60s. +90 pruebas.",
-        "pl": "v0.8.0: funkcje HA v13.2.x przeniesione — F1 migawka MJPEG (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 wersja RCP DP, F13 flagi funkcji, Tier-2 (lens_elevation, darkness_threshold, alarm), obsługa 444 SessionLimit z auto-retry 60s. +90 testów.",
-        "uk": "v0.8.0: функції HA v13.2.x портовано — F1 знімок MJPEG (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 версія RCP DP, F13 прапорці функцій, Tier-2 (lens_elevation, darkness_threshold, тривога), обробка 444 SessionLimit з авто-повтором 60с. +90 тестів.",
-        "zh-cn": "v0.8.0: 移植 HA v13.2.x 功能 — F1 MJPEG 快照 (Gen2 LAN, 可选), F4 ONVIF Scopes DP, F6 RCP 版本 DP, F13 云功能标志, Tier-2 (lens_elevation, darkness_threshold, 报警), 444 SessionLimit 处理 60秒 自动重试。+90 测试。"
-      },
-      "0.7.15": {
-        "en": "Hotfix: upsertState cache/DB divergence. The cache was set BEFORE awaiting setStateAsync, so any failed DB write left the cache holding the new value while the DB stayed at the old one. Every later write to that DP then hit the cache short-circuit and silently skipped — the DP was frozen for the adapter's lifetime. Sandbox-observed: privacy_enabled stuck at True for 4 h. Now write first, cache after.",
-        "de": "Hotfix: upsertState Cache/DB-Divergenz. Der Cache wurde VOR dem await setStateAsync gesetzt, jeder fehlgeschlagene DB-Write hinterließ den Cache mit dem neuen Wert während die DB beim alten blieb. Jeder weitere Write desselben DPs wurde dann via Cache-Shortcut still geskippt — der DP war für die restliche Adapter-Laufzeit eingefroren. Sandbox: privacy_enabled blieb 4h auf True. Jetzt erst Write, dann Cache.",
-        "ru": "Хотфикс: расхождение кэша и БД в upsertState. Кэш устанавливался ДО await setStateAsync, поэтому любой неудачный запис оставлял кэш с новым значением, а БД со старым. Любой следующий запис в тот же DP пропускался через кэш — DP застревал на всё время работы. Sandbox: privacy_enabled застрял на True 4 ч. Теперь сначала запис, потом кэш.",
-        "pt": "Hotfix: divergencia cache/DB no upsertState. O cache era definido ANTES do await setStateAsync, qualquer write falhado deixava o cache com o novo valor enquanto a DB ficava com o antigo. Writes seguintes ao mesmo DP eram pulados via cache shortcut — o DP ficava preso pelo resto da vida do adapter. Sandbox: privacy_enabled preso em True 4 h. Agora primeiro write, depois cache.",
-        "nl": "Hotfix: upsertState cache/DB-divergentie. De cache werd VOOR await setStateAsync gezet, elke gefaalde DB-write liet de cache met de nieuwe waarde achter terwijl de DB op de oude bleef. Volgende writes naar dezelfde DP werden via cache shortcut overgeslagen — de DP zat de rest van de adapter-levensduur vast. Sandbox: privacy_enabled bleef 4u op True. Nu eerst write, daarna cache.",
-        "fr": "Hotfix: divergence cache/DB upsertState. Le cache etait defini AVANT le await setStateAsync, toute ecriture DB en echec laissait le cache avec la nouvelle valeur tandis que la DB restait sur l'ancienne. Les ecritures suivantes du meme DP etaient ignorees via le cache shortcut — le DP restait bloque pour la vie de l'adaptateur. Sandbox: privacy_enabled bloque 4 h. Maintenant ecriture d'abord, cache apres.",
-        "it": "Hotfix: divergenza cache/DB di upsertState. Il cache veniva impostato PRIMA dell'await setStateAsync, ogni write fallito lasciava il cache col nuovo valore mentre la DB restava col vecchio. Scritture successive sullo stesso DP venivano saltate via cache shortcut — il DP restava bloccato per la vita dell'adapter. Sandbox: privacy_enabled bloccato su True 4 h. Ora prima write, poi cache.",
-        "es": "Hotfix: divergencia cache/DB en upsertState. El cache se establecia ANTES del await setStateAsync, cualquier write fallido dejaba el cache con el nuevo valor mientras la DB seguia con el viejo. Writes siguientes al mismo DP se saltaban via cache shortcut — el DP quedaba atascado por la vida del adapter. Sandbox: privacy_enabled atascado en True 4 h. Ahora primero write, luego cache.",
-        "pl": "Hotfix: rozjazd cache i bazy w upsertState. Cache ustawiano PRZED await setStateAsync, kazdy nieudany zapis zostawial cache z nowa wartoscia, a baza zostawala ze stara. Kolejne zapisy do tego samego DP byly pomijane przez cache shortcut — DP zostawal zablokowany do konca zycia adaptera. Sandbox: privacy_enabled utknal na True 4 godz. Teraz najpierw zapis, potem cache.",
-        "uk": "Хотфікс: розбіжність кешу та БД у upsertState. Кеш встановлювався ДО await setStateAsync, будь-який невдалий запис залишав кеш з новим значенням, а БД зі старим. Наступні записи до того ж DP пропускалися через кеш — DP застрягав на час життя адаптера. Sandbox: privacy_enabled застряг на True 4 год. Тепер спочатку запис, потім кеш.",
-        "zh-cn": "热修复: upsertState 缓存/DB 不同步. 缓存在 await setStateAsync 之前被设置, 任何失败的 DB 写入都让缓存保持新值而 DB 留在旧值。对同一 DP 的后续写入通过缓存短路被静默跳过 — DP 在适配器剩余生命周期被冻结。Sandbox: privacy_enabled 卡在 True 4 小时。现在先写入, 写入成功后再更新缓存."
-      }
+    "common": {
+        "name": "bosch-smart-home-camera",
+        "version": "1.0.5",
+        "news": {
+            "1.0.5": {
+                "en": "intrusion_sensitivity now acks the clamped 0-7 value instead of the raw input (mirrors intrusion_distance), so the datapoint never shows a sensitivity the camera did not receive.",
+                "de": "intrusion_sensitivity bestätigt jetzt den auf 0-7 begrenzten Wert statt der Roheingabe (wie intrusion_distance), sodass der Datenpunkt nie eine Empfindlichkeit anzeigt, die die Kamera nicht erhalten hat.",
+                "ru": "intrusion_sensitivity теперь принимает фиксированное значение 0–7 вместо необработанных входных данных (отражает intrusion_distance), поэтому точка данных никогда не показывает чувствительность, которую камера не получила.",
+                "pt": "intrusion_sensitivity agora reconhece o valor fixado de 0 a 7 em vez da entrada bruta (espelha intrusion_distance), para que o ponto de dados nunca mostre uma sensibilidade que a câmera não recebeu.",
+                "nl": "inbraak_gevoeligheid bevestigt nu de vastgeklemde waarde 0-7 in plaats van de onbewerkte invoer (spiegelt inbraak_afstand), zodat het datapunt nooit een gevoeligheid vertoont die de camera niet heeft ontvangen.",
+                "fr": "intrusion_sensitivity accuse désormais la valeur bloquée 0-7 au lieu de l'entrée brute (miroirs intrusion_distance), de sorte que le point de données n'affiche jamais une sensibilité que la caméra n'a pas reçue.",
+                "it": "intrusion_sensitivity ora riconosce il valore bloccato 0-7 invece dell'input grezzo (rispecchia intrusion_distance), quindi il punto dati non mostra mai una sensibilità che la telecamera non ha ricevuto.",
+                "es": "intrusion_sensitivity ahora reconoce el valor fijado de 0 a 7 en lugar de la entrada sin procesar (refleja intrusion_distance), por lo que el punto de datos nunca muestra una sensibilidad que la cámara no recibió.",
+                "pl": "intrusion_sensitivity potwierdza teraz zawężoną wartość 0-7 zamiast nieprzetworzonego wejścia (odzwierciedla intrusion_distance), więc punkt danych nigdy nie pokazuje czułości, której nie odebrała kamera.",
+                "uk": "intrusion_sensitivity тепер підтверджує обмежене значення 0-7 замість необробленого введення (віддзеркалює intrusion_distance), тому точка даних ніколи не показує чутливість, яку камера не отримала.",
+                "zh-cn": "intrusion_sensitivity 现在确认固定的 0-7 值而不是原始输入（镜像 intrusion_distance），因此数据点永远不会显示相机未接收到的灵敏度。"
+            },
+            "1.0.4": {
+                "en": "Internal hardening release, no functional changes. Polling and watchdog timers are now managed by the adapter core and cancelled reliably on unload; HTTP timeouts use AbortSignal.timeout. Added a CI security layer (CodeQL, gitleaks, dependency review).",
+                "de": "Internes Hardening-Release, keine funktionalen Änderungen. Poll- und Watchdog-Timer laufen jetzt über den Adapter-Core und werden beim Entladen zuverlässig abgebrochen; HTTP-Timeouts nutzen AbortSignal.timeout. Neue CI-Security-Schicht (CodeQL, gitleaks, Dependency-Review).",
+                "ru": "Внутренняя закалка, никаких функциональных изменений. Таймеры опроса и сторожевые таймеры теперь управляются ядром адаптера и надежно отменяются при выгрузке; Тайм-ауты HTTP используют AbortSignal.timeout. Добавлен уровень безопасности CI (CodeQL, gitleaks, проверка зависимостей).",
+                "pt": "Liberação de endurecimento interno, sem alterações funcionais. Os temporizadores de polling e watchdog agora são gerenciados pelo núcleo do adaptador e cancelados de forma confiável no descarregamento; Os tempos limite de HTTP usam AbortSignal.timeout. Adicionada uma camada de segurança CI (CodeQL, gileaks, revisão de dependência).",
+                "nl": "Interne verhardingsvrijgave, geen functionele veranderingen. Polling- en watchdog-timers worden nu beheerd door de adapterkern en betrouwbaar geannuleerd bij het ontladen; HTTP-time-outs gebruiken AbortSignal.timeout. Een CI-beveiligingslaag toegevoegd (CodeQL, gitleaks, afhankelijkheidsbeoordeling).",
+                "fr": "Libération de durcissement interne, aucune modification fonctionnelle. Les minuteries d'interrogation et de surveillance sont désormais gérées par le cœur de l'adaptateur et annulées de manière fiable lors du déchargement ; Les délais d'expiration HTTP utilisent AbortSignal.timeout. Ajout d'une couche de sécurité CI (CodeQL, gitleaks, révision des dépendances).",
+                "it": "Rilascio indurente interno, nessuna modifica funzionale. I timer di polling e watchdog sono ora gestiti dal core dell'adattatore e annullati in modo affidabile durante lo scaricamento; I timeout HTTP utilizzano AbortSignal.timeout. Aggiunto un livello di sicurezza CI (CodeQL, gitleaks, revisione delle dipendenze).",
+                "es": "Liberación del endurecimiento interno, sin cambios funcionales. Los temporizadores de sondeo y vigilancia ahora son administrados por el núcleo del adaptador y se cancelan de manera confiable durante la descarga; Los tiempos de espera HTTP utilizan AbortSignal.timeout. Se agregó una capa de seguridad de CI (CodeQL, gitleaks, revisión de dependencias).",
+                "pl": "Wewnętrzne zwolnienie hartowania, bez zmian funkcjonalnych. Zegary odpytywania i watchdoga są teraz zarządzane przez rdzeń adaptera i niezawodnie kasowane po rozładowaniu; Limity czasu HTTP używają AbortSignal.timeout. Dodano warstwę zabezpieczeń CI (CodeQL, gitleaks, przegląd zależności).",
+                "uk": "Внутрішнє зміцнення, без функціональних змін. Таймери опитування та контролю тепер керуються ядром адаптера та надійно скасовуються під час вивантаження; Час очікування HTTP використовує AbortSignal.timeout. Додано рівень безпеки CI (CodeQL, gitleaks, перегляд залежностей).",
+                "zh-cn": "内部硬化释放，无功能变化。轮询和看门狗定时器现在由适配器核心管理，并在卸载时可靠地取消； HTTP 超时使用 AbortSignal.timeout。添加了 CI 安全层（CodeQL、gitleaks、依赖项审查）。"
+            },
+            "1.0.3": {
+                "en": "v1.0.3 — write-path fixes: intrusion detection distance now clamps to 1-8 m (the camera rejects values above 8 with HTTP 400); intercom audio levels are written as the full body so setting the speaker level no longer wipes the microphone level; out-of-range pan positions are clamped; a busy camera (HTTP 444) is reported as a session-quota warning instead of an error.",
+                "de": "v1.0.3 — Schreibpfad-Korrekturen: Einbruchs-Distanz wird auf 1-8 m begrenzt (Kamera lehnt Werte über 8 mit HTTP 400 ab); Gegensprech-Audiopegel werden als vollständiger Body geschrieben, das Setzen des Lautsprecherpegels löscht nicht mehr den Mikrofonpegel; Pan-Werte außerhalb des Bereichs werden begrenzt; ausgelastete Kamera (HTTP 444) wird als Sitzungslimit-Warnung statt Fehler gemeldet.",
+                "ru": "v1.0.3 — исправления пути записи: расстояние обнаружения вторжения теперь ограничивается 1-8 м (камера отклоняет значения выше 8 с HTTP 400); уровни звука внутренней связи записываются как все тело, поэтому настройка уровня динамика больше не стирает уровень микрофона; положения панорамирования, выходящие за пределы диапазона, фиксируются; о занятости камеры (HTTP 444) сообщается как предупреждение о квоте сеанса, а не как ошибка.",
+                "pt": "v1.0.3 — correções no caminho de gravação: a distância de detecção de intrusão agora é fixada em 1-8 m (a câmera rejeita valores acima de 8 com HTTP 400); os níveis de áudio do intercomunicador são escritos como corpo inteiro, portanto, definir o nível do alto-falante não apaga mais o nível do microfone; posições de pan fora da faixa são fixadas; uma câmera ocupada (HTTP 444) é relatada como um aviso de cota de sessão em vez de um erro.",
+                "nl": "v1.0.3 — Oplossingen voor schrijfpaden: de afstand voor inbraakdetectie bedraagt ​​nu 1-8 m (de camera verwerpt waarden boven 8 met HTTP 400); intercomaudioniveaus zijn geschreven als het volledige lichaam, zodat het instellen van het luidsprekerniveau niet langer het microfoonniveau wist; panposities buiten bereik worden vastgeklemd; een drukke camera (HTTP 444) wordt gerapporteerd als een waarschuwing voor sessiequota in plaats van als een fout.",
+                "fr": "v1.0.3 — corrections du chemin d'écriture : la distance de détection d'intrusion se limite désormais à 1-8 m (la caméra rejette les valeurs supérieures à 8 avec HTTP 400) ; les niveaux audio de l'interphone sont écrits pour le corps entier, de sorte que le réglage du niveau du haut-parleur n'efface plus le niveau du microphone ; les positions de panoramique hors de portée sont bloquées ; une caméra occupée (HTTP 444) est signalée comme un avertissement de quota de session au lieu d'une erreur.",
+                "it": "v1.0.3 — correzioni del percorso di scrittura: la distanza di rilevamento delle intrusioni ora è limitata a 1-8 m (la fotocamera rifiuta valori superiori a 8 con HTTP 400); i livelli audio dell'interfono vengono scritti come corpo intero, quindi l'impostazione del livello dell'altoparlante non cancella più il livello del microfono; le posizioni pan fuori range vengono bloccate; una telecamera occupata (HTTP 444) viene segnalata come avviso di quota sessione anziché come errore.",
+                "es": "v1.0.3: correcciones de ruta de escritura: la distancia de detección de intrusiones ahora se limita a 1-8 m (la cámara rechaza valores superiores a 8 con HTTP 400); los niveles de audio del intercomunicador se escriben como el cuerpo completo, por lo que configurar el nivel del altavoz ya no borra el nivel del micrófono; las posiciones panorámicas fuera de rango están fijadas; una cámara ocupada (HTTP 444) se informa como una advertencia de cuota de sesión en lugar de un error.",
+                "pl": "v1.0.3 — poprawki ścieżki zapisu: odległość wykrywania włamań ogranicza się teraz do 1-8 m (kamera odrzuca wartości powyżej 8 przy HTTP 400); poziomy dźwięku interkomu są zapisywane jako całe ciało, więc ustawienie poziomu głośnika nie powoduje już wymazywania poziomu mikrofonu; pozycje pan poza zakresem są zablokowane; zajęta kamera (HTTP 444) jest zgłaszana jako ostrzeżenie o limitze sesji, a nie jako błąd.",
+                "uk": "v1.0.3 — виправлення шляху запису: відстань виявлення вторгнення тепер обмежена 1-8 м (камера відхиляє значення вище 8 за допомогою HTTP 400); Рівні звуку інтеркому записуються як повне тіло, тому налаштування рівня гучномовців більше не знищує рівень мікрофона; позиції панорамування за межами діапазону фіксуються; зайнята камера (HTTP 444) повідомляється як попередження про квоту сесії замість помилки.",
+                "zh-cn": "v1.0.3 — 写入路径修复：入侵检测距离现在限制为 1-8 m（摄像头使用 HTTP 400 拒绝高于 8 的值）；对讲机音频电平被写为整体，因此设置扬声器电平不再擦除麦克风电平；超出范围的平移位置被夹紧；繁忙的摄像头 (HTTP 444) 将被报告为会话配额警告而不是错误。"
+            },
+            "1.0.2": {
+                "en": "v1.0.2 — removed the @aracna/fcm registration log noise: the library no longer prints raw postAcgRegister / PHONE_REGISTRATION_ERROR lines to the ioBroker log on every push-registration attempt (FCM health is still reported via info.fcm_active). @aracna/core is now referenced explicitly in source (repository-checker W5060). No functional changes.",
+                "de": "v1.0.2 — Log-Rauschen von @aracna/fcm entfernt: die Bibliothek gibt bei jedem Push-Registrierungsversuch keine rohen postAcgRegister-/PHONE_REGISTRATION_ERROR-Zeilen mehr ins ioBroker-Log aus (FCM-Status weiterhin über info.fcm_active). @aracna/core wird jetzt explizit im Quellcode referenziert (Repository-Checker W5060). Keine funktionalen Änderungen.",
+                "ru": "v1.0.2 — удален шум в журнале регистрации @aracna/fcm: библиотека больше не печатает необработанные строки postAcgRegister / PHONE_REGISTRATION_ERROR в журнал ioBroker при каждой попытке принудительной регистрации (о состоянии FCM по-прежнему сообщается через info.fcm_active). @aracna/core теперь явно упоминается в исходном коде (проверка репозитория W5060). Никаких функциональных изменений.",
+                "pt": "v1.0.2 — removido o ruído do log de registro @aracna/fcm: a biblioteca não imprime mais linhas postAcgRegister / PHONE_REGISTRATION_ERROR brutas no log do ioBroker em cada tentativa de registro push (a integridade do FCM ainda é relatada via info.fcm_active). @aracna/core agora é referenciado explicitamente na fonte (verificador de repositório W5060). Sem alterações funcionais.",
+                "nl": "v1.0.2 - verwijderde de @aracna/fcm-registratielogruis: de bibliotheek drukt niet langer onbewerkte postAcgRegister / PHONE_REGISTRATION_ERROR-regels af naar het ioBroker-logboek bij elke push-registratiepoging (FCM-status wordt nog steeds gerapporteerd via info.fcm_active). Er wordt nu expliciet naar @aracna/core verwezen in de broncode (repository-checker W5060). Geen functionele wijzigingen.",
+                "fr": "v1.0.2 — suppression du bruit du journal d'enregistrement @aracna/fcm : la bibliothèque n'imprime plus les lignes brutes postAcgRegister / PHONE_REGISTRATION_ERROR dans le journal ioBroker à chaque tentative d'enregistrement push (l'état du FCM est toujours signalé via info.fcm_active). @aracna/core est désormais référencé explicitement dans les sources (vérificateur de référentiel W5060). Aucun changement fonctionnel.",
+                "it": "v1.0.2 — rimosso il rumore del registro di registrazione @aracna/fcm: la libreria non stampa più righe postAcgRegister / PHONE_REGISTRATION_ERROR grezze nel registro ioBroker ad ogni tentativo di registrazione push (lo stato di FCM viene ancora segnalato tramite info.fcm_active). @aracna/core è ora menzionato esplicitamente nel codice sorgente (repository-checker W5060). Nessuna modifica funzionale.",
+                "es": "v1.0.2: se eliminó el ruido del registro de registro @aracna/fcm: la biblioteca ya no imprime líneas postAcgRegister / PHONE_REGISTRATION_ERROR sin procesar en el registro de ioBroker en cada intento de registro push (el estado de FCM aún se informa a través de info.fcm_active). Ahora se hace referencia explícita a @aracna/core en la fuente (repository-checker W5060). Sin cambios funcionales.",
+                "pl": "v1.0.2 — usunięto szum dziennika rejestracji @aracna/fcm: biblioteka nie drukuje już surowych linii postAcgRegister / PHONE_REGISTRATION_ERROR w dzienniku ioBroker przy każdej próbie rejestracji push (kondycja FCM jest nadal raportowana za pośrednictwem info.fcm_active). @aracna/core jest teraz wyraźnie przywoływana w źródle (program sprawdzający repozytorium W5060). Żadnych zmian funkcjonalnych.",
+                "uk": "v1.0.2 — видалено шум журналу реєстрації @aracna/fcm: бібліотека більше не друкує необроблені рядки postAcgRegister / PHONE_REGISTRATION_ERROR у журнал ioBroker під час кожної спроби push-реєстрації (справність FCM усе ще повідомляється через info.fcm_active). @aracna/core тепер явно вказується в джерелі (перевірка сховища W5060). Без функціональних змін.",
+                "zh-cn": "v1.0.2 — 删除了 @aracna/fcm 注册日志噪音：库不再在每次推送注册尝试时将原始 postAcgRegister / PHONE_REGISTRATION_ERROR 行打印到 ioBroker 日志（FCM 运行状况仍通过 info.fcm_active 报告）。 @aracna/core 现在在源代码（存储库检查器 W5060）中明确引用。没有功能变化。"
+            },
+            "1.0.1": {
+                "en": "v1.0.1 — repository-checker compliance hotfix. All common.news entries are now translated into the full set of 11 languages; the current version is listed in the README changelog; the changelog was consolidated into the README; a prettier config was added; admin and vis-widget i18n were completed for every language. No functional changes.",
+                "de": "v1.0.1 — Repository-Checker-Konformitäts-Hotfix. Alle common.news-Einträge sind jetzt in alle 11 Sprachen übersetzt; die aktuelle Version steht im README-Changelog; das Changelog wurde ins README zusammengeführt; eine Prettier-Konfiguration wurde ergänzt; Admin- und vis-Widget-i18n wurden für jede Sprache vervollständigt. Keine funktionalen Änderungen.",
+                "ru": "v1.0.1 — исправление соответствия средства проверки репозитория. Все записи common.news теперь переведены на полный набор из 11 языков; текущая версия указана в журнале изменений README; список изменений был объединен в README; добавлен более красивый конфиг; admin и vis-widget i18n были доработаны для каждого языка. Никаких функциональных изменений.",
+                "pt": "v1.0.1 — hotfix de conformidade do verificador de repositório. Todas as entradas do common.news agora estão traduzidas para o conjunto completo de 11 idiomas; a versão atual está listada no changelog README; o changelog foi consolidado no README; uma configuração mais bonita foi adicionada; admin e vis-widget i18n foram concluídos para todos os idiomas. Sem alterações funcionais.",
+                "nl": "v1.0.1 — hotfix voor naleving van repository-checker. Alle common.news-berichten zijn nu vertaald in de volledige set van 11 talen; de huidige versie wordt vermeld in de README-wijzigingslog; de changelog werd geconsolideerd in de README; er is een mooiere configuratie toegevoegd; admin en vis-widget i18n zijn voor elke taal voltooid. Geen functionele wijzigingen.",
+                "fr": "v1.0.1 — correctif de conformité du vérificateur de référentiel. Toutes les entrées de common.news sont désormais traduites dans l'ensemble complet des 11 langues ; la version actuelle est répertoriée dans le journal des modifications README ; le journal des modifications a été consolidé dans le README ; une configuration plus jolie a été ajoutée ; admin et vis-widget i18n ont été complétés pour chaque langue. Aucun changement fonctionnel.",
+                "it": "v1.0.1: hotfix per la conformità del controllo repository. Tutte le voci di common.news sono ora tradotte nell'insieme completo di 11 lingue; la versione attuale è elencata nel changelog README; il changelog è stato consolidato nel README; è stata aggiunta una configurazione più carina; completati admin e vis-widget i18n per ogni lingua. Nessuna modifica funzionale.",
+                "es": "v1.0.1: revisión de cumplimiento del verificador del repositorio. Todas las entradas de common.news ahora están traducidas al conjunto completo de 11 idiomas; la versión actual aparece en el registro de cambios README; el registro de cambios se consolidó en el archivo README; se agregó una configuración más bonita; Se completaron admin y vis-widget i18n para cada idioma. Sin cambios funcionales.",
+                "pl": "v1.0.1 — poprawka dotycząca zgodności modułu sprawdzania repozytorium. Wszystkie wpisy w common.news są teraz przetłumaczone na pełny zestaw 11 języków; bieżąca wersja jest wymieniona w dzienniku zmian README; dziennik zmian został skonsolidowany w pliku README; dodano ładniejszą konfigurację; admin i vis-widget i18n zostały ukończone dla każdego języka. Żadnych zmian funkcjonalnych.",
+                "uk": "v1.0.1 — виправлення відповідності репозиторію перевірки. Усі записи common.news тепер перекладено повним набором з 11 мов; поточна версія вказана в журналі змін README; журнал змін було об’єднано в README; додано кращу конфігурацію; admin і vis-widget i18n були завершені для кожної мови. Без функціональних змін.",
+                "zh-cn": "v1.0.1 — 存储库检查器合规性修补程序。所有 common.news 条目现已翻译成全套 11 种语言；当前版本列在自述文件变更日志中；变更日志已合并到自述文件中；添加了更漂亮的配置； admin 和 vis-widget i18n 已针对每种语言完成。没有功能变化。"
+            },
+            "1.0.0": {
+                "en": "v1.0.0 — out of beta. v0.9.0 features (privacy_sound_enabled, autofollow_enabled for 360° cams, unread_events_count, mark_all_read button, last_seen_event_id persisted across restarts) + v0.9.1 four follow-up bug fixes from live testing: 442-unsupported-feature cache (no more warn-storm for Outdoor privacy_sound), unread count via GET /v11/events (Bosch's numberOfUnreadEvents field was unreliable — found 0 reported when 44 events were actually unread), exponential backoff (30→60→120→300s cap) on WiFi/autofollow/privacy_sound polls returning HTTP 444. CLOUD_API consolidated to single source of truth, cache-guard before merge-PUTs. 699 tests pass.",
+                "de": "v1.0.0 — raus aus Beta. v0.9.0 Features (privacy_sound_enabled, autofollow_enabled für 360°-Kameras, unread_events_count, mark_all_read Button, last_seen_event_id über Restarts persistent) + v0.9.1 vier Bugfixes aus Live-Tests: 442-unsupported-Feature-Cache (kein warn-storm mehr für Outdoor privacy_sound), unread-count via GET /v11/events (Boschs numberOfUnreadEvents Feld war unzuverlässig — meldete 0 wenn 44 Events tatsächlich ungelesen waren), exponential Backoff (30→60→120→300s Cap) für WiFi/Autofollow/privacy_sound Polls mit HTTP 444. CLOUD_API zentralisiert, Cache-Guard vor Merge-PUTs. 699 Tests grün.",
+                "ru": "v1.0.0 — вышла из бета-версии. Функции версии 0.9.0 (privacy_sound_enabled, autofollow_enabled для камер с обзором 360°, unread_events_count, кнопка mark_all_read, Last_seen_event_id сохраняются при перезапусках) + четыре дополнительных исправления ошибок версии 0.9.1 по результатам живого тестирования: кеш 442-неподдерживаемых функций (больше никаких предупреждений для Outdoor Privacy_sound), счетчик непрочитанных ошибок через GET /v11/events (поле Bosch numberOfUnreadEvents было ненадежным — обнаружено 0, когда 44 события были фактически непрочитаны), экспоненциальная отсрочка (ограничение 30 → 60 → 120 → 300 с) в опросах WiFi/autofollow/privacy_sound, возвращающих HTTP 444. CLOUD_API консолидируется в единый источник достоверной информации, защита кэша перед слиянием-PUT. Пройдено 699 тестов.",
+                "pt": "v1.0.0 – fora da versão beta. Recursos v0.9.0 (privacy_sound_enabled, autofollow_enabled para câmeras de 360°, unread_events_count, botão mark_all_read, last_seen_event_id persistido durante as reinicializações) + v0.9.1 quatro correções de bugs de acompanhamento de testes ao vivo: cache de 442 recursos não suportados (não há mais tempestade de avisos para Outdoor Privacy_sound), contagem de não lidos via GET /v11/events (o campo numberOfUnreadEvents da Bosch não era confiável - encontrado 0 relatado quando 44 eventos não foram realmente lidos), espera exponencial (30→60→120→300s cap) em pesquisas WiFi/autofollow/privacy_sound retornando HTTP 444. CLOUD_API consolidada para uma única fonte de verdade, proteção de cache antes de mesclar-PUTs. 699 testes foram aprovados.",
+                "nl": "v1.0.0 — uit bèta. v0.9.0-functies (privacy_sound_enabled, autofollow_enabled voor 360° cams, unread_events_count, mark_all_read-knop, last_seen_event_id bleef behouden bij opnieuw opstarten) + v0.9.1 vier vervolgbugfixes van live testen: 442-unsupported-feature cache (geen waarschuwingsstorm meer voor Outdoor privacy_sound), ongelezen aantal via GET /v11/events (het veld numberOfUnreadEvents van Bosch was onbetrouwbaar - 0 gerapporteerd terwijl 44 gebeurtenissen daadwerkelijk ongelezen waren), exponentiële uitstel (limiet van 30 → 60 → 120 → 300s) op WiFi/autofollow/privacy_sound polls die HTTP 444 retourneerden. CLOUD_API geconsolideerd tot één bron van waarheid, cache-guard vóór merge-PUTs. 699 tests zijn geslaagd.",
+                "fr": "v1.0.0 – hors version bêta. Fonctionnalités v0.9.0 (privacy_sound_enabled, autofollow_enabled pour les caméras à 360°, unread_events_count, bouton mark_all_read, last_seen_event_id persisté lors des redémarrages) + v0.9.1 quatre corrections de bogues de suivi issues des tests en direct : 442 cache de fonctionnalités non prises en charge (plus de tempête d'avertissement pour Outdoor Privacy_sound), nombre de non lus via GET /v11/events (le champ numberOfUnreadEvents de Bosch n'était pas fiable - trouvé 0 signalé lorsque 44 événements n'étaient réellement pas lus), interruption exponentielle (cap de 30 → 60 → 120 → 300 s) sur les sondages WiFi/autofollow/privacy_sound renvoyant HTTP 444. CLOUD_API consolidé en une source unique de vérité, garde de cache avant la fusion-PUT. 699 tests réussissent.",
+                "it": "v1.0.0 — fuori beta. Funzionalità v0.9.0 (privacy_sound_enabled, autofollow_enabled per webcam a 360°, unread_events_count, pulsante mark_all_read, last_seen_event_id persistente tra i riavvii) + v0.9.1 quattro correzioni di bug successive dai test dal vivo: cache di funzionalità 442 non supportate (non più warn-storm per Outdoor privacy_sound), conteggio non letti tramite GET /v11/events (il campo numberOfUnreadEvents di Bosch era inaffidabile — trovato 0 segnalato quando 44 eventi erano effettivamente non letti), backoff esponenziale (30→60→120→300 limiti) sui sondaggi WiFi/autofollow/privacy_sound che restituivano HTTP 444. CLOUD_API consolidata su un'unica fonte di verità, protezione della cache prima dei merge-PUT. Superati 699 test.",
+                "es": "v1.0.0 — fuera de la versión beta. Funciones v0.9.0 (privacy_sound_enabled, autofollow_enabled para cámaras de 360°, unread_events_count, botón mark_all_read, last_seen_event_id persistió durante los reinicios) + v0.9.1 cuatro correcciones de errores de seguimiento de las pruebas en vivo: caché de 442 funciones no admitidas (no más tormentas de advertencia para Outdoor Privacy_Sound), recuento de no leídos a través de GET /v11/events (el campo numberOfUnreadEvents de Bosch no era confiable; se encontró 0 reportado cuando en realidad no se leyeron 44 eventos), retroceso exponencial (límite de 30→60→120→300s) en encuestas de WiFi/autofollow/privacy_sound que devolvían HTTP 444. CLOUD_API se consolidó en una única fuente de verdad, protección de caché antes de fusionar-PUT. Pasan 699 pruebas.",
+                "pl": "v1.0.0 — wersja beta. funkcje v0.9.0 (privacy_sound_enabled, autofollow_enabled dla kamer 360°, unread_events_count, przycisk mark_all_read, last_seen_event_id utrzymywane przy ponownym uruchomieniu) + v0.9.1 cztery kolejne poprawki błędów z testów na żywo: pamięć podręczna 442 nieobsługiwanych funkcji (koniec z burzą ostrzegawczą dla dźwięku prywatności na zewnątrz), liczba nieprzeczytanych przez GET /v11/events (pole Bosch numberOfUnreadEvents było niewiarygodne — znaleziono 0 zgłoszonych, gdy 44 zdarzenia były faktycznie nieprzeczytane), wykładnicze wycofywanie (30 → 60 → 120 → 300 s) w ankietach WiFi/autofollow/privacy_sound zwracających HTTP 444. CLOUD_API skonsolidowane w jedno źródło prawdy, ochrona pamięci podręcznej przed połączeniem PUT. 699 testów przechodzi pomyślnie.",
+                "uk": "v1.0.0 — поза бета-версією. Функції v0.9.0 (privacy_sound_enabled, autofollow_enabled для 360° камер, unread_events_count, mark_all_read кнопка, last_seen_event_id зберігається під час перезапусків) + v0.9.1 чотири наступні виправлення помилок під час тестування в реальному часі: кеш 442 непідтримуваних функцій (більше немає попереджень для Outdoor privacy_sound), підрахунок непрочитаних через GET /v11/events (поле Bosch numberOfUnreadEvents було ненадійним — було виявлено 0, коли 44 події фактично були непрочитаними), експоненціальне відставання (30→60→120→300 с обмеження) для опитувань Wi-Fi/autofollow/privacy_sound, які повертають HTTP 444. CLOUD_API консолідовано в один джерело правди, захист кешу перед об’єднанням. Пройдено 699 тестів.",
+                "zh-cn": "v1.0.0 — 已结束测试版。 v0.9.0 功能（privacy_sound_enabled、360° 摄像头的 autofollow_enabled、unread_events_count、mark_all_read 按钮、last_seen_event_id 在重新启动后仍然存在）+ v0.9.1 实时测试中的四个后续错误修复：442-unsupported-feature 缓存（户外 Privacy_sound 不再有警告风暴）、通过 GET /v11/events 的未读计数（博世的 numberOfUnreadEvents 字段不可靠 - 发现 0 报告时有 44 个事件实际上未读），WiFi/autofollow/privacy_sound 轮询上的指数退避（30→60→120→300 秒上限）返回 HTTP 444。CLOUD_API 合并为单一事实来源，在合并 PUT 之前进行缓存保护。 699 项测试通过。"
+            },
+            "0.8.0": {
+                "en": "v0.8.0: ported HA v13.2.x features — F1 MJPEG snapshot (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 RCP-Version DP, F13 Cloud Feature-Flags DPs, Tier-2 gap-list (lens_elevation, darkness_threshold, alarm-system numbers), 444 SessionLimit handling with 60s auto-retry. +90 tests.",
+                "de": "v0.8.0: HA v13.2.x Features portiert — F1 MJPEG-Snapshot (Gen2 LAN, opt-in), F4 ONVIF-Scopes DP, F6 RCP-Version DP, F13 Cloud-Feature-Flags DPs, Tier-2 Gap-Liste (lens_elevation, darkness_threshold, Alarm-System-Numbers), 444 SessionLimit-Behandlung mit 60s Auto-Retry. +90 Tests.",
+                "ru": "v0.8.0: портированы функции HA v13.2.x — F1 MJPEG-снимок (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 RCP-Version DP, F13 Cloud Feature-Flags, Tier-2 (lens_elevation, darkness_threshold, alarm-system), обработка 444 SessionLimit с авто-повтором 60с. +90 тестов.",
+                "pt": "v0.8.0: funcionalidades HA v13.2.x portadas — F1 instantâneo MJPEG (Gen2 LAN, opcional), F4 ONVIF Scopes DP, F6 versão RCP DP, F13 flags de funcionalidade, Tier-2 (lens_elevation, darkness_threshold, alarme), tratamento 444 SessionLimit com auto-retry 60s. +90 testes.",
+                "nl": "v0.8.0: HA v13.2.x features geport — F1 MJPEG snapshot (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 RCP-versie DP, F13 Cloud Feature-Flags, Tier-2 (lens_elevation, darkness_threshold, alarm-system), 444 SessionLimit-afhandeling met 60s auto-retry. +90 tests.",
+                "fr": "v0.8.0: fonctionnalités HA v13.2.x portées — F1 capture MJPEG (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 version RCP DP, F13 indicateurs de fonctionnalités, Tier-2 (lens_elevation, darkness_threshold, alarme), gestion 444 SessionLimit avec réessai auto 60s. +90 tests.",
+                "it": "v0.8.0: funzionalità HA v13.2.x portate — F1 snapshot MJPEG (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 versione RCP DP, F13 flag funzionalità, Tier-2 (lens_elevation, darkness_threshold, allarme), gestione 444 SessionLimit con auto-retry 60s. +90 test.",
+                "es": "v0.8.0: funciones HA v13.2.x portadas — F1 instantánea MJPEG (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 versión RCP DP, F13 banderas de funciones, Tier-2 (lens_elevation, darkness_threshold, alarma), manejo 444 SessionLimit con reintento auto 60s. +90 pruebas.",
+                "pl": "v0.8.0: funkcje HA v13.2.x przeniesione — F1 migawka MJPEG (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 wersja RCP DP, F13 flagi funkcji, Tier-2 (lens_elevation, darkness_threshold, alarm), obsługa 444 SessionLimit z auto-retry 60s. +90 testów.",
+                "uk": "v0.8.0: функції HA v13.2.x портовано — F1 знімок MJPEG (Gen2 LAN, opt-in), F4 ONVIF Scopes DP, F6 версія RCP DP, F13 прапорці функцій, Tier-2 (lens_elevation, darkness_threshold, тривога), обробка 444 SessionLimit з авто-повтором 60с. +90 тестів.",
+                "zh-cn": "v0.8.0: 移植 HA v13.2.x 功能 — F1 MJPEG 快照 (Gen2 LAN, 可选), F4 ONVIF Scopes DP, F6 RCP 版本 DP, F13 云功能标志, Tier-2 (lens_elevation, darkness_threshold, 报警), 444 SessionLimit 处理 60秒 自动重试。+90 测试。"
+            }
+        },
+        "titleLang": {
+            "en": "Bosch Smart Home Camera",
+            "de": "Bosch Smart Home Kamera",
+            "ru": "Камера Bosch Smart Home",
+            "pt": "Câmera Bosch Smart Home",
+            "nl": "Bosch Smart Home Camera",
+            "fr": "Caméra Bosch Smart Home",
+            "it": "Telecamera Bosch Smart Home",
+            "es": "Cámara Bosch Smart Home",
+            "pl": "Kamera Bosch Smart Home",
+            "uk": "Камера Bosch Smart Home",
+            "zh-cn": "博世智能家居摄像头"
+        },
+        "desc": {
+            "en": "Bosch Smart Home Camera (Eyes/360/Gen2) cloud-API integration",
+            "de": "Bosch Smart Home Kamera (Eyes/360/Gen2) Cloud-API-Integration",
+            "ru": "Интеграция облачного API камеры Bosch Smart Home (Eyes/360/Gen2)",
+            "pt": "Integração de API em nuvem da câmera Bosch Smart Home (Eyes/360/Gen2)",
+            "nl": "Bosch Smart Home Camera (Eyes/360/Gen2) cloud-API integratie",
+            "fr": "Intégration API cloud de la caméra Bosch Smart Home (Eyes/360/Gen2)",
+            "it": "Integrazione API cloud della telecamera Bosch Smart Home (Eyes/360/Gen2)",
+            "es": "Integración de API en la nube de la cámara Bosch Smart Home (Eyes/360/Gen2)",
+            "pl": "Integracja API chmury kamery Bosch Smart Home (Eyes/360/Gen2)",
+            "uk": "Інтеграція хмарного API камери Bosch Smart Home (Eyes/360/Gen2)",
+            "zh-cn": "博世智能家居摄像头（Eyes/360/Gen2）云API集成"
+        },
+        "authors": [
+            "mosandlt <10558666+mosandlt@users.noreply.github.com>"
+        ],
+        "keywords": [
+            "bosch",
+            "camera",
+            "eyes",
+            "smart-home",
+            "rtsp",
+            "fcm",
+            "cloud"
+        ],
+        "licenseInformation": {
+            "type": "free",
+            "license": "MIT"
+        },
+        "platform": "Javascript/Node.js",
+        "icon": "bosch-camera.png",
+        "enabled": true,
+        "extIcon": "https://raw.githubusercontent.com/mosandlt/ioBroker.bosch-smart-home-camera/main/admin/bosch-camera.png",
+        "readme": "https://github.com/mosandlt/ioBroker.bosch-smart-home-camera#readme",
+        "loglevel": "info",
+        "mode": "daemon",
+        "type": "multimedia",
+        "connectionType": "cloud",
+        "dataSource": "push",
+        "tier": 3,
+        "compact": true,
+        "messagebox": true,
+        "adminUI": {
+            "config": "json"
+        },
+        "dependencies": [
+            {
+                "js-controller": ">=6.0.11"
+            }
+        ],
+        "globalDependencies": [
+            {
+                "admin": ">=7.6.20"
+            }
+        ],
+        "visWidgets": {
+            "boschCameraSet": {
+                "name": "Bosch Smart Home Camera",
+                "url": "bosch-smart-home-camera/customWidgets.js",
+                "i18n": true,
+                "version": "0.1.0",
+                "components": [
+                    "boschCamera"
+                ]
+            }
+        }
     },
-    "titleLang": {
-      "en": "Bosch Smart Home Camera",
-      "de": "Bosch Smart Home Kamera",
-      "ru": "Камера Bosch Smart Home",
-      "pt": "Câmera Bosch Smart Home",
-      "nl": "Bosch Smart Home Camera",
-      "fr": "Caméra Bosch Smart Home",
-      "it": "Telecamera Bosch Smart Home",
-      "es": "Cámara Bosch Smart Home",
-      "pl": "Kamera Bosch Smart Home",
-      "uk": "Камера Bosch Smart Home",
-      "zh-cn": "博世智能家居摄像头"
-    },
-    "desc": {
-      "en": "Bosch Smart Home Camera (Eyes/360/Gen2) cloud-API integration",
-      "de": "Bosch Smart Home Kamera (Eyes/360/Gen2) Cloud-API-Integration",
-      "ru": "Интеграция облачного API камеры Bosch Smart Home (Eyes/360/Gen2)",
-      "pt": "Integração de API em nuvem da câmera Bosch Smart Home (Eyes/360/Gen2)",
-      "nl": "Bosch Smart Home Camera (Eyes/360/Gen2) cloud-API integratie",
-      "fr": "Intégration API cloud de la caméra Bosch Smart Home (Eyes/360/Gen2)",
-      "it": "Integrazione API cloud della telecamera Bosch Smart Home (Eyes/360/Gen2)",
-      "es": "Integración de API en la nube de la cámara Bosch Smart Home (Eyes/360/Gen2)",
-      "pl": "Integracja API chmury kamery Bosch Smart Home (Eyes/360/Gen2)",
-      "uk": "Інтеграція хмарного API камери Bosch Smart Home (Eyes/360/Gen2)",
-      "zh-cn": "博世智能家居摄像头（Eyes/360/Gen2）云API集成"
-    },
-    "authors": [
-      "mosandlt <10558666+mosandlt@users.noreply.github.com>"
+    "encryptedNative": [
+        "mqtt_password"
     ],
-    "keywords": [
-      "bosch",
-      "camera",
-      "eyes",
-      "smart-home",
-      "rtsp",
-      "fcm",
-      "cloud"
+    "protectedNative": [
+        "mqtt_password"
     ],
-    "licenseInformation": {
-      "type": "free",
-      "license": "MIT"
+    "native": {
+        "redirect_url": "",
+        "region": "EU",
+        "use_mjpeg_snapshot": true,
+        "mqtt_password": ""
     },
-    "platform": "Javascript/Node.js",
-    "icon": "bosch-camera.png",
-    "enabled": true,
-    "extIcon": "https://raw.githubusercontent.com/mosandlt/ioBroker.bosch-smart-home-camera/main/admin/bosch-camera.png",
-    "readme": "https://github.com/mosandlt/ioBroker.bosch-smart-home-camera#readme",
-    "loglevel": "info",
-    "mode": "daemon",
-    "type": "multimedia",
-    "connectionType": "cloud",
-    "dataSource": "push",
-    "tier": 3,
-    "compact": true,
-    "messagebox": true,
-    "adminUI": {
-      "config": "json"
-    },
-    "dependencies": [
-      {
-        "js-controller": ">=6.0.11"
-      }
+    "instanceObjects": [
+        {
+            "_id": "info",
+            "type": "channel",
+            "common": {
+                "name": "Information"
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.connection",
+            "type": "state",
+            "common": {
+                "role": "indicator.connected",
+                "name": "Device or service connected",
+                "type": "boolean",
+                "read": true,
+                "write": false,
+                "def": false
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.access_token",
+            "type": "state",
+            "common": {
+                "role": "text",
+                "name": "Encrypted Bosch SingleKey ID access token (AES via ioBroker system secret — never plaintext from v0.6.0)",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": ""
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.refresh_token",
+            "type": "state",
+            "common": {
+                "role": "text",
+                "name": "Encrypted Bosch SingleKey ID refresh token (AES via ioBroker system secret — never plaintext from v0.6.0)",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": ""
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.token_expires_at",
+            "type": "state",
+            "common": {
+                "role": "value.time",
+                "name": "Access token expiration timestamp (epoch ms)",
+                "type": "number",
+                "read": true,
+                "write": false,
+                "def": 0
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.fcm_creds",
+            "type": "state",
+            "common": {
+                "role": "json",
+                "name": "Persisted FCM credentials (ECDH key + ACG creds) so a restart does not re-register against Bosch CBS / Google FCM",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": ""
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.fcm_active",
+            "type": "state",
+            "common": {
+                "role": "text",
+                "name": "FCM push listener status: healthy / stub / error / stopped",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": "stub"
+            },
+            "native": {}
+        },
+        {
+            "_id": "cameras",
+            "type": "device",
+            "common": {
+                "name": "Bosch cameras"
+            },
+            "native": {}
+        }
     ],
-    "globalDependencies": [
-      {
-        "admin": ">=7.6.20"
-      }
-    ],
-    "visWidgets": {
-      "boschCameraSet": {
-        "name": "Bosch Smart Home Camera",
-        "url": "bosch-smart-home-camera/customWidgets.js",
-        "i18n": true,
-        "version": "0.1.0",
-        "components": [
-          "boschCamera"
-        ]
-      }
-    }
-  },
-  "encryptedNative": [
-    "mqtt_password"
-  ],
-  "protectedNative": [
-    "mqtt_password"
-  ],
-  "native": {
-    "redirect_url": "",
-    "region": "EU",
-    "use_mjpeg_snapshot": true,
-    "mqtt_password": ""
-  },
-  "instanceObjects": [
-    {
-      "_id": "info",
-      "type": "channel",
-      "common": {
-        "name": "Information"
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.connection",
-      "type": "state",
-      "common": {
-        "role": "indicator.connected",
-        "name": "Device or service connected",
-        "type": "boolean",
-        "read": true,
-        "write": false,
-        "def": false
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.access_token",
-      "type": "state",
-      "common": {
-        "role": "text",
-        "name": "Encrypted Bosch SingleKey ID access token (AES via ioBroker system secret — never plaintext from v0.6.0)",
-        "type": "string",
-        "read": true,
-        "write": false,
-        "def": ""
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.refresh_token",
-      "type": "state",
-      "common": {
-        "role": "text",
-        "name": "Encrypted Bosch SingleKey ID refresh token (AES via ioBroker system secret — never plaintext from v0.6.0)",
-        "type": "string",
-        "read": true,
-        "write": false,
-        "def": ""
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.token_expires_at",
-      "type": "state",
-      "common": {
-        "role": "value.time",
-        "name": "Access token expiration timestamp (epoch ms)",
-        "type": "number",
-        "read": true,
-        "write": false,
-        "def": 0
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.fcm_creds",
-      "type": "state",
-      "common": {
-        "role": "json",
-        "name": "Persisted FCM credentials (ECDH key + ACG creds) so a restart does not re-register against Bosch CBS / Google FCM",
-        "type": "string",
-        "read": true,
-        "write": false,
-        "def": ""
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.fcm_active",
-      "type": "state",
-      "common": {
-        "role": "text",
-        "name": "FCM push listener status: healthy / stub / error / stopped",
-        "type": "string",
-        "read": true,
-        "write": false,
-        "def": "stub"
-      },
-      "native": {}
-    },
-    {
-      "_id": "cameras",
-      "type": "device",
-      "common": {
-        "name": "Bosch cameras"
-      },
-      "native": {}
-    }
-  ],
-  "objects": []
+    "objects": []
 }
