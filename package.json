@@ -36,6 +36,7 @@
     "test:js": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\"}' mocha --config test/.mocharc.yml",
     "test:package": "mocha test/package.js --exit",
     "test:unit": "cross-env TS_NODE_TRANSPILE_ONLY=true \"TS_NODE_COMPILER_OPTIONS={\\\"module\\\":\\\"commonjs\\\"}\" mocha --config test/.mocharc.yml",
+    "test:fast": "cross-env TS_NODE_TRANSPILE_ONLY=true \"TS_NODE_COMPILER_OPTIONS={\\\"module\\\":\\\"commonjs\\\"}\" mocha --config test/.mocharc.yml --parallel --jobs 6 --exit",
     "test:coverage": "c8 --reporter=text --reporter=html --reporter=lcov npm run test:unit",
     "test:coverage:check": "c8 --reporter=text-summary --lines 80 --functions 78 --branches 70 npm run test:unit",
     "lint": "eslint src/ --ext .ts",
