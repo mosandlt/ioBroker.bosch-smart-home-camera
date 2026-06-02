@@ -778,6 +778,17 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _pollNotificationTypes;
     /**
+     * v1.1.0: read the Batch-D toggle states and mirror them into DPs:
+     *  - timestamp_overlay ← GET /timestamp.result (all cameras)
+     *  - status_led ← GET /ledlights.state ("ON"/"OFF") (Gen2)
+     *  - power_led_brightness ← GET /iconLedBrightness.value (Gen2 Indoor)
+     * Best-effort — each GET 404/443/error keeps the last DP value.
+     *
+     * @param token Current access_token
+     * @param cam   Camera metadata (for generation/model gating)
+     */
+    private _pollBatchDLeds;
+    /**
      * Poll lens elevation from GET /v11/video_inputs/{id}/lens_elevation.
      * Seeds the write-cache and mirrors the value into the DP.
      * Gen2 only. Best-effort — errors swallowed.
@@ -965,6 +976,23 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param on    true → record sound, false → mute recordings
      */
     private _handleRecordSoundWrite;
+    /**
+     * v1.1.0: generic single-key PUT helper for the Batch-D toggles
+     * (ledlights / timestamp / iconLedBrightness) — no full-body merge needed.
+     * Returns false on 443 (privacy) so the caller skips the optimistic ack.
+     *
+     * @param camId    Camera UUID
+     * @param endpoint sub-path after /video_inputs/{id}/ (e.g. "ledlights")
+     * @param body     single-key request body
+     * @param label    log label
+     */
+    private _putSingleKey;
+    /** v1.1.0: status-LED on/off (Gen2). PUT /ledlights {state:"ON"|"OFF"}. */
+    private _handleStatusLedWrite;
+    /** v1.1.0: timestamp/date overlay (all cams). PUT /timestamp {result:bool}. */
+    private _handleTimestampWrite;
+    /** v1.1.0: power/icon-LED brightness (Gen2 Indoor). PUT /iconLedBrightness {value:0-4}. */
+    private _handlePowerLedBrightnessWrite;
     /**
      * v1.1.0: toggle a single notification type via PUT /v11/video_inputs/{id}/
      * notifications. Bosch requires the FULL body, so GET-from-cache (or live) →

@@ -1681,6 +1681,37 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 });
             }
 
+            // v1.1.0: date/time overlay toggle (all cameras). PUT /timestamp
+            // {result:bool} (single key). Mirrors HA BoschTimestampSwitch.
+            await this.setObjectNotExistsAsync(`${prefix}.timestamp_overlay`, {
+                type: "state",
+                common: {
+                    name: "Timestamp/date overlay on video",
+                    role: "switch",
+                    type: "boolean",
+                    read: true,
+                    write: true,
+                    def: false,
+                },
+                native: {},
+            });
+
+            // v1.1.0: status-LED toggle (Gen2). PUT /ledlights {state:"ON"|"OFF"}.
+            if (cam.generation >= 2) {
+                await this.setObjectNotExistsAsync(`${prefix}.status_led`, {
+                    type: "state",
+                    common: {
+                        name: "Status LED",
+                        role: "switch",
+                        type: "boolean",
+                        read: true,
+                        write: true,
+                        def: true,
+                    },
+                    native: {},
+                });
+            }
+
             // v1.1.0: detection-mode select (Gen2 only) — shares
             // /intrusionDetectionConfig (full-body merge via _intrusionConfigCache).
             // API enum is the upper-cased option key. Mirrors HA BoschDetectionModeSelect.
@@ -2403,6 +2434,22 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         read: true,
                         write: false,
                         def: "",
+                    },
+                    native: {},
+                });
+                // v1.1.0: power/icon-LED brightness (Gen2 Indoor) — 0-4 step 1.
+                // PUT /iconLedBrightness {value}. Mirrors HA BoschPowerLedBrightnessNumber.
+                await this.setObjectNotExistsAsync(`${prefix}.power_led_brightness`, {
+                    type: "state",
+                    common: {
+                        name: "Power/status LED brightness (0–4)",
+                        role: "level.dimmer",
+                        type: "number",
+                        min: 0,
+                        max: 4,
+                        read: true,
+                        write: true,
+                        def: 2,
                     },
                     native: {},
                 });
@@ -4364,6 +4411,10 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // notify_* DPs + seeds _notificationsCache for the write merge.
         await this._pollNotificationTypes(token, cam.id);
 
+        // v1.1.0: Batch-D LED/overlay reads (timestamp all cams; status_led Gen2;
+        // power_led_brightness Indoor) — gated internally.
+        await this._pollBatchDLeds(token, cam);
+
         // v0.7.14: Gen2 intrusionDetectionConfig — mirrors sensitivity +
         // distance into DPs AND seeds the write-cache so the user-write
         // handler has a full body to merge into (Bosch rejects DELTA PUTs).
@@ -4641,6 +4692,73 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 `Notifications poll for ${camId.slice(0, 8)} failed: ` +
                     `${err instanceof Error ? err.message : String(err)}`,
             );
+        }
+    }
+
+    // ── v1.1.0 Batch-D LED/overlay reads ───────────────────────────────────
+
+    /**
+     * v1.1.0: read the Batch-D toggle states and mirror them into DPs:
+     *  - timestamp_overlay ← GET /timestamp.result (all cameras)
+     *  - status_led ← GET /ledlights.state ("ON"/"OFF") (Gen2)
+     *  - power_led_brightness ← GET /iconLedBrightness.value (Gen2 Indoor)
+     * Best-effort — each GET 404/443/error keeps the last DP value.
+     *
+     * @param token Current access_token
+     * @param cam   Camera metadata (for generation/model gating)
+     */
+    private async _pollBatchDLeds(token: string, cam: BoschCamera): Promise<void> {
+        const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
+        const okOr = (s: number): boolean => (s >= 200 && s < 300) || s === 404 || s === 443;
+        const camId = cam.id;
+        // timestamp overlay — all cameras
+        try {
+            const r = await this._httpClient.get<unknown>(
+                `${CLOUD_API}/v11/video_inputs/${camId}/timestamp`,
+                { headers, validateStatus: okOr },
+            );
+            const d = r.data as Record<string, unknown> | undefined;
+            if (r.status >= 200 && r.status < 300 && d && typeof d.result === "boolean") {
+                await this.upsertState(`cameras.${camId}.timestamp_overlay`, d.result);
+            }
+        } catch {
+            /* best-effort */
+        }
+        // status LED — Gen2
+        if (cam.generation >= 2) {
+            try {
+                const r = await this._httpClient.get<unknown>(
+                    `${CLOUD_API}/v11/video_inputs/${camId}/ledlights`,
+                    { headers, validateStatus: okOr },
+                );
+                const d = r.data as Record<string, unknown> | undefined;
+                if (r.status >= 200 && r.status < 300 && d && typeof d.state === "string") {
+                    await this.upsertState(
+                        `cameras.${camId}.status_led`,
+                        d.state.toUpperCase() === "ON",
+                    );
+                }
+            } catch {
+                /* best-effort */
+            }
+        }
+        // power/icon-LED brightness — Gen2 Indoor
+        if (
+            cam.hardwareVersion === "HOME_Eyes_Indoor" ||
+            cam.hardwareVersion === "CAMERA_INDOOR_GEN2"
+        ) {
+            try {
+                const r = await this._httpClient.get<unknown>(
+                    `${CLOUD_API}/v11/video_inputs/${camId}/iconLedBrightness`,
+                    { headers, validateStatus: okOr },
+                );
+                const d = r.data as Record<string, unknown> | undefined;
+                if (r.status >= 200 && r.status < 300 && d && typeof d.value === "number") {
+                    await this.upsertState(`cameras.${camId}.power_led_brightness`, d.value);
+                }
+            } catch {
+                /* best-effort */
+            }
         }
     }
 
@@ -5135,6 +5253,44 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         return; // skip ack — write rejected (privacy 443)
                     }
                     break;
+                case "timestamp_overlay":
+                    // v1.1.0: date/time overlay (all cameras).
+                    if (!(await this._handleTimestampWrite(camId, Boolean(state.val)))) {
+                        return;
+                    }
+                    break;
+                case "status_led": {
+                    // v1.1.0: status LED (Gen2 only).
+                    const camLed = this._cameras.get(camId);
+                    if (!camLed || camLed.generation < 2) {
+                        this.log.warn(
+                            `status_led write for ${camId.slice(0, 8)} ignored — Gen2 only`,
+                        );
+                        return;
+                    }
+                    if (!(await this._handleStatusLedWrite(camId, Boolean(state.val)))) {
+                        return;
+                    }
+                    break;
+                }
+                case "power_led_brightness": {
+                    // v1.1.0: power/icon-LED brightness (Gen2 Indoor only).
+                    const camPwr = this._cameras.get(camId);
+                    if (
+                        !camPwr ||
+                        (camPwr.hardwareVersion !== "HOME_Eyes_Indoor" &&
+                            camPwr.hardwareVersion !== "CAMERA_INDOOR_GEN2")
+                    ) {
+                        this.log.warn(
+                            `power_led_brightness write for ${camId.slice(0, 8)} ignored — Indoor II only`,
+                        );
+                        return;
+                    }
+                    if (!(await this._handlePowerLedBrightnessWrite(camId, Number(state.val)))) {
+                        return;
+                    }
+                    break;
+                }
                 case "notify_movement":
                 case "notify_person":
                 case "notify_audio":
@@ -5965,6 +6121,67 @@ class BoschSmartHomeCamera extends utils.Adapter {
             `Record-sound ${on ? "ON" : "OFF"} for ${camId.slice(0, 8)} (HTTP ${resp.status})`,
         );
         return true;
+    }
+
+    // ── v1.1.0 single-key Batch-D write handlers ───────────────────────────
+
+    /**
+     * v1.1.0: generic single-key PUT helper for the Batch-D toggles
+     * (ledlights / timestamp / iconLedBrightness) — no full-body merge needed.
+     * Returns false on 443 (privacy) so the caller skips the optimistic ack.
+     *
+     * @param camId    Camera UUID
+     * @param endpoint sub-path after /video_inputs/{id}/ (e.g. "ledlights")
+     * @param body     single-key request body
+     * @param label    log label
+     */
+    private async _putSingleKey(
+        camId: string,
+        endpoint: string,
+        body: Record<string, unknown>,
+        label: string,
+    ): Promise<boolean> {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const url = `${CLOUD_API}/v11/video_inputs/${camId}/${endpoint}`;
+        const resp = await this._httpClient.put<unknown>(url, body, {
+            headers: {
+                Authorization: `Bearer ${this._currentAccessToken}`,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+            validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
+        });
+        if (resp.status === 443) {
+            this.log.warn(`${label} write for ${camId.slice(0, 8)} rejected — privacy mode (443)`);
+            return false;
+        }
+        this.log.info(
+            `${label} = ${JSON.stringify(body)} for ${camId.slice(0, 8)} (HTTP ${resp.status})`,
+        );
+        return true;
+    }
+
+    /** v1.1.0: status-LED on/off (Gen2). PUT /ledlights {state:"ON"|"OFF"}. */
+    private _handleStatusLedWrite(camId: string, on: boolean): Promise<boolean> {
+        return this._putSingleKey(camId, "ledlights", { state: on ? "ON" : "OFF" }, "status_led");
+    }
+
+    /** v1.1.0: timestamp/date overlay (all cams). PUT /timestamp {result:bool}. */
+    private _handleTimestampWrite(camId: string, on: boolean): Promise<boolean> {
+        return this._putSingleKey(camId, "timestamp", { result: on }, "timestamp_overlay");
+    }
+
+    /** v1.1.0: power/icon-LED brightness (Gen2 Indoor). PUT /iconLedBrightness {value:0-4}. */
+    private _handlePowerLedBrightnessWrite(camId: string, value: number): Promise<boolean> {
+        const clamped = Math.max(0, Math.min(4, Math.round(value)));
+        return this._putSingleKey(
+            camId,
+            "iconLedBrightness",
+            { value: clamped },
+            "power_led_brightness",
+        );
     }
 
     // ── v1.1.0 per-type notification write handler ─────────────────────────
