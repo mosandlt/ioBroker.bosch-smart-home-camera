@@ -228,10 +228,14 @@ export function buildDigestHeader(
         `uri="${uri}"`,
         `algorithm=${alg}`,
         `response="${response}"`,
-        `cnonce="${cnonce}"`,
     ];
     if (qopValue === "auth") {
-        parts.push(`qop=${qopValue}`, `nc=${nc}`);
+        // v1.1.0: per RFC 7616 §3.4, cnonce + nc are sent ONLY when qop is
+        // present. In legacy (no-qop) mode the response is already computed
+        // without cnonce (see above), so sending cnonce in the header was an
+        // RFC violation — legacy servers ignored the stray param, but the
+        // header is now consistent with the response hash.
+        parts.push(`cnonce="${cnonce}"`, `qop=${qopValue}`, `nc=${nc}`);
     }
     if (opaque) {
         parts.push(`opaque="${opaque}"`);

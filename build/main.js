@@ -3479,8 +3479,15 @@ class BoschSmartHomeCamera extends utils.Adapter {
         catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             if (err instanceof fcm_1.FcmCbsRegistrationError) {
-                this.log.error(`FCM CBS registration failed (auth/token issue): ${msg}`);
-                await this.setStateAsync("info.fcm_active", "error", true);
+                // v1.1.0: a CBS auth/token failure still must fall back to event
+                // polling — otherwise the adapter has NO event mechanism (push
+                // failed, polling never started) until a manual restart. The
+                // token-refresh loop runs independently, so once the token is
+                // renewed the 30s poll recovers. Log at error level (auth issue)
+                // but keep the adapter usable.
+                this.log.error(`FCM CBS registration failed (auth/token issue): ${msg} — falling back to event polling`);
+                await this.setStateAsync("info.fcm_active", "polling", true);
+                this._startEventPolling();
             }
             else {
                 // FCM registration failed. Fall back to polling

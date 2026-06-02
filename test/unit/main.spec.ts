@@ -15,7 +15,7 @@
  *   v0.2.0 / v0.3.0 command handlers:
  *   6. handlePrivacyToggle → Cloud-API PUT /v11/.../privacy, no RCP+ (gen2 returns 401)
  *   7. handleSnapshotTrigger → calls openLiveSession + fetchSnapshot + writeFileAsync + snapshot_path
- *   8. FCM start throws FcmCbsRegistrationError → info.fcm_active=error, no crash
+ *   8. FCM start throws FcmCbsRegistrationError → info.fcm_active=polling (fallback), no crash
  *   9. onUnload → stops TLS proxies + FCM listener + closes live sessions
  *   12. handleImageRotationToggle → pure local flag (no Cloud API / no RCP+); state ack'd
  *
@@ -787,14 +787,16 @@ describe("main adapter — v0.2.0 command handlers", () => {
         ).to.equal(true);
     });
 
-    // ── Test 8: FCM start fails → info.fcm_active = "error", no crash ─────────
+    // ── Test 8: FCM CBS failure → falls back to event polling, no crash ───────
     //
     // FcmNotImplementedError was removed in v0.3.0 when the real @aracna/fcm
-    // implementation replaced the stub. This test now verifies that a
-    // FcmCbsRegistrationError (CBS auth rejection) is handled gracefully:
-    // adapter stays up with info.connection=true, fcm_active="error".
+    // implementation replaced the stub. v1.1.0: a FcmCbsRegistrationError (CBS
+    // auth rejection) must NOT leave the adapter without any event mechanism —
+    // it now falls back to event polling (info.fcm_active="polling") just like
+    // any other FCM registration failure. The token-refresh loop runs
+    // independently, so polling recovers once a fresh token is obtained.
 
-    it("FCM start throws FcmCbsRegistrationError → info.fcm_active=error, no crash", async () => {
+    it("FCM start throws FcmCbsRegistrationError → info.fcm_active=polling, no crash", async () => {
         const { db, adapter } = createAdapterWithMocks();
 
         let threw = false;
@@ -811,8 +813,8 @@ describe("main adapter — v0.2.0 command handlers", () => {
         ).to.equal(true);
         expect(
             getStateVal(db, adapter, "info.fcm_active"),
-            "info.fcm_active should be 'error' when CBS registration fails",
-        ).to.equal("error");
+            "info.fcm_active should be 'polling' — CBS failure falls back to polling (v1.1.0)",
+        ).to.equal("polling");
     });
 
     // ── Test 9: onUnload cleanup ──────────────────────────────────────────────
