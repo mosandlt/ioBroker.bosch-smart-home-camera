@@ -273,6 +273,8 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _globalLightingCache;
     private _alarmSettingsCache;
     private _alarmStatusCache;
+    private _notificationsCache;
+    private static readonly NOTIFY_TYPE_MAP;
     private _motionCache;
     /**
      * Whether a continuous live RTSP stream is active per camera ID.
@@ -767,6 +769,15 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _pollRecordingOptions;
     /**
+     * v1.1.0: poll GET /v11/video_inputs/{id}/notifications, seed
+     * _notificationsCache and mirror each present type key into its notify_* DP.
+     * All cameras. 404/443 → keep last value. Best-effort — errors swallowed.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private _pollNotificationTypes;
+    /**
      * Poll lens elevation from GET /v11/video_inputs/{id}/lens_elevation.
      * Seeds the write-cache and mirrors the value into the DP.
      * Gen2 only. Best-effort — errors swallowed.
@@ -954,6 +965,17 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param on    true → record sound, false → mute recordings
      */
     private _handleRecordSoundWrite;
+    /**
+     * v1.1.0: toggle a single notification type via PUT /v11/video_inputs/{id}/
+     * notifications. Bosch requires the FULL body, so GET-from-cache (or live) →
+     * set the one key → PUT the merged object → cache it. Mirrors
+     * HA BoschNotificationTypeSwitch. Returns false on 443 (privacy).
+     *
+     * @param camId  Camera UUID
+     * @param apiKey one of movement/person/audio/trouble/cameraAlarm/troubleEmail
+     * @param on     desired value
+     */
+    private _handleNotificationTypeWrite;
     /**
      * Set lens mounting height via PUT /v11/video_inputs/{id}/lens_elevation.
      * Gen2 only. Range clamped to 0.5–5.0 m.

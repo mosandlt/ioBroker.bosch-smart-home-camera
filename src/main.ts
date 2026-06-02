@@ -440,6 +440,22 @@ class BoschSmartHomeCamera extends utils.Adapter {
     // the alarm_arm switch (ACTIVE=on) + alarm_state sensor.
     private _alarmStatusCache = new Map<string, Record<string, unknown>>();
 
+    // v1.1.0: per-type notification cache (all cameras). GET /notifications →
+    // {movement, person, audio, trouble, cameraAlarm, troubleEmail} (all bool).
+    // PUT /notifications requires the FULL body → cache holds all keys so a
+    // single-type toggle doesn't clobber the others.
+    private _notificationsCache = new Map<string, Record<string, unknown>>();
+
+    // v1.1.0: DP-name → /notifications API-key map for the per-type toggles.
+    private static readonly NOTIFY_TYPE_MAP: Record<string, string> = {
+        notify_movement: "movement",
+        notify_person: "person",
+        notify_audio: "audio",
+        notify_trouble: "trouble",
+        notify_camera_alarm: "cameraAlarm",
+        notify_trouble_email: "troubleEmail",
+    };
+
     // v1.1.0: motion config cache (all cameras).
     // GET /v11/video_inputs/{id}/motion → {enabled, motionAlarmConfiguration, ...}.
     // PUT /motion requires the FULL body — both motion_enabled and
@@ -1637,6 +1653,33 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 },
                 native: {},
             });
+
+            // v1.1.0: per-type push-notification toggles (all cameras). Shared
+            // PUT /notifications (full-body merge via _notificationsCache).
+            // Mirrors HA BoschNotificationTypeSwitch. (audio is only honoured by
+            // cams with featureSupport.sound; the DP is harmless on others.)
+            const NOTIFY_TYPE_NAMES: Record<string, string> = {
+                notify_movement: "Notify: movement",
+                notify_person: "Notify: person detected",
+                notify_audio: "Notify: audio alarm",
+                notify_trouble: "Notify: trouble",
+                notify_camera_alarm: "Notify: camera alarm",
+                notify_trouble_email: "Notify: trouble (e-mail)",
+            };
+            for (const [dp, label] of Object.entries(NOTIFY_TYPE_NAMES)) {
+                await this.setObjectNotExistsAsync(`${prefix}.${dp}`, {
+                    type: "state",
+                    common: {
+                        name: label,
+                        role: "switch",
+                        type: "boolean",
+                        read: true,
+                        write: true,
+                        def: true,
+                    },
+                    native: {},
+                });
+            }
 
             // v1.1.0: detection-mode select (Gen2 only) — shares
             // /intrusionDetectionConfig (full-body merge via _intrusionConfigCache).
@@ -4317,6 +4360,10 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // v1.1.0: record-sound — GET /recording_options mirrors record_sound DP.
         await this._pollRecordingOptions(token, cam.id);
 
+        // v1.1.0: per-type notifications — GET /notifications mirrors the 6
+        // notify_* DPs + seeds _notificationsCache for the write merge.
+        await this._pollNotificationTypes(token, cam.id);
+
         // v0.7.14: Gen2 intrusionDetectionConfig — mirrors sensitivity +
         // distance into DPs AND seeds the write-cache so the user-write
         // handler has a full body to merge into (Bosch rejects DELTA PUTs).
@@ -4555,6 +4602,43 @@ class BoschSmartHomeCamera extends utils.Adapter {
         } catch (err: unknown) {
             this.log.debug(
                 `Recording-options poll for ${camId.slice(0, 8)} failed: ` +
+                    `${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
+    }
+
+    // ── v1.1.0 per-type notifications poll ─────────────────────────────────
+
+    /**
+     * v1.1.0: poll GET /v11/video_inputs/{id}/notifications, seed
+     * _notificationsCache and mirror each present type key into its notify_* DP.
+     * All cameras. 404/443 → keep last value. Best-effort — errors swallowed.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private async _pollNotificationTypes(token: string, camId: string): Promise<void> {
+        try {
+            const url = `${CLOUD_API}/v11/video_inputs/${camId}/notifications`;
+            const resp = await this._httpClient.get<unknown>(url, {
+                headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 404 || s === 443,
+            });
+            if (resp.status === 404 || resp.status === 443 || !resp.data) {
+                return;
+            }
+            const data = resp.data as Record<string, unknown>;
+            this._notificationsCache.set(camId, { ...data });
+            const writes: Promise<void>[] = [];
+            for (const [dp, apiKey] of Object.entries(BoschSmartHomeCamera.NOTIFY_TYPE_MAP)) {
+                if (typeof data[apiKey] === "boolean") {
+                    writes.push(this.upsertState(`cameras.${camId}.${dp}`, data[apiKey]));
+                }
+            }
+            await Promise.all(writes);
+        } catch (err: unknown) {
+            this.log.debug(
+                `Notifications poll for ${camId.slice(0, 8)} failed: ` +
                     `${err instanceof Error ? err.message : String(err)}`,
             );
         }
@@ -5051,6 +5135,25 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         return; // skip ack — write rejected (privacy 443)
                     }
                     break;
+                case "notify_movement":
+                case "notify_person":
+                case "notify_audio":
+                case "notify_trouble":
+                case "notify_camera_alarm":
+                case "notify_trouble_email": {
+                    // v1.1.0: per-type push-notification toggle (shared /notifications).
+                    const apiKey = BoschSmartHomeCamera.NOTIFY_TYPE_MAP[stateName];
+                    if (
+                        !(await this._handleNotificationTypeWrite(
+                            camId,
+                            apiKey,
+                            Boolean(state.val),
+                        ))
+                    ) {
+                        return; // skip ack — write rejected (privacy 443)
+                    }
+                    break;
+                }
                 case "detection_mode": {
                     // v1.1.0: detection-mode select (Gen2 only, shared /intrusionDetectionConfig).
                     const camDm = this._cameras.get(camId);
@@ -5860,6 +5963,67 @@ class BoschSmartHomeCamera extends utils.Adapter {
         }
         this.log.info(
             `Record-sound ${on ? "ON" : "OFF"} for ${camId.slice(0, 8)} (HTTP ${resp.status})`,
+        );
+        return true;
+    }
+
+    // ── v1.1.0 per-type notification write handler ─────────────────────────
+
+    /**
+     * v1.1.0: toggle a single notification type via PUT /v11/video_inputs/{id}/
+     * notifications. Bosch requires the FULL body, so GET-from-cache (or live) →
+     * set the one key → PUT the merged object → cache it. Mirrors
+     * HA BoschNotificationTypeSwitch. Returns false on 443 (privacy).
+     *
+     * @param camId  Camera UUID
+     * @param apiKey one of movement/person/audio/trouble/cameraAlarm/troubleEmail
+     * @param on     desired value
+     */
+    private async _handleNotificationTypeWrite(
+        camId: string,
+        apiKey: string,
+        on: boolean,
+    ): Promise<boolean> {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const url = `${CLOUD_API}/v11/video_inputs/${camId}/notifications`;
+        const headers = {
+            Authorization: `Bearer ${this._currentAccessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        };
+        let body: Record<string, unknown>;
+        const cached = this._notificationsCache.get(camId);
+        if (cached) {
+            body = { ...cached };
+        } else {
+            const getResp = await this._httpClient.get<unknown>(url, {
+                headers,
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
+            });
+            if (getResp.status === 443) {
+                this.log.warn(
+                    `notification-type write for ${camId.slice(0, 8)} skipped — privacy mode (443)`,
+                );
+                return false;
+            }
+            body = (getResp.data as Record<string, unknown>) ?? {};
+        }
+        body[apiKey] = on;
+        const resp = await this._httpClient.put<unknown>(url, body, {
+            headers,
+            validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
+        });
+        if (resp.status === 443) {
+            this.log.warn(
+                `notification-type write for ${camId.slice(0, 8)} rejected — privacy mode (443)`,
+            );
+            return false;
+        }
+        this._notificationsCache.set(camId, { ...body });
+        this.log.info(
+            `Notification type ${apiKey}=${on} for ${camId.slice(0, 8)} (HTTP ${resp.status})`,
         );
         return true;
     }
