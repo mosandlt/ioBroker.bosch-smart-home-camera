@@ -4346,12 +4346,18 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     this.upsertState(`cameras.${camId}.ambient_light_enabled`, enabled),
                 ];
                 // Derive the schedule enum: disabled / dusk_to_dawn / manual.
+                // ambientLightSchedule is either a string ("ENVIRONMENT") or an
+                // object {type:"ENVIRONMENT", …}; read the type as a string only
+                // (never String(object) → "[object Object]").
                 const sched = d.ambientLightSchedule;
-                const schedType = typeof sched === "string"
-                    ? sched
-                    : sched && typeof sched === "object"
-                        ? String(sched.type ?? "")
-                        : "";
+                let schedType = "";
+                if (typeof sched === "string") {
+                    schedType = sched;
+                }
+                else if (sched && typeof sched === "object") {
+                    const t = sched.type;
+                    schedType = typeof t === "string" ? t : "";
+                }
                 const schedEnum = !enabled
                     ? "disabled"
                     : schedType.toUpperCase() === "ENVIRONMENT"
