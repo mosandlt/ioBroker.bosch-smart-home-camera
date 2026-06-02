@@ -242,6 +242,20 @@
           "md": 6,
           "lg": 6,
           "xl": 6
+        },
+        "snapshot_http_port": {
+          "type": "number",
+          "label": "Snapshot HTTP server port (0 = off)",
+          "help": "When > 0, serves the latest JPEG per camera at http://<host>:<port>/<camId>.jpg (LAN, no auth) and publishes a snapshot_url state (role url.cam) for VIS / type-detector. Suggested: 8095.",
+          "min": 0,
+          "max": 65535,
+          "default": 0,
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 6,
+          "lg": 6,
+          "xl": 6
         }
       }
     },

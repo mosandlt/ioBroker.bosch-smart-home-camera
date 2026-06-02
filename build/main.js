@@ -66,6 +66,7 @@ const session_watchdog_1 = require("./lib/session_watchdog");
 const digest_1 = require("./lib/digest");
 const snapshot_1 = require("./lib/snapshot");
 const mjpeg_snapshot_1 = require("./lib/mjpeg_snapshot");
+const snapshot_server_1 = require("./lib/snapshot_server");
 const tls_proxy_1 = require("./lib/tls_proxy");
 const fcm_1 = require("./lib/fcm");
 const alarm_light_1 = require("./lib/alarm_light");
@@ -310,6 +311,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * LAN_TCP_FAIL_THRESHOLD consecutive failures.
      */
     _lanTcpFailCount = new Map();
+    // v1.1.0: per-camera stream generation counter — incremented on every
+    // teardown so a backoff-renewal timer scheduled before the teardown bails
+    // when it finally fires instead of resurrecting a stream the user stopped.
+    // Mirrors HA's _auto_renew_generation guard (the renewal task checks the
+    // generation at the top of every iteration, even after the backoff sleep).
+    _streamGeneration = new Map();
     /** v0.7.10: exponential backoff steps (ms) for cloud renewal retries. */
     static RENEWAL_BACKOFF_MS = [5_000, 15_000, 45_000, 120_000, 300_000];
     /** v0.7.10: maximum Bosch session lifetime (ms). Matches Bosch 60-min limit. */
@@ -344,6 +351,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
     // GET /alarm_settings → {alarmDelayInSeconds, alarmActivationDelaySeconds, preAlarmDelayInSeconds, ...}.
     // PUT /alarm_settings requires the full body — cache holds all fields.
     _alarmSettingsCache = new Map();
+    // v1.1.0: motion config cache (all cameras).
+    // GET /v11/video_inputs/{id}/motion → {enabled, motionAlarmConfiguration, ...}.
+    // PUT /motion requires the FULL body — both motion_enabled and
+    // motion_sensitivity writes merge into this cached baseline so neither
+    // clobbers the other (mirrors _audioCache / _intrusionConfigCache).
+    _motionCache = new Map();
     /**
      * Whether a continuous live RTSP stream is active per camera ID.
      * Default: false (no livestream on adapter start — Bosch counts every
@@ -387,6 +400,16 @@ class BoschSmartHomeCamera extends utils.Adapter {
      */
     // v0.6.0: ioBroker.Timeout (from this.setTimeout) — adapter-core auto-cancels on unload.
     _motionActiveTimers = new Map();
+    /**
+     * v1.1.0: latest JPEG per camera, served by the local HTTP snapshot server
+     * (started in onReady when snapshot_http_port > 0). Populated wherever a
+     * fresh snapshot buffer is fetched; the server only reads from this map.
+     */
+    _latestSnapshots = new Map();
+    /** v1.1.0: HTTP snapshot server handle (undefined when the port is 0/off). */
+    _snapshotServer;
+    /** v1.1.0: host used to build the public snapshot_url (LAN IP, detected once). */
+    _snapshotHost = "127.0.0.1";
     /**
      * How long `cameras.<id>.motion_active` stays true after the last
      * motion event before auto-clearing (ms). Default 90 s, configurable
@@ -487,6 +510,85 @@ class BoschSmartHomeCamera extends utils.Adapter {
             }
             return;
         }
+        // v1.1.0: on-demand snapshot for scripts / notification adapters
+        // (Telegram, Signal, Pushover, …). This is the standard ioBroker
+        // camera-adapter contract: sendTo("bosch-smart-home-camera.0",
+        // "snapshot", {camId}, cb) → callback receives a fresh JPEG. camId
+        // may be the cloud UUID or the camera name (case-insensitive); when
+        // exactly one camera is configured it may be omitted entirely.
+        if (obj.command === "snapshot") {
+            const reply = (payload) => {
+                if (obj.callback) {
+                    this.sendTo(obj.from, obj.command, payload, obj.callback);
+                }
+            };
+            try {
+                const msg = (obj.message ?? {});
+                const requested = typeof msg.camId === "string"
+                    ? msg.camId
+                    : typeof msg.cameraId === "string"
+                        ? msg.cameraId
+                        : typeof msg.id === "string"
+                            ? msg.id
+                            : typeof msg.name === "string"
+                                ? msg.name
+                                : "";
+                const camId = this._resolveCameraId(requested);
+                if (!camId) {
+                    reply({
+                        error: requested
+                            ? `unknown camera "${requested}" — pass a valid cloud-ID or camera name`
+                            : "no camId given and more than one camera configured — pass {camId|name}",
+                    });
+                    return;
+                }
+                // Reuse the fully-tested snapshot path (MJPEG fast-path + snap.jpg
+                // fallback + session reuse); it populates _latestSnapshots.
+                await this.handleSnapshotTrigger(camId);
+                const buf = this._latestSnapshots.get(camId);
+                if (!buf || buf.length === 0) {
+                    reply({ error: `no snapshot available for ${camId.slice(0, 8)}` });
+                    return;
+                }
+                const base64 = buf.toString("base64");
+                reply({
+                    // `data` (raw Buffer) is what notification adapters such as
+                    // telegram accept directly; base64/dataUrl cover the rest.
+                    data: buf,
+                    mimeType: "image/jpeg",
+                    base64,
+                    dataUrl: `data:image/jpeg;base64,${base64}`,
+                    camId,
+                });
+            }
+            catch (err) {
+                const m = err instanceof Error ? err.message : String(err);
+                this.log.warn(`sendTo snapshot failed: ${m}`);
+                reply({ error: m });
+            }
+            return;
+        }
+    }
+    /**
+     * v1.1.0: resolve a sendTo("snapshot") camera reference to a known cloud
+     * UUID. Accepts the exact UUID (case-insensitive), the camera name
+     * (case-insensitive), or — when exactly one camera is configured — an
+     * empty string. Returns null when it cannot be resolved unambiguously.
+     *
+     * @param requested cloud-ID, camera name, or "" for the sole camera
+     */
+    _resolveCameraId(requested) {
+        const ids = Array.from(this._cameras.keys());
+        if (!requested) {
+            return ids.length === 1 ? ids[0] : null;
+        }
+        const lc = requested.toLowerCase();
+        for (const [id, cam] of this._cameras) {
+            if (id.toLowerCase() === lc || (cam.name && cam.name.toLowerCase() === lc)) {
+                return id;
+            }
+        }
+        return null;
     }
     // ── State helpers ───────────────────────────────────────────────────────
     /**
@@ -1258,6 +1360,62 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 },
                 native: {},
             });
+            // v1.1.0: push-notification on/off (all cameras, cloud-only — works
+            // even when the camera is offline). PUT /enable_notifications
+            // {enabledNotificationsStatus: FOLLOW_CAMERA_SCHEDULE|ALWAYS_OFF}.
+            // Read mirrored from the listing field notificationsEnabledStatus.
+            // Mirrors HA BoschNotificationsSwitch.
+            await this.setObjectNotExistsAsync(`${prefix}.notifications_enabled`, {
+                type: "state",
+                common: {
+                    name: "Push notifications (Bosch app) on/off",
+                    role: "switch",
+                    type: "boolean",
+                    read: true,
+                    write: true,
+                    def: true,
+                },
+                native: {},
+            });
+            // v1.1.0: motion detection on/off (all cameras). PUT /motion
+            // {enabled, motionAlarmConfiguration} — full body merged via
+            // _motionCache. Privacy-blocked on Gen2 Indoor (HTTP 443).
+            // Mirrors HA BoschMotionEnabledSwitch.
+            await this.setObjectNotExistsAsync(`${prefix}.motion_enabled`, {
+                type: "state",
+                common: {
+                    name: "Motion detection on/off",
+                    role: "switch",
+                    type: "boolean",
+                    read: true,
+                    write: true,
+                    def: true,
+                },
+                native: {},
+            });
+            // v1.1.0: motion sensitivity select. Shares PUT /motion with
+            // motion_enabled (full body via _motionCache). API enum values are
+            // the upper-cased option keys. Mirrors HA BoschMotionSensitivitySelect.
+            await this.setObjectNotExistsAsync(`${prefix}.motion_sensitivity`, {
+                type: "state",
+                common: {
+                    name: "Motion sensitivity",
+                    role: "level.mode",
+                    type: "string",
+                    read: true,
+                    write: true,
+                    def: "high",
+                    states: {
+                        super_high: "Super high",
+                        high: "High",
+                        medium_high: "Medium high",
+                        medium_low: "Medium low",
+                        low: "Low",
+                        off: "Off",
+                    },
+                },
+                native: {},
+            });
             // v0.7.6: gate light DPs on featureLight — Indoor II (Gen2, no LEDs)
             // must not get DPs that can never work. Gen1 always has light hardware
             // (lighting_override endpoint); Gen2 only when featureSupport.light=true.
@@ -1468,6 +1626,23 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 common: {
                     name: "Path to last fetched snapshot JPEG (in adapter data folder)",
                     role: "text.url",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "",
+                },
+                native: {},
+            });
+            // v1.1.0: HTTP snapshot URL with role "url.cam" — the ioBroker
+            // type-detector recognises a state with this role as a camera, and
+            // VIS camera/image widgets render it directly. Populated only when
+            // the local snapshot HTTP server is enabled (snapshot_http_port > 0);
+            // stays "" otherwise so consumers can tell the feature is off.
+            await this.setObjectNotExistsAsync(`${prefix}.snapshot_url`, {
+                type: "state",
+                common: {
+                    name: "HTTP URL of the latest snapshot (for VIS / url.cam consumers)",
+                    role: "url.cam",
                     type: "string",
                     read: true,
                     write: false,
@@ -2020,6 +2195,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
         const expiresAt = Date.now() + tokens.expires_in * 1000;
         this._currentAccessToken = tokens.access_token;
         this._currentRefreshToken = tokens.refresh_token;
+        // v1.1.0: keep the FCM listener's bearer token current. Bosch tokens
+        // expire ~1 h; without this the next FCM reconnect re-registers with
+        // CBS using the stale construction-time token → HTTP 401 → push lost
+        // permanently. saveTokens runs on initial login AND every refresh.
+        this._fcmListener?.updateBearerToken(tokens.access_token);
         // v0.6.0: tokens are AES-wrapped via this.encrypt() before persisting so
         // a user reading the Objects tab in Admin no longer sees plaintext.
         await this.upsertState("info.access_token", this._encryptSecret(tokens.access_token));
@@ -2241,9 +2421,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
             nextRetryMs: Date.now() + retryDelayMs,
         });
         this.log.debug(`RTSP watchdog: camera ${camPrefix} — scheduling renewal retry #${attempt + 1} in ${retryInS} s`);
-        // Use adapter setTimeout so it's automatically cancelled on unload
+        // Use adapter setTimeout so it's automatically cancelled on unload.
+        // v1.1.0: capture the current generation; if a teardown bumps it
+        // before this fires, _attemptBackoffRenewal bails (no resurrection).
+        const gen = this._streamGeneration.get(camId) ?? 0;
         this.setTimeout(() => {
-            void this._attemptBackoffRenewal(camId).catch((retryErr) => {
+            void this._attemptBackoffRenewal(camId, gen).catch((retryErr) => {
                 const msg = retryErr instanceof Error ? retryErr.message : String(retryErr);
                 this.log.debug(`RTSP watchdog: backoff retry threw unexpectedly: ${msg}`);
             });
@@ -2259,8 +2442,16 @@ class BoschSmartHomeCamera extends utils.Adapter {
      *
      * @param camId  Camera UUID
      */
-    async _attemptBackoffRenewal(camId) {
+    async _attemptBackoffRenewal(camId, expectedGeneration) {
         const camPrefix = camId.slice(0, 8);
+        // v1.1.0: bail if the stream was torn down after this retry was armed.
+        // A teardown bumps _streamGeneration; a stale retry must NOT re-open a
+        // session the user stopped (HA: generation check at top of renew loop).
+        if (expectedGeneration !== undefined &&
+            (this._streamGeneration.get(camId) ?? 0) !== expectedGeneration) {
+            this.log.debug(`RTSP watchdog: skipping stale renewal for ${camPrefix} — stream was torn down`);
+            return;
+        }
         // ── LAN TCP-connect check ─────────────────────────────────────────────
         if (this._lanIpMap.has(camId)) {
             const reachable = await this._tcpPing(camId);
@@ -2340,6 +2531,10 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * @param camId  Camera UUID
      */
     _doTeardownStream(camId) {
+        // v1.1.0: bump the generation so any backoff-renewal timer already
+        // armed for this camera bails when it fires (stops a torn-down stream
+        // from being resurrected). HA: _auto_renew_generation increment.
+        this._streamGeneration.set(camId, (this._streamGeneration.get(camId) ?? 0) + 1);
         this._renewalBackoff.delete(camId);
         this._lanTcpFailCount.delete(camId);
         this._sessionStartTime.delete(camId);
@@ -2789,6 +2984,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
             const hq = (this._streamQuality.get(camId) ?? "high") === "high";
             const session = await (0, live_session_1.openLiveSession)(this._httpClient, this._currentAccessToken, camId, hq);
             this._liveSessions.set(camId, session);
+            // v1.1.0: stamp the session start time. Without it, if this
+            // emergency session is later adopted by a watchdog (cache-hit in
+            // ensureLiveSession), _handleRenewalFailure reads the -Infinity
+            // default → sessionAge=Infinity ≥ SESSION_MAX_AGE_MS → the stream
+            // is torn down on the FIRST cloud hiccup instead of after 60 min.
+            this._sessionStartTime.set(camId, Date.now());
             this.log.info(`Emergency LiveSession opened for LAN-RCP write on camera ${camId.slice(0, 8)}`);
             return { user: session.digestUser, password: session.digestPassword };
         }
@@ -3161,17 +3362,32 @@ class BoschSmartHomeCamera extends utils.Adapter {
         });
         // Silent push wake-up — Bosch sends no payload; fetch events from API
         this._fcmListener.on("push", () => {
-            void this.fetchAndProcessEvents();
+            // v1.1.0: guard the fire-and-forget promise — fetchAndProcessEvents
+            // awaits network + setStateAsync and can reject; an uncaught
+            // rejection here would surface as an UnhandledPromiseRejection.
+            void this.fetchAndProcessEvents().catch((err) => {
+                const msg = err instanceof Error ? err.message : String(err);
+                this.log.debug(`FCM push event processing failed: ${msg}`);
+            });
         });
         // Typed event fallback — when push contains explicit event-type data
         this._fcmListener.on("motion", (ev) => {
-            void this.onFcmEvent(ev);
+            void this.onFcmEvent(ev).catch((err) => {
+                const msg = err instanceof Error ? err.message : String(err);
+                this.log.warn(`FCM typed event processing failed: ${msg}`);
+            });
         });
         this._fcmListener.on("audio_alarm", (ev) => {
-            void this.onFcmEvent(ev);
+            void this.onFcmEvent(ev).catch((err) => {
+                const msg = err instanceof Error ? err.message : String(err);
+                this.log.warn(`FCM typed event processing failed: ${msg}`);
+            });
         });
         this._fcmListener.on("person", (ev) => {
-            void this.onFcmEvent(ev);
+            void this.onFcmEvent(ev).catch((err) => {
+                const msg = err instanceof Error ? err.message : String(err);
+                this.log.warn(`FCM typed event processing failed: ${msg}`);
+            });
         });
         // Registration success — log token prefix + persist creds + mark healthy
         this._fcmListener.on("registered", (creds) => {
@@ -3249,6 +3465,30 @@ class BoschSmartHomeCamera extends utils.Adapter {
             void this._mqttBridge.connect().catch((err) => {
                 this.log.warn(`MQTT Bridge: initial connect failed — ${err instanceof Error ? err.message : String(err)}`);
             });
+        }
+        // ── Step 9: local HTTP snapshot server (v1.1.0) ──────────────────────
+        // Optional. Serves the latest cached JPEG per camera over plain HTTP on
+        // the LAN so VIS / url.cam consumers can load it without a token. Bind
+        // errors (e.g. port in use) are logged but must not block startup.
+        const snapPort = Number(this.config.snapshot_http_port) || 0;
+        if (snapPort > 0) {
+            this._snapshotHost = (0, snapshot_server_1.detectLanIp)();
+            try {
+                this._snapshotServer = await (0, snapshot_server_1.startSnapshotServer)({
+                    port: snapPort,
+                    getSnapshot: (camId) => this._latestSnapshots.get(camId),
+                    log: this.log,
+                });
+                // Publish the url.cam endpoint for every known camera now — the
+                // URL is valid even before the first snapshot is cached (it 404s
+                // until then, which VIS image widgets handle gracefully).
+                for (const camId of this._cameras.keys()) {
+                    await this.setStateAsync(`cameras.${camId}.snapshot_url`, (0, snapshot_server_1.snapshotUrl)(this._snapshotHost, snapPort, camId), true);
+                }
+            }
+            catch (err) {
+                this.log.warn(`snapshot server disabled — ${err instanceof Error ? err.message : String(err)}`);
+            }
         }
         this.log.info(`Bosch Smart Home Camera adapter ready — ${cameras.length} camera(s) active`);
     }
@@ -3365,6 +3605,18 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 if (this._liveSessions.has(cam.id)) {
                     const oldSession = this._liveSessions.get(cam.id);
                     this._liveSessions.delete(cam.id);
+                    // v1.1.0: stop the watchdog + bump the generation too.
+                    // Otherwise it keeps counting down against the dropped
+                    // session and, on its next renewal, opens a NEW Bosch
+                    // session that the eventual _teardownStream misses
+                    // (its has()-check is false) → server-side session leak.
+                    // HA cancels the renewal task BEFORE dropping the session.
+                    const staleWatchdog = this._sessionWatchdogs.get(cam.id);
+                    if (staleWatchdog) {
+                        staleWatchdog.stop();
+                        this._sessionWatchdogs.delete(cam.id);
+                    }
+                    this._streamGeneration.set(cam.id, (this._streamGeneration.get(cam.id) ?? 0) + 1);
                     // Clear the now-stale stream URLs so external clients see
                     // an empty value (and refuse to connect with bogus creds)
                     // instead of trying the stale URL and getting a 401.
@@ -3395,6 +3647,18 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // Read-only; best-effort (camera may be on Ethernet → 404).
         // Fetched for all cameras in the coordinator poll cycle.
         await this._pollWifiInfo(token, cam.id);
+        // v1.1.0: mirror push-notification status from the listing field
+        // (notificationsEnabledStatus) → notifications_enabled DP, so a toggle
+        // made in the Bosch app propagates back to ioBroker. ALWAYS_OFF → false,
+        // FOLLOW_CAMERA_SCHEDULE / ON_CAMERA_SCHEDULE → true; absent → skip.
+        if (cam.notificationsEnabledStatus !== undefined) {
+            const notifOn = cam.notificationsEnabledStatus.toUpperCase() !== "ALWAYS_OFF";
+            await this.upsertState(`cameras.${cam.id}.notifications_enabled`, notifOn);
+        }
+        // v1.1.0: motion enabled + sensitivity — GET /motion mirrors both DPs
+        // AND seeds _motionCache so the write handler has a full body to merge
+        // into (Bosch /motion rejects partial PUTs). All cameras.
+        await this._pollMotionConfig(token, cam.id);
         // v0.7.14: Gen2 intrusionDetectionConfig — mirrors sensitivity +
         // distance into DPs AND seeds the write-cache so the user-write
         // handler has a full body to merge into (Bosch rejects DELTA PUTs).
@@ -3520,6 +3784,55 @@ class BoschSmartHomeCamera extends utils.Adapter {
         }
         catch (err) {
             this.log.debug(`Intrusion config poll for ${camId.slice(0, 8)} failed: ` +
+                `${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+    // ── v1.1.0 motion config poll ───────────────────────────────────────────
+    /**
+     * v1.1.0: fetch GET /v11/video_inputs/{id}/motion and mirror `enabled` →
+     * motion_enabled DP + `motionAlarmConfiguration` → motion_sensitivity DP
+     * (lower-cased to match the select option keys). Also seeds _motionCache
+     * so the write handler has a full baseline body to merge into (Bosch /motion
+     * rejects partial PUTs). All cameras. Best-effort — errors swallowed.
+     * 404/443 (privacy) → keep last-known DP values.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    async _pollMotionConfig(token, camId) {
+        try {
+            const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/motion`;
+            const resp = await this._httpClient.get(url, {
+                headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 404 || s === 443,
+            });
+            if (resp.status === 404 || resp.status === 443 || !resp.data) {
+                return;
+            }
+            const data = resp.data;
+            this._motionCache.set(camId, { ...data });
+            const writes = [];
+            if (typeof data.enabled === "boolean") {
+                writes.push(this.upsertState(`cameras.${camId}.motion_enabled`, data.enabled));
+            }
+            if (typeof data.motionAlarmConfiguration === "string") {
+                const sens = data.motionAlarmConfiguration.toLowerCase();
+                const allowed = new Set([
+                    "super_high",
+                    "high",
+                    "medium_high",
+                    "medium_low",
+                    "low",
+                    "off",
+                ]);
+                if (allowed.has(sens)) {
+                    writes.push(this.upsertState(`cameras.${camId}.motion_sensitivity`, sens));
+                }
+            }
+            await Promise.all(writes);
+        }
+        catch (err) {
+            this.log.debug(`Motion config poll for ${camId.slice(0, 8)} failed: ` +
                 `${err instanceof Error ? err.message : String(err)}`);
         }
     }
@@ -3866,6 +4179,39 @@ class BoschSmartHomeCamera extends utils.Adapter {
                             const msg = err instanceof Error ? err.message : String(err);
                             this.log.debug(`Auto-snapshot after privacy off failed for ${camId}: ${msg}`);
                         });
+                    }
+                    break;
+                }
+                case "notifications_enabled":
+                    // v1.1.0: push-notification schedule on/off (all cameras).
+                    await this._handleNotificationsWrite(camId, Boolean(state.val));
+                    break;
+                case "motion_enabled":
+                    // v1.1.0: motion detection on/off (shared /motion endpoint).
+                    // Skip the generic ack when the write was rejected (privacy
+                    // 443) so the DP keeps its real value instead of a misleading
+                    // optimistic one — the next poll re-syncs from the device.
+                    if (!(await this._handleMotionWrite(camId, { enabled: Boolean(state.val) }))) {
+                        return;
+                    }
+                    break;
+                case "motion_sensitivity": {
+                    // v1.1.0: motion sensitivity select (shared /motion endpoint).
+                    const sens = typeof state.val === "string" ? state.val : "";
+                    const allowed = new Set([
+                        "super_high",
+                        "high",
+                        "medium_high",
+                        "medium_low",
+                        "low",
+                        "off",
+                    ]);
+                    if (!allowed.has(sens)) {
+                        this.log.warn(`motion_sensitivity write for ${camId.slice(0, 8)} ignored — invalid value "${sens}"`);
+                        return; // skip ack — keep the last valid value
+                    }
+                    if (!(await this._handleMotionWrite(camId, { sensitivity: sens }))) {
+                        return; // skip ack — write rejected (privacy 443)
                     }
                     break;
                 }
@@ -4289,6 +4635,98 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // doesn't need another GET.
         this._audioCache.set(camId, { ...audio });
         this.log.info(`Audio ${field} level set to ${clamped} for ${camId.slice(0, 8)} (HTTP ${resp.status})`);
+    }
+    // ── v1.1.0 push-notifications handler ───────────────────────────────────
+    /**
+     * v1.1.0: enable/disable Bosch push notifications for a camera.
+     * PUT /v11/video_inputs/{id}/enable_notifications
+     * body {"enabledNotificationsStatus": "FOLLOW_CAMERA_SCHEDULE" | "ALWAYS_OFF"}.
+     * Cloud-only (works even when the camera is offline). No generation gate.
+     * Mirrors HA BoschNotificationsSwitch (turning ON always sends
+     * FOLLOW_CAMERA_SCHEDULE, never ON_CAMERA_SCHEDULE).
+     *
+     * @param camId   Camera UUID
+     * @param enabled true → FOLLOW_CAMERA_SCHEDULE, false → ALWAYS_OFF
+     */
+    async _handleNotificationsWrite(camId, enabled) {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/enable_notifications`;
+        const body = {
+            enabledNotificationsStatus: enabled ? "FOLLOW_CAMERA_SCHEDULE" : "ALWAYS_OFF",
+        };
+        const resp = await this._httpClient.put(url, body, {
+            headers: {
+                Authorization: `Bearer ${this._currentAccessToken}`,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+            validateStatus: (s) => s >= 200 && s < 300,
+        });
+        this.log.info(`Notifications ${enabled ? "ON" : "OFF"} for ${camId.slice(0, 8)} (HTTP ${resp.status})`);
+    }
+    // ── v1.1.0 motion-detection handler ─────────────────────────────────────
+    /**
+     * v1.1.0: write motion detection config to the Bosch cloud API.
+     * PUT /v11/video_inputs/{id}/motion — the API requires the FULL body
+     * {enabled, motionAlarmConfiguration}; a partial PUT silently drops the
+     * omitted field. So GET-from-cache (or live) → merge the one delta field →
+     * PUT the merged body → cache it (mirrors _handleAudioLevelWrite).
+     * Shared by motion_enabled and motion_sensitivity. Privacy-blocked on
+     * Gen2 Indoor → Bosch returns HTTP 443; we surface that as a warning.
+     *
+     * @param camId Camera UUID
+     * @param delta partial motion config to merge into the cached full body
+     * @param delta.enabled motion detection on/off
+     * @param delta.sensitivity lower-case sensitivity option key (super_high…off)
+     */
+    async _handleMotionWrite(camId, delta) {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/motion`;
+        const headers = {
+            Authorization: `Bearer ${this._currentAccessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        };
+        // Full-body merge: start from the cached baseline or a live GET.
+        let motion;
+        const cached = this._motionCache.get(camId);
+        if (cached) {
+            motion = { ...cached };
+        }
+        else {
+            const getResp = await this._httpClient.get(url, {
+                headers,
+                // 443 = privacy mode active, motion config frozen (HA convention).
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
+            });
+            if (getResp.status === 443) {
+                this.log.warn(`motion write for ${camId.slice(0, 8)} skipped — camera in privacy mode (HTTP 443)`);
+                return false; // skip ack — keep last known value
+            }
+            motion = getResp.data ?? {};
+        }
+        if (delta.enabled !== undefined) {
+            motion.enabled = delta.enabled;
+        }
+        if (delta.sensitivity !== undefined) {
+            // API enum is the upper-cased option key (super_high → SUPER_HIGH).
+            motion.motionAlarmConfiguration = delta.sensitivity.toUpperCase();
+        }
+        const resp = await this._httpClient.put(url, motion, {
+            headers,
+            validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
+        });
+        if (resp.status === 443) {
+            this.log.warn(`motion write for ${camId.slice(0, 8)} rejected — camera in privacy mode (HTTP 443)`);
+            return false;
+        }
+        this._motionCache.set(camId, { ...motion });
+        this.log.info(`Motion config ${JSON.stringify(delta)} for ${camId.slice(0, 8)} (HTTP ${resp.status})`);
+        return true;
     }
     // ── v0.7.7 intrusion-detection handler ─────────────────────────────────
     /**
@@ -5502,6 +5940,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
             }
             const filePath = `cameras/${camId}/snapshot.jpg`;
             await this.writeFileAsync(this.namespace, filePath, buf);
+            // v1.1.0: hand the freshest frame to the local HTTP snapshot server
+            // BEFORE publishing snapshot_path — a consumer reacting to the
+            // snapshot_path change may immediately GET the HTTP snapshot URL,
+            // so the buffer must already be in the map or it 404s / serves a
+            // stale frame (no-op when the server is disabled — map unread).
+            this._latestSnapshots.set(camId, buf);
             await this.setStateAsync(`cameras.${camId}.snapshot_path`, `/${this.namespace}/${filePath}`, true);
             // v0.5.3: motion-event snapshots additionally publish the JPEG as
             // base64 so push integrations (Telegram, Signal, Matrix) can
@@ -5620,6 +6064,15 @@ class BoschSmartHomeCamera extends utils.Adapter {
         try {
             await this._fcmListener.start();
             this._fcmReconnectAttempt = 0;
+            // v1.1.0: push works again — stop the polling fallback so we don't
+            // keep hitting /v11/events every 30 s for the adapter's lifetime
+            // (it was started when push first failed and is otherwise never
+            // cleared). If push dies again the disconnect→reconnect path
+            // re-arms it.
+            if (this._eventPollTimer) {
+                this.clearInterval(this._eventPollTimer);
+                this._eventPollTimer = undefined;
+            }
             await this.setStateAsync("info.fcm_active", "healthy", true);
             this.log.info("FCM push listener reconnected");
         }
@@ -5652,7 +6105,10 @@ class BoschSmartHomeCamera extends utils.Adapter {
      */
     static normaliseBoschTimestamp(raw) {
         if (typeof raw !== "string") {
-            return raw;
+            // v1.1.0: coerce — some Bosch firmware returns a numeric epoch for
+            // timestamp/createdAt. Returning it unchanged wrote a number into
+            // the type:"string" last_motion_at DP. String() keeps the DP typed.
+            return String(raw);
         }
         return raw.replace(/\[[^\]]+\]$/, "");
     }
@@ -5707,6 +6163,15 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 .catch((retryErr) => {
                 const msg = retryErr instanceof Error ? retryErr.message : String(retryErr);
                 this.log.debug(`[session-quota] Auto-retry still failed for ${camPrefix}: ${msg}`);
+                // v1.1.0: if the retry ALSO hit the session quota, schedule
+                // another 60 s retry. Without this the camera stays stuck at
+                // session_limit_hit=true until a user-triggered snapshot or an
+                // adapter restart (the setTimeout comment above wrongly claimed
+                // this re-scheduling already happened). The loop self-terminates
+                // once Bosch releases a slot and ensureLiveSession succeeds.
+                if (retryErr instanceof live_session_1.SessionLimitError) {
+                    void this._handleSessionLimitError(camId);
+                }
             });
         }, 60_000);
     }
@@ -5878,6 +6343,17 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     this.clearTimeout(timer);
                 }
                 this._motionActiveTimers.clear();
+                // v1.1.0: stop the local HTTP snapshot server + drop cached frames
+                if (this._snapshotServer) {
+                    try {
+                        await this._snapshotServer.close();
+                    }
+                    catch {
+                        /* best-effort */
+                    }
+                    this._snapshotServer = undefined;
+                }
+                this._latestSnapshots.clear();
                 // Stop all session watchdogs BEFORE stopping TLS proxies
                 // (prevents watchdog renewal racing with cleanup)
                 for (const [, watchdog] of this._sessionWatchdogs) {

@@ -40,6 +40,7 @@
     "Reset": "Resetar",
     "Reset login (clear tokens & restart)": "Reset login (limpar tokens e reiniciar)",
     "Reset login?": "Reset login?",
+    "Snapshot HTTP server port (0 = off)": "Porta do servidor HTTP de instantâneo (0 = desativado)",
     "Step 1: Open the Bosch login URL in your browser": "Passo 1: Abra a URL de login Bosch no navegador",
     "Step 2: Paste the redirect URL": "Passo 2: Cole a URL de redirecionamento",
     "Stored encrypted in the ioBroker object store.": "Armazenado criptografado no armazenamento de objetos ioBroker.",
@@ -49,6 +50,7 @@
     "Use MJPEG inst=3 for Gen2 snapshots (fast LAN path)": "Use MJPEG inst=3 para snapshots Gen2 (caminho LAN rápido)",
     "Use TLS (mqtts://)": "Usar TLS (mqtts://)",
     "Username (optional)": "Nome de usuário (opcional)",
+    "When > 0, serves the latest JPEG per camera at http://<host>:<port>/<camId>.jpg (LAN, no auth) and publishes a snapshot_url state (role url.cam) for VIS / type-detector. Suggested: 8095.": "Quando > 0, exibe o JPEG mais recente por câmera em http://<host>:<port>/<camId>.jpg (LAN, sem autenticação) e publica um estado snapshot_url (role url.cam) para VIS/detector de tipo. Sugerido: 8095.",
     "When enabled, every motion / person / audio_alarm event is published as a JSON payload to <prefix>/<cam_id>/motion|person|audio. Compatible with Node-RED, openHAB, Home Assistant, Frigate, and any other MQTT consumer.": "Quando ativado, cada evento motion / person / audio_alarm é publicado como uma carga JSON em <prefix>/<cam_id>/motion|person|audio. Compatível com Node-RED, openHAB, Home Assistant, Frigate e qualquer outro consumidor MQTT.",
     "When the camera reports a motion / person / audio_alarm event (via FCM push or polling fallback), automatically fetch a fresh snapshot and write a base64-encoded copy into cameras.<id>.last_event_image. Perfect for Telegram / Signal / Matrix push notifications: your automation reads last_event_image and forwards the JPEG directly, no separate snapshot_trigger needed. Bursts (continuous motion) reuse the warm Bosch session so quota stays low.": "Quando a câmera reporta um evento motion / person / audio_alarm (via push FCM ou polling de fallback), busca automaticamente um novo snapshot e escreve uma cópia base64 em cameras.<id>.last_event_image. Perfeito para notificações push Telegram / Signal / Matrix: sua automação lê last_event_image e encaminha o JPEG diretamente, sem snapshot_trigger separado. Rajadas (movimento contínuo) reutilizam a sessão Bosch quente, mantendo a cota baixa.",
     "⚠ Copy the redirect URL within ~60 seconds. The Bosch auth code in that URL expires very quickly — if you wait too long, the paste will fail with 'code expired'. Keep this dialog open in a second tab so you can paste immediately. If it expires, just click 'Open Bosch Login' again for a fresh URL.": "⚠ Copy the redirect URL within ~60 seconds. The Bosch auth code in that URL expires very quickly — if you wait too long, the paste will fail with 'code expired'. Keep this dialog open in a second tab so you can paste immediately. If it expires, just click 'Open Bosch Login' again for a fresh URL."

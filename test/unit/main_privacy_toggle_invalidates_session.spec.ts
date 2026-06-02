@@ -59,6 +59,8 @@ type AnyFn = (...args: any[]) => any;
 
 interface PollStub {
     _liveSessions: Map<string, { digestUser: string; digestPassword: string; openedAt: number }>;
+    _sessionWatchdogs: Map<string, { stop: () => void }>;
+    _streamGeneration: Map<string, number>;
     _cameras: Map<string, unknown>;
     _livestreamEnabled: Map<string, boolean>;
     _lanIpMap: Map<string, string>;
@@ -98,6 +100,8 @@ function makeStub(opts: {
     }
     const stub: PollStub = {
         _liveSessions: new Map(),
+        _sessionWatchdogs: new Map(),
+        _streamGeneration: new Map(),
         _cameras: new Map(),
         _livestreamEnabled: new Map(),
         _lanIpMap: new Map(),
@@ -297,5 +301,33 @@ describe("privacy ON→OFF eager LiveSession refresh (forum #1341076)", () => {
         await method.pollSingleCameraState.call(stub, "token", cam);
         await new Promise((r) => setImmediate(r));
         expect(stub.ensureLiveSession.called).to.equal(false);
+    });
+});
+
+// v1.1.0 regression — privacy toggle must also stop watchdog + bump generation
+describe("privacy toggle stops watchdog + bumps generation (v1.1.0 regression)", () => {
+    let method: ReturnType<typeof loadMethod>;
+    before(() => { method = loadMethod(); });
+    afterEach(() => { sinon.restore(); });
+
+    it("OFF→ON: watchdog stopped + deleted + generation bumped", async () => {
+        const stub = makeStub({ hasSession: true, currentPrivacyDp: false });
+        const stopStub = sinon.stub();
+        stub._sessionWatchdogs.set(CAM_A, { stop: stopStub });
+        stub._streamGeneration.set(CAM_A, 3);
+
+        const cam = { id: CAM_A, name: "Terrasse", privacyMode: "ON" };
+        // currentPrivacyDp=false (OFF), cam.privacyMode=ON → OFF→ON external toggle
+        await method.pollSingleCameraState.call(stub, "token", cam);
+
+        // v1.1.0: watchdog must be stopped and removed so it cannot resurrect
+        // a Bosch session that will never be cleanly torn down (server-side leak).
+        expect(stopStub.calledOnce, "watchdog.stop() called").to.equal(true);
+        expect(stub._sessionWatchdogs.has(CAM_A), "watchdog removed from map").to.equal(false);
+
+        // v1.1.0: generation must be bumped so any stale backoff-renewal
+        // timer that fires after the session was dropped bails immediately.
+        const newGen = stub._streamGeneration.get(CAM_A) ?? 0;
+        expect(newGen, "generation incremented from 3").to.be.greaterThan(3);
     });
 });

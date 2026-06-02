@@ -55,6 +55,7 @@ interface EmergencySessionStub {
     _currentAccessToken: string | null;
     _httpClient: unknown;
     _localWriteAt: Map<string, number>;
+    _sessionStartTime: Map<string, number>;
     log: {
         info: sinon.SinonStub;
         debug: sinon.SinonStub;
@@ -71,6 +72,7 @@ function makeStub(opts: {
         _currentAccessToken: opts.token !== undefined ? opts.token : "test-token",
         _httpClient: {},
         _localWriteAt: new Map(),
+        _sessionStartTime: new Map(),
         log: {
             info: sinon.stub(),
             debug: sinon.stub(),
@@ -300,6 +302,44 @@ describe("Emergency LiveSession opener — v0.7.8", () => {
                 user: "cbs-EXISTING",
                 password: "existing-pass",
             });
+        });
+    });
+
+    // ── pin 5: v1.1.0 regression — session start time stamped on success ──────
+
+    describe("emergency_session_stamps_session_start_time_v110", () => {
+        it("stamps _sessionStartTime after storing session so watchdog computes real age", async () => {
+            const stub = makeStub({ hasSession: false });
+            expect(stub._sessionStartTime.has(CAM_A)).to.equal(false);
+
+            const openStub = sinon
+                .stub(liveSessionModule, "openLiveSession")
+                .resolves({
+                    cameraId: CAM_A,
+                    connectionType: "LOCAL" as const,
+                    digestUser: "cbs-TSTAMP",
+                    digestPassword: "ts-pass",
+                    proxyUrl: "https://192.0.2.10:443/snap.jpg",
+                    lanAddress: "192.0.2.10:443",
+                    bufferingTimeMs: 500,
+                    maxSessionDuration: 3600,
+                    openedAt: Date.now(),
+                });
+
+            try {
+                const beforeCall = Date.now();
+                await method.openEmergencySession.call(stub, CAM_A);
+
+                // v1.1.0: _sessionStartTime must be set so a watchdog that
+                // later adopts this session computes a real age rather than
+                // Infinity (which would cause teardown on the first cloud hiccup).
+                expect(stub._sessionStartTime.has(CAM_A), "_sessionStartTime stamped").to.equal(true);
+                const stamped = stub._sessionStartTime.get(CAM_A)!;
+                expect(stamped).to.be.greaterThanOrEqual(beforeCall);
+                expect(stamped).to.be.lessThanOrEqual(Date.now());
+            } finally {
+                openStub.restore();
+            }
         });
     });
 });

@@ -421,6 +421,57 @@ describe("FcmListener._registerWithCbs()", () => {
             axios.defaults.adapter = savedAdapter as typeof axios.defaults.adapter;
         }
     });
+
+    // v1.1.0 regression: bearer token must be refreshable so a reconnect after
+    // an OAuth token refresh re-registers with a LIVE token (not the stale
+    // construction-time one → CBS 401 → push lost permanently).
+    it("updateBearerToken() makes _registerWithCbs use the NEW token", async () => {
+        const savedAdapter = axios.defaults.adapter;
+        let capturedAuth: unknown;
+        axios.defaults.adapter = (config) => {
+            capturedAuth = config.headers?.Authorization ?? config.headers?.authorization;
+            return Promise.resolve({
+                status: 204,
+                data: "",
+                headers: {},
+                statusText: "No Content",
+                config,
+                request: {},
+            } as Parameters<NonNullable<typeof axios.defaults.adapter>>[0]);
+        };
+        try {
+            const listener = makeListener("OLD-TOKEN");
+            listener.updateBearerToken("NEW-TOKEN");
+            await listener._registerWithCbs("fcm-tok");
+            expect(String(capturedAuth)).to.equal("Bearer NEW-TOKEN");
+        } finally {
+            axios.defaults.adapter = savedAdapter as typeof axios.defaults.adapter;
+        }
+    });
+
+    it("updateBearerToken('') is ignored — keeps the previous token", async () => {
+        const savedAdapter = axios.defaults.adapter;
+        let capturedAuth: unknown;
+        axios.defaults.adapter = (config) => {
+            capturedAuth = config.headers?.Authorization ?? config.headers?.authorization;
+            return Promise.resolve({
+                status: 204,
+                data: "",
+                headers: {},
+                statusText: "No Content",
+                config,
+                request: {},
+            } as Parameters<NonNullable<typeof axios.defaults.adapter>>[0]);
+        };
+        try {
+            const listener = makeListener("KEEP-ME");
+            listener.updateBearerToken("");
+            await listener._registerWithCbs("fcm-tok");
+            expect(String(capturedAuth)).to.equal("Bearer KEEP-ME");
+        } finally {
+            axios.defaults.adapter = savedAdapter as typeof axios.defaults.adapter;
+        }
+    });
 });
 
 // ── 5. Notification parser (_parseNotification) ───────────────────────────────

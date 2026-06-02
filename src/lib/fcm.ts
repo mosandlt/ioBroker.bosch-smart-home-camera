@@ -268,7 +268,11 @@ const DEFAULT_DEPS: FcmDeps = {
  */
 export class FcmListener extends EventEmitter {
     private readonly _httpClient: AxiosInstance;
-    private readonly _bearerToken: string;
+    // v1.1.0: NOT readonly — Bosch access tokens expire ~1 h. The adapter
+    // refreshes them into a new string; _registerWithCbs (called on every
+    // start(), including reconnect) must use the CURRENT token or it 401s and
+    // push is lost permanently. Updated via updateBearerToken().
+    private _bearerToken: string;
     private readonly _options: FcmListenerOptions;
     /** Injectable deps — overridable in tests. */
     readonly _deps: FcmDeps;
@@ -298,6 +302,20 @@ export class FcmListener extends EventEmitter {
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
+
+    /**
+     * v1.1.0: refresh the bearer token used for the Bosch CBS registration.
+     * The adapter must call this whenever its OAuth access token is renewed
+     * (and before a reconnect) so the next start() / _registerWithCbs uses a
+     * live token instead of the expired one captured at construction.
+     *
+     * @param token the current Bosch access_token
+     */
+    updateBearerToken(token: string): void {
+        if (token) {
+            this._bearerToken = token;
+        }
+    }
 
     /**
      * Register with FCM and start listening for push notifications.

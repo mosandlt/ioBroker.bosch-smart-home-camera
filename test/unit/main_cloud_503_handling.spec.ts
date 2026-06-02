@@ -75,6 +75,7 @@ interface CloudStub {
     _sessionStartTime: Map<string, number>;
     _renewalBackoff: Map<string, { attempt: number; nextRetryMs: number }>;
     _lanTcpFailCount: Map<string, number>;
+    _streamGeneration: Map<string, number>;
     _lastMaintenanceWindow: MaintenanceWindow | null;
     _lastOutagePingAt: number;
     _cameras: Map<string, unknown>;
@@ -137,6 +138,7 @@ function makeStub(
         _lanTcpFailCount: new Map(
             opts.lanFailCount !== undefined ? [[CAM_A, opts.lanFailCount]] : [],
         ),
+        _streamGeneration: new Map(),
         _lastMaintenanceWindow:
             opts.maintenanceWindow !== undefined ? opts.maintenanceWindow : null,
         _lastOutagePingAt: -Infinity,
@@ -506,6 +508,81 @@ describe("Cloud-503 handling — v0.7.10 (Issue #9)", () => {
             // UTC: MESZ=UTC+2, so 07:00 MESZ = 05:00 UTC
             expect(mw!.scheduled_start).to.equal("2026-05-19T05:00:00.000Z");
             expect(mw!.scheduled_end).to.equal("2026-05-19T08:00:00.000Z");
+        });
+    });
+
+    // ── Test 10: v1.1.0 generation guard — stale renewal bails (regression) ───
+
+    describe("test_v110_stale_renewal_bails_on_generation_mismatch", () => {
+        it("bails without opening a session when expectedGeneration does not match current", async () => {
+            const stub = makeStub({ hasToken: true });
+            // Set current generation to 5; call with stale gen 2
+            stub._streamGeneration.set(CAM_A, 5);
+            const teardownSpy = sinon.spy(stub, "_teardownStream");
+
+            const openSessionStub = sinon.stub(liveSessionModule, "openLiveSession").resolves({
+                cameraId: CAM_A,
+                digestUser: "should-not-be-called",
+                digestPassword: "x",
+                openedAt: Date.now(),
+                maxSessionDuration: 3600,
+                lanAddress: "192.0.2.10:443",
+                proxyUrl: "https://192.0.2.10:443/snap.jpg",
+                connectionType: "LOCAL" as const,
+                bufferingTimeMs: 500,
+            });
+
+            try {
+                await methods.attemptBackoffRenewal.call(stub, CAM_A, 2);
+
+                // Must bail: no openLiveSession call, no teardown, no failure handler
+                expect(openSessionStub.called, "openLiveSession must not be called").to.equal(false);
+                expect(teardownSpy.called, "_teardownStream must not be called").to.equal(false);
+                // Debug log must mention the stale-generation bail
+                expect(
+                    stub.log.debug.args.some((args: string[]) =>
+                        (args[0] as string).includes("stale renewal"),
+                    ),
+                    "debug log mentions stale renewal",
+                ).to.equal(true);
+            } finally {
+                openSessionStub.restore();
+            }
+        });
+
+        it("proceeds normally when expectedGeneration matches current generation", async () => {
+            const stub = makeStub({ hasToken: true, hasLanIp: false });
+            // No LAN IP so tcpPing gate is skipped; cloud path runs immediately
+            stub._streamGeneration.set(CAM_A, 5);
+            stub._sessionWatchdogs.clear();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (stub as any).upsertSession = async (_camId: string, _s: unknown) => undefined;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (stub as any)._httpClient = {};
+
+            const newSession = {
+                cameraId: CAM_A,
+                digestUser: "cbs-fresh",
+                digestPassword: "fresh-pw",
+                openedAt: Date.now(),
+                maxSessionDuration: 3600,
+                lanAddress: "192.0.2.10:443",
+                proxyUrl: "https://192.0.2.10:443/snap.jpg",
+                connectionType: "LOCAL" as const,
+                bufferingTimeMs: 500,
+            };
+            const openSessionStub = sinon
+                .stub(liveSessionModule, "openLiveSession")
+                .resolves(newSession);
+
+            try {
+                await methods.attemptBackoffRenewal.call(stub, CAM_A, 5);
+
+                // Generation matched → should have attempted the cloud renewal
+                expect(openSessionStub.calledOnce, "openLiveSession called for matching gen").to.equal(true);
+            } finally {
+                openSessionStub.restore();
+            }
         });
     });
 });

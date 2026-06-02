@@ -62,6 +62,14 @@ declare global {
              * (~500-1500 ms). Falls back to snap.jpg on any FFmpeg error.
              */
             use_mjpeg_snapshot?: boolean;
+            /**
+             * v1.1.0: TCP port for the local HTTP snapshot server. When > 0 the
+             * adapter serves the latest JPEG per camera at
+             * `http://<host>:<port>/<camId>.jpg` (LAN, no auth) and publishes a
+             * `cameras.<id>.snapshot_url` state with role `url.cam` so the
+             * ioBroker type-detector + VIS camera widgets recognise it. 0 = off.
+             */
+            snapshot_http_port?: number;
         }
     }
 }

@@ -75,6 +75,13 @@ export interface BoschCamera {
      * Mirrors `numberOfUnreadEvents` from GET /v11/video_inputs.
      */
     numberOfUnreadEvents: number;
+    /**
+     * v1.1.0: push-notification schedule status from the listing's
+     * `notificationsEnabledStatus` field. "FOLLOW_CAMERA_SCHEDULE" /
+     * "ON_CAMERA_SCHEDULE" → notifications ON; "ALWAYS_OFF" → OFF.
+     * undefined when the field is absent. Mirrors HA BoschNotificationsSwitch.
+     */
+    notificationsEnabledStatus?: string;
 }
 
 /** Raw camera object returned by GET /v11/video_inputs */
@@ -178,6 +185,10 @@ function mapCamera(raw: RawCameraItem): BoschCamera | null {
         typeof raw.numberOfUnreadEvents === "number" && raw.numberOfUnreadEvents >= 0
             ? raw.numberOfUnreadEvents
             : 0;
+    const notificationsEnabledStatus =
+        typeof raw.notificationsEnabledStatus === "string"
+            ? raw.notificationsEnabledStatus
+            : undefined;
     return {
         id,
         name,
@@ -189,6 +200,7 @@ function mapCamera(raw: RawCameraItem): BoschCamera | null {
         featureLight,
         panLimit,
         numberOfUnreadEvents,
+        notificationsEnabledStatus,
     };
 }
 

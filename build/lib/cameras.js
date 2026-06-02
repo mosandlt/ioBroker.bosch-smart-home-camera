@@ -116,6 +116,9 @@ function mapCamera(raw) {
     const numberOfUnreadEvents = typeof raw.numberOfUnreadEvents === "number" && raw.numberOfUnreadEvents >= 0
         ? raw.numberOfUnreadEvents
         : 0;
+    const notificationsEnabledStatus = typeof raw.notificationsEnabledStatus === "string"
+        ? raw.notificationsEnabledStatus
+        : undefined;
     return {
         id,
         name,
@@ -127,6 +130,7 @@ function mapCamera(raw) {
         featureLight,
         panLimit,
         numberOfUnreadEvents,
+        notificationsEnabledStatus,
     };
 }
 /**

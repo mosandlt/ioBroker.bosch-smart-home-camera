@@ -253,6 +253,7 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * LAN_TCP_FAIL_THRESHOLD consecutive failures.
      */
     private _lanTcpFailCount;
+    private _streamGeneration;
     /** v0.7.10: exponential backoff steps (ms) for cloud renewal retries. */
     private static readonly RENEWAL_BACKOFF_MS;
     /** v0.7.10: maximum Bosch session lifetime (ms). Matches Bosch 60-min limit. */
@@ -271,6 +272,7 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _lensElevationCache;
     private _globalLightingCache;
     private _alarmSettingsCache;
+    private _motionCache;
     /**
      * Whether a continuous live RTSP stream is active per camera ID.
      * Default: false (no livestream on adapter start — Bosch counts every
@@ -313,6 +315,16 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _motionActiveTimers;
     /**
+     * v1.1.0: latest JPEG per camera, served by the local HTTP snapshot server
+     * (started in onReady when snapshot_http_port > 0). Populated wherever a
+     * fresh snapshot buffer is fetched; the server only reads from this map.
+     */
+    private _latestSnapshots;
+    /** v1.1.0: HTTP snapshot server handle (undefined when the port is 0/off). */
+    private _snapshotServer?;
+    /** v1.1.0: host used to build the public snapshot_url (LAN IP, detected once). */
+    private _snapshotHost;
+    /**
      * How long `cameras.<id>.motion_active` stays true after the last
      * motion event before auto-clearing (ms). Default 90 s, configurable
      * via adapter option `motion_active_window` (10–300 s). Mirrors the HA
@@ -338,6 +350,15 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param obj Inbound ioBroker message from Admin (carries command, from, callback).
      */
     private onMessage;
+    /**
+     * v1.1.0: resolve a sendTo("snapshot") camera reference to a known cloud
+     * UUID. Accepts the exact UUID (case-insensitive), the camera name
+     * (case-insensitive), or — when exactly one camera is configured — an
+     * empty string. Returns null when it cannot be resolved unambiguously.
+     *
+     * @param requested cloud-ID, camera name, or "" for the sole camera
+     */
+    private _resolveCameraId;
     /**
      * Write a state only if the value changed (iobroker.ring upsertState pattern).
      * Always creates the object if it doesn't exist yet, then sets ack=true.
@@ -724,6 +745,18 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _pollIntrusionConfig;
     /**
+     * v1.1.0: fetch GET /v11/video_inputs/{id}/motion and mirror `enabled` →
+     * motion_enabled DP + `motionAlarmConfiguration` → motion_sensitivity DP
+     * (lower-cased to match the select option keys). Also seeds _motionCache
+     * so the write handler has a full baseline body to merge into (Bosch /motion
+     * rejects partial PUTs). All cameras. Best-effort — errors swallowed.
+     * 404/443 (privacy) → keep last-known DP values.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private _pollMotionConfig;
+    /**
      * Poll lens elevation from GET /v11/video_inputs/{id}/lens_elevation.
      * Seeds the write-cache and mirrors the value into the DP.
      * Gen2 only. Best-effort — errors swallowed.
@@ -852,6 +885,33 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param level  0–100
      */
     private _handleAudioLevelWrite;
+    /**
+     * v1.1.0: enable/disable Bosch push notifications for a camera.
+     * PUT /v11/video_inputs/{id}/enable_notifications
+     * body {"enabledNotificationsStatus": "FOLLOW_CAMERA_SCHEDULE" | "ALWAYS_OFF"}.
+     * Cloud-only (works even when the camera is offline). No generation gate.
+     * Mirrors HA BoschNotificationsSwitch (turning ON always sends
+     * FOLLOW_CAMERA_SCHEDULE, never ON_CAMERA_SCHEDULE).
+     *
+     * @param camId   Camera UUID
+     * @param enabled true → FOLLOW_CAMERA_SCHEDULE, false → ALWAYS_OFF
+     */
+    private _handleNotificationsWrite;
+    /**
+     * v1.1.0: write motion detection config to the Bosch cloud API.
+     * PUT /v11/video_inputs/{id}/motion — the API requires the FULL body
+     * {enabled, motionAlarmConfiguration}; a partial PUT silently drops the
+     * omitted field. So GET-from-cache (or live) → merge the one delta field →
+     * PUT the merged body → cache it (mirrors _handleAudioLevelWrite).
+     * Shared by motion_enabled and motion_sensitivity. Privacy-blocked on
+     * Gen2 Indoor → Bosch returns HTTP 443; we surface that as a warning.
+     *
+     * @param camId Camera UUID
+     * @param delta partial motion config to merge into the cached full body
+     * @param delta.enabled motion detection on/off
+     * @param delta.sensitivity lower-case sensitivity option key (super_high…off)
+     */
+    private _handleMotionWrite;
     /**
      * Write intrusion detection config to the Bosch cloud API.
      * PUT /v11/video_inputs/{id}/intrusionDetectionConfig

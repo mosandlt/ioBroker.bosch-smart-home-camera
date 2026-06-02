@@ -40,6 +40,7 @@
     "Reset": "重置",
     "Reset login (clear tokens & restart)": "重置登录（清除令牌并重启）",
     "Reset login?": "重置登录？",
+    "Snapshot HTTP server port (0 = off)": "快照 HTTP 服务器端口（0 = 关闭）",
     "Step 1: Open the Bosch login URL in your browser": "第 1 步：在浏览器中打开 Bosch 登录 URL",
     "Step 2: Paste the redirect URL": "第 2 步：粘贴重定向 URL",
     "Stored encrypted in the ioBroker object store.": "加密存储在 ioBroker 对象存储中。",
@@ -49,6 +50,7 @@
     "Use MJPEG inst=3 for Gen2 snapshots (fast LAN path)": "对 Gen2 快照使用 MJPEG inst=3（快速 LAN 路径）",
     "Use TLS (mqtts://)": "使用 TLS (mqtts://)",
     "Username (optional)": "用户名（可选）",
+    "When > 0, serves the latest JPEG per camera at http://<host>:<port>/<camId>.jpg (LAN, no auth) and publishes a snapshot_url state (role url.cam) for VIS / type-detector. Suggested: 8095.": "当 > 0 时，在 http://<host>:<port>/<camId>.jpg（LAN，无身份验证）处为每个摄像机提供最新的 JPEG，并为 VIS / 类型检测器发布 snapshot_url 状态（角色 url.cam）。建议：8095。",
     "When enabled, every motion / person / audio_alarm event is published as a JSON payload to <prefix>/<cam_id>/motion|person|audio. Compatible with Node-RED, openHAB, Home Assistant, Frigate, and any other MQTT consumer.": "启用后，每个运动/人/audio_alarm 事件都会作为 JSON 有效负载发布到 <prefix>/<cam_id>/motion|person|audio。与 Node-RED、openHAB、Home Assistant、Frigate 和任何其他 MQTT 用户兼容。",
     "When the camera reports a motion / person / audio_alarm event (via FCM push or polling fallback), automatically fetch a fresh snapshot and write a base64-encoded copy into cameras.<id>.last_event_image. Perfect for Telegram / Signal / Matrix push notifications: your automation reads last_event_image and forwards the JPEG directly, no separate snapshot_trigger needed. Bursts (continuous motion) reuse the warm Bosch session so quota stays low.": "当摄像头报告 motion / person / audio_alarm 事件时（通过 FCM 推送或轮询回退），自动获取一张新快照并将 base64 编码副本写入 cameras.<id>.last_event_image。非常适合 Telegram / Signal / Matrix 推送通知：你的自动化读取 last_event_image 并直接转发 JPEG，无需单独的 snapshot_trigger。突发（连续运动）复用温的 Bosch 会话，配额保持较低。",
     "⚠ Copy the redirect URL within ~60 seconds. The Bosch auth code in that URL expires very quickly — if you wait too long, the paste will fail with 'code expired'. Keep this dialog open in a second tab so you can paste immediately. If it expires, just click 'Open Bosch Login' again for a fresh URL.": "⚠ Copy the redirect URL within ~60 seconds. The Bosch auth code in that URL expires very quickly — if you wait too long, the paste will fail with 'code expired'. Keep this dialog open in a second tab so you can paste immediately. If it expires, just click 'Open Bosch Login' again for a fresh URL."
