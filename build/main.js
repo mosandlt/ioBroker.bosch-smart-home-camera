@@ -2389,6 +2389,15 @@ class BoschSmartHomeCamera extends utils.Adapter {
      */
     _handleRenewalFailure(camId, err) {
         const camPrefix = camId.slice(0, 8);
+        // v1.1.0: drop the now-dead watchdog from the map. The watchdog always
+        // calls stop() on itself BEFORE invoking onError→here (session_watchdog
+        // _renew lines 197/211), so the map entry is a stopped, never-firing
+        // object. If left in place, the re-arm guard `if (!_sessionWatchdogs
+        // .has(camId))` in _attemptBackoffRenewal sees it, skips re-arming, and
+        // the recovered session then runs with NO watchdog → never renews →
+        // dies at the 60-min cap. Removing it lets the backoff-success path
+        // arm a fresh watchdog.
+        this._sessionWatchdogs.delete(camId);
         const backoffSteps = BoschSmartHomeCamera.RENEWAL_BACKOFF_MS;
         const backoff = this._renewalBackoff.get(camId) ?? { attempt: 0, nextRetryMs: 0 };
         const attempt = backoff.attempt;
@@ -4184,7 +4193,10 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 }
                 case "notifications_enabled":
                     // v1.1.0: push-notification schedule on/off (all cameras).
-                    await this._handleNotificationsWrite(camId, Boolean(state.val));
+                    // Skip generic ack if the write was rejected (privacy 443).
+                    if (!(await this._handleNotificationsWrite(camId, Boolean(state.val)))) {
+                        return;
+                    }
                     break;
                 case "motion_enabled":
                     // v1.1.0: motion detection on/off (shared /motion endpoint).
@@ -4522,6 +4534,16 @@ class BoschSmartHomeCamera extends utils.Adapter {
         const ts = BoschSmartHomeCamera.normaliseBoschTimestamp(ev.timestamp);
         await this.setStateAsync(`${prefix}.last_motion_at`, ts, true);
         await this.setStateAsync(`${prefix}.last_motion_event_type`, ev.eventType, true);
+        // v1.1.0: record this event id in the SAME dedup map+state that the
+        // 30s polling fallback checks (fetchAndProcessEvents). Without it, an
+        // FCM-processed event is re-discovered + re-fired by the poll after an
+        // adapter restart (duplicate motion_active/snapshot/MQTT). HA applies
+        // one dedup key to both the push and poll paths. Only when the FCM
+        // payload carried an id (same Bosch event id as GET /v11/events).
+        if (ev.eventId) {
+            this._lastSeenEventId[ev.cameraId] = ev.eventId;
+            await this.setStateAsync(`${prefix}.last_seen_event_id`, ev.eventId, true);
+        }
         this.log.info(`FCM event [${ev.eventType}] for camera ${ev.cameraId.slice(0, 8)} at ${ev.timestamp}`);
         this._publishMqttEvent(ev.cameraId, ev.eventType, ts, ev.eventId ?? "");
         await this._onMotionFired(ev.cameraId);
@@ -4662,9 +4684,17 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 "Content-Type": "application/json",
                 Accept: "application/json",
             },
-            validateStatus: (s) => s >= 200 && s < 300,
+            // v1.1.0: accept 443 (privacy mode) like _handleMotionWrite — a
+            // partial PUT during privacy returns 443; without this axios rejects
+            // → unhandled rejection AND the generic ack still fires (misleading).
+            validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
         });
+        if (resp.status === 443) {
+            this.log.warn(`notifications write for ${camId.slice(0, 8)} rejected — camera in privacy mode (HTTP 443)`);
+            return false; // skip ack — DP keeps its real value, poll re-syncs
+        }
         this.log.info(`Notifications ${enabled ? "ON" : "OFF"} for ${camId.slice(0, 8)} (HTTP ${resp.status})`);
+        return true;
     }
     // ── v1.1.0 motion-detection handler ─────────────────────────────────────
     /**
