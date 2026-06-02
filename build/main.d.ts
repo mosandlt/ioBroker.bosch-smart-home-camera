@@ -802,6 +802,16 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _pollOutdoorLighting;
     /**
+     * v1.1.0: GET /v11/video_inputs/{id}/commissioned → map {configured,
+     * connected, commissioned} into the commissioned DP enum
+     * (commissioned / not_commissioned / not_connected). All cameras, read-only.
+     * Best-effort — 404/443/errors keep last value. Mirrors HA BoschCommissionedSensor.
+     *
+     * @param token Current access_token
+     * @param camId Camera UUID
+     */
+    private _pollCommissioned;
+    /**
      * Poll lens elevation from GET /v11/video_inputs/{id}/lens_elevation.
      * Seeds the write-cache and mirrors the value into the DP.
      * Gen2 only. Best-effort — errors swallowed.
@@ -940,6 +950,15 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param level  0–100
      */
     private _handleAudioLevelWrite;
+    /**
+     * v1.1.0: enable/disable intercom (two-way audio) — Gen2. PUT /audio with
+     * `audioEnabled` merged into the FULL body (same /audio endpoint + cache as
+     * the speaker/mic levels, so they aren't clobbered). Mirrors HA BoschIntercomSwitch.
+     *
+     * @param camId Camera UUID (Gen2)
+     * @param on    true → intercom on
+     */
+    private _handleIntercomWrite;
     /**
      * v1.1.0: enable/disable Bosch push notifications for a camera.
      * PUT /v11/video_inputs/{id}/enable_notifications

@@ -2226,6 +2226,21 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     },
                     native: {},
                 });
+                // v1.1.0: intercom / two-way audio (Gen2). PUT /audio audioEnabled
+                // (merged into _audioCache so speaker/mic levels are preserved).
+                // Mirrors HA BoschIntercomSwitch. Read-mirrored from /audio.
+                await this.setObjectNotExistsAsync(`${prefix}.intercom_enabled`, {
+                    type: "state",
+                    common: {
+                        name: "Intercom / two-way audio enabled",
+                        role: "switch",
+                        type: "boolean",
+                        read: true,
+                        write: true,
+                        def: false,
+                    },
+                    native: {},
+                });
             }
 
             // v0.7.7: intrusion detection DPs (Gen2 only).
@@ -2609,6 +2624,21 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     read: true,
                     write: false,
                     def: 0,
+                },
+                native: {},
+            });
+
+            // v1.1.0: commissioned status (read-only, all cameras). GET /commissioned
+            // → {configured, connected, commissioned}. Mirrors HA BoschCommissionedSensor.
+            await this.setObjectNotExistsAsync(`${prefix}.commissioned`, {
+                type: "state",
+                common: {
+                    name: "Commissioning status (commissioned/not_commissioned/not_connected)",
+                    role: "text",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "",
                 },
                 native: {},
             });
@@ -4536,6 +4566,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // 44 events were actually unread on the-gen2-outdoor). See _pollUnreadCount.
         await this._pollUnreadCount(token, cam.id);
 
+        // v1.1.0: commissioning status — GET /commissioned (all cameras).
+        await this._pollCommissioned(token, cam.id);
+
         // v0.9.0: privacy_sound_enabled — poll current state for all cameras.
         await this._pollPrivacySound(token, cam.id);
 
@@ -4916,6 +4949,45 @@ class BoschSmartHomeCamera extends utils.Adapter {
             }
         } catch {
             /* best-effort */
+        }
+    }
+
+    // ── v1.1.0 commissioning-status poll ───────────────────────────────────
+
+    /**
+     * v1.1.0: GET /v11/video_inputs/{id}/commissioned → map {configured,
+     * connected, commissioned} into the commissioned DP enum
+     * (commissioned / not_commissioned / not_connected). All cameras, read-only.
+     * Best-effort — 404/443/errors keep last value. Mirrors HA BoschCommissionedSensor.
+     *
+     * @param token Current access_token
+     * @param camId Camera UUID
+     */
+    private async _pollCommissioned(token: string, camId: string): Promise<void> {
+        try {
+            const r = await this._httpClient.get<unknown>(
+                `${CLOUD_API}/v11/video_inputs/${camId}/commissioned`,
+                {
+                    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                    validateStatus: (s) => (s >= 200 && s < 300) || s === 404 || s === 443,
+                },
+            );
+            if (r.status < 200 || r.status >= 300 || !r.data) {
+                return;
+            }
+            const d = r.data as Record<string, unknown>;
+            const state =
+                d.connected === false
+                    ? "not_connected"
+                    : d.commissioned === true
+                      ? "commissioned"
+                      : "not_commissioned";
+            await this.upsertState(`cameras.${camId}.commissioned`, state);
+        } catch (err: unknown) {
+            this.log.debug(
+                `Commissioned poll for ${camId.slice(0, 8)} failed: ` +
+                    `${err instanceof Error ? err.message : String(err)}`,
+            );
         }
     }
 
@@ -5647,6 +5719,18 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     await this._handleAudioLevelWrite(camId, "speaker", Number(state.val));
                     break;
                 }
+                case "intercom_enabled": {
+                    // v1.1.0: intercom / two-way audio (Gen2 only).
+                    const camIc = this._cameras.get(camId);
+                    if (!camIc || camIc.generation < 2) {
+                        this.log.warn(
+                            `intercom_enabled write for ${camId.slice(0, 8)} ignored — Gen2 only`,
+                        );
+                        return; // skip ack
+                    }
+                    await this._handleIntercomWrite(camId, Boolean(state.val));
+                    break;
+                }
                 case "intrusion_sensitivity": {
                     // v0.7.7: intrusion detection config (Gen2)
                     const camIs = this._cameras.get(camId);
@@ -6066,6 +6150,46 @@ class BoschSmartHomeCamera extends utils.Adapter {
         this._audioCache.set(camId, { ...audio });
         this.log.info(
             `Audio ${field} level set to ${clamped} for ${camId.slice(0, 8)} (HTTP ${resp.status})`,
+        );
+    }
+
+    /**
+     * v1.1.0: enable/disable intercom (two-way audio) — Gen2. PUT /audio with
+     * `audioEnabled` merged into the FULL body (same /audio endpoint + cache as
+     * the speaker/mic levels, so they aren't clobbered). Mirrors HA BoschIntercomSwitch.
+     *
+     * @param camId Camera UUID (Gen2)
+     * @param on    true → intercom on
+     */
+    private async _handleIntercomWrite(camId: string, on: boolean): Promise<void> {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const url = `${CLOUD_API}/v11/video_inputs/${camId}/audio`;
+        const headers = {
+            Authorization: `Bearer ${this._currentAccessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        };
+        let audio: Record<string, unknown>;
+        const cached = this._audioCache.get(camId);
+        if (cached) {
+            audio = { ...cached };
+        } else {
+            const getResp = await this._httpClient.get<unknown>(url, {
+                headers,
+                validateStatus: (s) => s >= 200 && s < 300,
+            });
+            audio = (getResp.data as Record<string, unknown>) ?? {};
+        }
+        audio.audioEnabled = on;
+        const resp = await this._httpClient.put<unknown>(url, audio, {
+            headers,
+            validateStatus: (s) => s >= 200 && s < 300,
+        });
+        this._audioCache.set(camId, { ...audio });
+        this.log.info(
+            `Intercom ${on ? "ON" : "OFF"} for ${camId.slice(0, 8)} (HTTP ${resp.status})`,
         );
     }
 

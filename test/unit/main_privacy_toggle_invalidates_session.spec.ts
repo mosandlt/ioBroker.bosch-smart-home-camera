@@ -77,6 +77,7 @@ interface PollStub {
     _pollRecordingOptions: sinon.SinonStub;
     _pollNotificationTypes: sinon.SinonStub;
     _pollBatchDLeds: sinon.SinonStub;
+    _pollCommissioned: sinon.SinonStub;
     // v0.9.0
     _pollPrivacySound: sinon.SinonStub;
     _pollAutofollow: sinon.SinonStub;
@@ -125,6 +126,7 @@ function makeStub(opts: {
         _pollRecordingOptions: sinon.stub().resolves(),
         _pollNotificationTypes: sinon.stub().resolves(),
         _pollBatchDLeds: sinon.stub().resolves(),
+        _pollCommissioned: sinon.stub().resolves(),
         // v0.9.0
         _pollPrivacySound: sinon.stub().resolves(),
         _pollAutofollow: sinon.stub().resolves(),
