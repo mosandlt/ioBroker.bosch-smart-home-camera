@@ -44,7 +44,7 @@ type AnyMethod = (...args: any[]) => Promise<void>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyFn = (...args: any[]) => any;
 
-const CAM_ID = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+const CAM_ID = "EFEFEFEF-1111-2222-3333-444455556666";
 
 interface StubAdapter {
     _sessionLimitHits: Map<string, number[]>;

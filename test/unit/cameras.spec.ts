@@ -30,21 +30,21 @@ import { stubAxiosSequence, stubAxiosError, restoreAxios } from "./helpers/axios
 
 /** Minimal valid raw camera object returned by GET /v11/video_inputs */
 const RAW_CAM_OUTDOOR: Record<string, unknown> = {
-    id: "EF791764-A48D-4F00-9B32-EF04BEB0DDA0",
+    id: "EFEFEFEF-1111-2222-3333-444455556666",
     title: "Terrasse",
     hardwareVersion: "HOME_Eyes_Outdoor",
     firmwareVersion: "9.40.25",
 };
 
 const RAW_CAM_INDOOR: Record<string, unknown> = {
-    id: "20E053B5-0000-0000-0000-000000000001",
+    id: "20E020E0-0000-0000-0000-000000000001",
     title: "Innenbereich",
     hardwareVersion: "HOME_Eyes_Indoor",
     firmwareVersion: "9.40.25",
 };
 
 const RAW_CAM_360: Record<string, unknown> = {
-    id: "09ECD6E9-0000-0000-0000-000000000002",
+    id: "09EC09EC-0000-0000-0000-000000000002",
     title: "Kamera",
     hardwareVersion: "CAMERA_360",
     firmwareVersion: "7.91.56",

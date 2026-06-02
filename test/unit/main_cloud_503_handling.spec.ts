@@ -46,7 +46,7 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const MAIN_JS_PATH = path.join(REPO_ROOT, "build", "main.js");
 const ADAPTER_CORE_PATH = require.resolve("@iobroker/adapter-core");
 
-const CAM_A = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+const CAM_A = "EFEFEFEF-1111-2222-3333-444455556666";
 
 // ── Helper types ─────────────────────────────────────────────────────────────
 
@@ -432,7 +432,7 @@ describe("Cloud-503 handling — v0.7.10 (Issue #9)", () => {
             sinon.stub(stub, "setTimeout").returns({ unref: () => undefined });
             sinon.stub(stub, "_teardownStream").resolves();
 
-            const err = new Error("Bearer token expired or invalid (401) for camera EF791764");
+            const err = new Error("Bearer token expired or invalid (401) for camera EFEFEFEF");
             err.name = "LiveSessionError";
 
             await methods.handleRenewalFailure.call(stub, CAM_A, err);

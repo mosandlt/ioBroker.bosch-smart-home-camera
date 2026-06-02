@@ -29,7 +29,7 @@ import type { LiveSession } from "../../src/lib/live_session";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-const CAMERA_UUID = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+const CAMERA_UUID = "EFEFEFEF-1111-2222-3333-444455556666";
 
 /** Build a minimal LiveSession for testing. */
 function makeSession(

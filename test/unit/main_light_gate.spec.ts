@@ -50,8 +50,8 @@ type TestAdapter = MockAdapter & {
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-const CAM_OUTDOOR_II = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";  // Gen2, featureLight=true
-const CAM_INDOOR_II  = "20E053B5-BBBB-CCCC-DDDD-000000000001";  // Gen2, featureLight=false
+const CAM_OUTDOOR_II = "EFEFEFEF-1111-2222-3333-444455556666";  // Gen2, featureLight=true
+const CAM_INDOOR_II  = "20E020E0-BBBB-CCCC-DDDD-000000000001";  // Gen2, featureLight=false
 const CAM_GEN1       = "AABBCCDD-1111-2222-3333-444455556666";  // Gen1
 
 const CAM_OUTDOOR_ONLY = [

@@ -143,7 +143,7 @@ function attach(client: FakeSocket, remote: FakeSocket): { logs: string[] } {
         digestUser: "cbs-testuser",
         digestPassword: "testpass",
         log: (level, msg) => logs.push(`[${level}] ${msg}`),
-        camLabel: "EF791764",
+        camLabel: "EFEFEFEF",
     });
     return { logs };
 }

@@ -297,7 +297,7 @@ describe("FcmListener — push event forwarding", () => {
 
         fakeClient._emit("message-data", {
             data: {
-                camera_id: "EF791764",
+                camera_id: "EFEFEFEF",
                 camera_name: "Terrasse",
                 timestamp: "2026-05-13T10:00:00Z",
                 event_type: "MOVEMENT",
@@ -486,7 +486,7 @@ describe("FcmListener._parseNotification()", () => {
     /** Build a minimal raw notification body */
     function makeRaw(overrides: Record<string, unknown> = {}): Record<string, unknown> {
         return {
-            camera_id: "EF791764-A48D-4F00-9B32-EF04BEB0DDA0",
+            camera_id: "EFEFEFEF-1111-2222-3333-444455556666",
             camera_name: "Terrasse",
             timestamp: "2026-05-13T14:30:00.000Z",
             event_type: "MOVEMENT",
@@ -542,7 +542,7 @@ describe("FcmListener._parseNotification()", () => {
     it("fills cameraId, cameraName, timestamp, imageUrl, eventId from raw payload", () => {
         const result = listener._parseNotification(makeRaw());
         expect(result).to.not.be.null;
-        expect(result!.cameraId).to.equal("EF791764-A48D-4F00-9B32-EF04BEB0DDA0");
+        expect(result!.cameraId).to.equal("EFEFEFEF-1111-2222-3333-444455556666");
         expect(result!.cameraName).to.equal("Terrasse");
         expect(result!.timestamp).to.equal("2026-05-13T14:30:00.000Z");
         expect(result!.imageUrl).to.equal("https://example.boschsecurity.com/img.jpg");

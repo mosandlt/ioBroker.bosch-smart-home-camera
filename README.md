@@ -604,6 +604,25 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.1.0 (2026-06-02)
+Feature + hardening release.
+
+New features (Home Assistant parity + ioBroker-native):
+- **Local HTTP snapshot server** (`snapshot_http_port`, role `url.cam`) so VIS image widgets / the type-detector can load the latest JPEG per camera, plus a `sendTo("bosch-smart-home-camera.0", "snapshot", {camId|name})` command returning the JPEG as buffer/base64 for Telegram/Signal/Pushover.
+- **Push notifications:** global on/off (`notifications_enabled`) and six per-type toggles (`notify_movement` / `_person` / `_audio` / `_trouble` / `_camera_alarm` / `_trouble_email`).
+- **Motion:** `motion_enabled` on/off + `motion_sensitivity` select; `detection_mode` select (Gen2: all_motions / only_humans / zones); `record_sound`.
+- **Gen2 Indoor II alarm system:** `alarm_arm`, `alarm_mode`, `pre_alarm` switches + `alarm_state` sensor.
+- **LEDs / overlay:** `status_led` (Gen2), `timestamp_overlay`, `power_led_brightness` (Gen2 Indoor); **Gen2 Outdoor lighting:** `motion_light_enabled` + `motion_light_sensitivity`, `ambient_light_enabled` + `ambient_light_schedule` sensor.
+- `intercom_enabled` two-way audio (Gen2); `commissioned` status sensor; all new admin strings translated into 11 languages.
+
+Stability fixes (several mirrored from the Home Assistant integration):
+- FCM push no longer dies permanently after the hourly token refresh (the listener's bearer token is now kept current).
+- Stream session-renewal hardening: a stream torn down during a renewal can no longer be resurrected (generation guard), emergency/on-demand sessions get a proper start time, and an external privacy toggle now stops the watchdog so no Bosch session leaks.
+- Snapshot HTTP server closes cleanly on unload (keep-alive clients), the cached frame is published before the path so reactive consumers don't 404, and a 444 session-quota retry now reschedules instead of getting stuck.
+- A CBS push-registration failure now falls back to event polling instead of leaving the adapter without any event source; Digest auth sends `cnonce` only when `qop` is present (RFC 7616); the duplicate-event guard now covers both the push and the polling path.
+
+Internal: `npm run test:fast` (parallel mocha) for ~5× faster local runs; ~28 new regression tests (full suite 1092 passing).
+
 ### 1.0.5 (2026-06-01)
 - `intrusion_sensitivity` now acknowledges the clamped 0-7 value instead of the raw input (mirroring `intrusion_distance`, fixed in 1.0.3), so the datapoint never shows a sensitivity the camera did not actually receive.
 

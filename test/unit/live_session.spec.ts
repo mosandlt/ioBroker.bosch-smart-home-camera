@@ -46,7 +46,7 @@ import {
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 const FAKE_TOKEN = "Bearer.test.token";
-const CAMERA_UUID = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+const CAMERA_UUID = "EFEFEFEF-1111-2222-3333-444455556666";
 
 /** Build a minimal fake AxiosInstance with stubbed put + delete */
 function makeClient(

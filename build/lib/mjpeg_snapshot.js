@@ -57,7 +57,7 @@ exports._spawnFn = node_child_process_1.spawn;
  *   - Returns null (with error log) when ffmpeg binary is not found.
  *   - Kills the lingering process on timeout to prevent zombie accumulation.
  *
- * @param camHost    Camera LAN IP (e.g. "192.168.20.149")
+ * @param camHost    Camera LAN IP (e.g. "192.0.2.149")
  * @param camPort    Camera RTSP-over-TLS port (always 443 for Bosch cameras)
  * @param user       CBS username from PUT /connection (e.g. "cbs-XXXXXXXX")
  * @param password   Digest password from PUT /connection

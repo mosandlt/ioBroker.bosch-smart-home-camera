@@ -5329,7 +5329,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
             const data = resp.data as Record<string, unknown>;
             // v0.7.14: Bosch's wifiinfo response uses `signalStrength` as a
             // PERCENTAGE 0-100, not dBm. Verified live against the-gen2-outdoor
-            // (signalStrength=86) and 20E053B5 (signalStrength=100) on
+            // (signalStrength=86) and 20E020E0 (signalStrength=100) on
             // FW 9.40.25. The `signalStrengthPercentage` field that v0.7.7
             // looked for never existed — dead lookup removed.
             const ssid = typeof data.ssid === "string" ? data.ssid : undefined;

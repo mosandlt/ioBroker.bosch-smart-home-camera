@@ -45,7 +45,7 @@ type TestAdapter = MockAdapter & {
     stateChangeHandler?: ioBroker.StateChangeHandler;
 };
 
-const CAM_GEN2 = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+const CAM_GEN2 = "EFEFEFEF-1111-2222-3333-444455556666";
 const CAM_GEN1 = "AABBCCDD-1111-2222-3333-444455556666";
 
 const CAMERAS_GEN2_ONLY = [

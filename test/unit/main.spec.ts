@@ -63,7 +63,7 @@ const TOKEN_BODY = {
 /** Minimal camera list response body */
 const CAMERAS_BODY = [
     {
-        id: "EF791764-A48D-4F00-9B32-EF04BEB0DDA0",
+        id: "EFEFEFEF-1111-2222-3333-444455556666",
         title: "Terrasse",
         hardwareVersion: "HOME_Eyes_Outdoor",
         firmwareVersion: "9.40.25",
@@ -264,12 +264,12 @@ describe("main adapter — lifecycle", () => {
 
         // Camera state tree should be created
         expect(
-            getStateVal(db, adapter, "cameras.EF791764-A48D-4F00-9B32-EF04BEB0DDA0.name"),
+            getStateVal(db, adapter, "cameras.EFEFEFEF-1111-2222-3333-444455556666.name"),
             "camera name state should be set",
         ).to.equal("Terrasse");
 
         expect(
-            getStateVal(db, adapter, "cameras.EF791764-A48D-4F00-9B32-EF04BEB0DDA0.generation"),
+            getStateVal(db, adapter, "cameras.EFEFEFEF-1111-2222-3333-444455556666.generation"),
             "camera generation should be 2 for HOME_Eyes_Outdoor",
         ).to.equal(2);
     });
@@ -583,7 +583,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
     ): { db: MockDatabase; adapter: TestAdapter } {
         // ── Fake live session (LOCAL) ──────────────────────────────────────────
         const fakeSession = {
-            cameraId: "EF791764-A48D-4F00-9B32-EF04BEB0DDA0",
+            cameraId: "EFEFEFEF-1111-2222-3333-444455556666",
             proxyUrl: "https://192.0.2.10:443/snap.jpg?JpegSize=1206",
             connectionType: "LOCAL" as const,
             digestUser: "cbs-testuser",
@@ -727,7 +727,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         await adapter.readyHandler!();
 
         // Simulate user writing cameras.<id>.privacy_enabled = true (ack=false)
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         const stateId = `${adapter.namespace}.cameras.${camId}.privacy_enabled`;
         await adapter.stateChangeHandler!(stateId, {
             val: true,
@@ -760,7 +760,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
             writeFileStub.resolves(undefined);
         }
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         const stateId = `${adapter.namespace}.cameras.${camId}.snapshot_trigger`;
         await adapter.stateChangeHandler!(stateId, {
             val: true,
@@ -833,7 +833,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
 
         // Trigger snapshot to open a live session + TLS proxy (privacy now goes
         // directly to cloud API, no live session involved).
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         const stateId = `${adapter.namespace}.cameras.${camId}.snapshot_trigger`;
         // Configure writeFileAsync stub so the snapshot handler completes
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -900,7 +900,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
 
         await adapter.readyHandler!();
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         const stateId = `${adapter.namespace}.cameras.${camId}.image_rotation_180`;
 
         // Trigger: user sets image_rotation_180 = true
@@ -970,7 +970,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         const writeFileStub = (adapter as any).writeFileAsync as sinon.SinonStub;
         if (writeFileStub?.resolves) writeFileStub.resolves(undefined);
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         const stateId = `${adapter.namespace}.cameras.${camId}.privacy_enabled`;
 
         await adapter.stateChangeHandler!(stateId, {
@@ -1001,7 +1001,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         await flushAutoSnapshot();
         fetchSnapshotStub.resetHistory();
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         const stateId = `${adapter.namespace}.cameras.${camId}.privacy_enabled`;
 
         await adapter.stateChangeHandler!(stateId, {
@@ -1034,7 +1034,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         const writeFileStub = (adapter as any).writeFileAsync as sinon.SinonStub;
         if (writeFileStub?.resolves) writeFileStub.resolves(undefined);
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         const stateId = `${adapter.namespace}.cameras.${camId}.light_enabled`;
 
         await adapter.stateChangeHandler!(stateId, {
@@ -1069,7 +1069,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         const writeFileStub = (adapter as any).writeFileAsync as sinon.SinonStub;
         if (writeFileStub?.resolves) writeFileStub.resolves(undefined);
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         const stateId = `${adapter.namespace}.cameras.${camId}.snapshot_trigger`;
 
         await adapter.stateChangeHandler!(stateId, {
@@ -1108,7 +1108,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         });
         await adapter.readyHandler!();
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         const obj = (await adapter.getObjectAsync!(
             `cameras.${camId}.livestream_enabled`,
         )) as ioBroker.StateObject | null | undefined;
@@ -1148,7 +1148,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         await adapter.readyHandler!();
         await flushAutoSnapshot();
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
 
         // Proxy must have opened at least once during the startup snapshot
         expect(
@@ -1202,7 +1202,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         await adapter.readyHandler!();
         await flushAutoSnapshot();
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         const stateId = `${adapter.namespace}.cameras.${camId}.livestream_enabled`;
 
         // After startup snapshot the session + proxy are still warm (v0.5.3
@@ -1269,7 +1269,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         await adapter.readyHandler!();
         await flushAutoSnapshot();
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         const stateId = `${adapter.namespace}.cameras.${camId}.livestream_enabled`;
 
         // Bring up the stream first
@@ -1323,7 +1323,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         // fetch through the warm proxy. Burst pattern: 2x snapshot_trigger
         // back-to-back → 1x openLiveSession, 2x fetchSnapshot.
         const openLiveSessionStub = sinon.stub().resolves({
-            cameraId: "EF791764-A48D-4F00-9B32-EF04BEB0DDA0",
+            cameraId: "EFEFEFEF-1111-2222-3333-444455556666",
             proxyUrl: "https://192.0.2.10:443/snap.jpg?JpegSize=1206",
             connectionType: "LOCAL" as const,
             digestUser: "cbs-testuser",
@@ -1345,7 +1345,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         await adapter.readyHandler!();
         await flushAutoSnapshot(); // ensure startup snap completes deterministically
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         const stateId = `${adapter.namespace}.cameras.${camId}.snapshot_trigger`;
 
         // Snap #1 — user-triggered, immediately after startup snap
@@ -1406,7 +1406,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         await adapter.readyHandler!();
         await flushAutoSnapshot();
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
 
         // Simulate idle timer firing
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1437,7 +1437,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         await adapter.readyHandler!();
         await flushAutoSnapshot();
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
 
         // After the startup snapshot the idle timer must be armed
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1471,7 +1471,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         await adapter.readyHandler!();
         await flushAutoSnapshot();
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const idleTimers = (adapter as any)._snapshotIdleTimers as Map<string, unknown>;
         expect(idleTimers.has(camId), "precondition: timer armed after snapshot").to.equal(true);
@@ -1505,7 +1505,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         await adapter.readyHandler!();
         await flushAutoSnapshot();
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
 
         // Drive a synthetic motion event (same _onMotionFired path as FCM)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1538,7 +1538,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         // Reset history so we measure only the motion-triggered snapshot
         fetchSnapshotStub.resetHistory();
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
 
         // Drive a synthetic motion event
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1586,7 +1586,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (adapter as any).config.auto_snapshot_on_motion = false;
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (adapter as any).triggerSyntheticMotion(camId, "motion");
@@ -1624,7 +1624,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
     it("polling fallback: fetchAndProcessEvents flips motion_active (forum #1339866 bug 1)", async () => {
         // Fresh event arriving on the polling fallback — newer ID than the
         // empty cache, so the dedup check is bypassed.
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         // v0.7.14: events older than 15 min are stale-filtered for side
         // effects (motion_active, MQTT, auto-snapshot, …). Use a fresh
         // timestamp so the polling-fallback path still flips motion_active.
@@ -1680,7 +1680,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
     });
 
     it("state poll derives front_light_enabled + wallwasher_enabled from brightness (forum #1339866 bug 2)", async () => {
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         // The state poll re-calls fetchCameras then fetchLightingState. Both
         // need feature flags so the Gen2 lighting block is taken.
         const cameraListResponse = [
@@ -1754,7 +1754,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
     });
 
     it("state poll clears front_light_enabled + wallwasher_enabled when both groups are off", async () => {
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         const cameraListResponse = [
             {
                 id: camId,
@@ -1826,7 +1826,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         await adapter.readyHandler!();
         await flushAutoSnapshot();
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
 
         // Toggle livestream ON so both URLs end up populated (and stay populated
         // because the toggle cancels the idle-teardown timer).
@@ -1868,7 +1868,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         await adapter.readyHandler!();
         await flushAutoSnapshot();
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
 
         // Simulate teardown
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1910,7 +1910,7 @@ describe("main adapter — v0.2.0 command handlers", () => {
         // does not race with the first explicit trigger below.
         await flushAutoSnapshot();
 
-        const camId = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+        const camId = "EFEFEFEF-1111-2222-3333-444455556666";
         const stateId = `${adapter.namespace}.cameras.${camId}.snapshot_trigger`;
         const onlineId = `${adapter.namespace}.cameras.${camId}.online`;
 

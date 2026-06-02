@@ -44,8 +44,8 @@ const ADAPTER_CORE_PATH = require.resolve("@iobroker/adapter-core");
 
 // ── Test camera IDs ──────────────────────────────────────────────────────────
 
-const CAM_A = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
-const CAM_B = "20E053B5-BE64-4E45-A2CA-BBDC20F5C351";
+const CAM_A = "EFEFEFEF-1111-2222-3333-444455556666";
+const CAM_B = "20E020E0-2222-3333-4444-555566667777";
 
 // ── Build a stub that carries all the in-memory fields the methods need ───────
 

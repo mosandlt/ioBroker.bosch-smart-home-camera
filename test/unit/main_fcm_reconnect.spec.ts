@@ -57,7 +57,7 @@ type TestAdapter = MockAdapter & {
     unloadHandler?: (cb: () => void) => void;
 };
 
-const CAM_GEN2 = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+const CAM_GEN2 = "EFEFEFEF-1111-2222-3333-444455556666";
 const CAMERAS_BODY = [
     {
         id: CAM_GEN2,

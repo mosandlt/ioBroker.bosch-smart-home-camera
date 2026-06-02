@@ -52,7 +52,7 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const MAIN_JS_PATH = path.join(REPO_ROOT, "build", "main.js");
 const ADAPTER_CORE_PATH = require.resolve("@iobroker/adapter-core");
 
-const CAM_A = "EF791764-A48D-4F00-9B32-EF04BEB0DDA0";
+const CAM_A = "EFEFEFEF-1111-2222-3333-444455556666";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyFn = (...args: any[]) => any;

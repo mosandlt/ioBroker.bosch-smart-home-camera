@@ -7,7 +7,7 @@
  * Auth:     Authorization: Bearer <access_token>
  *
  * Response shape (array of video input objects):
- *   id              — UUID, e.g. "EF791764-A48D-4F00-9B32-EF04BEB0DDA0"
+ *   id              — UUID, e.g. "EFEFEFEF-1111-2222-3333-444455556666"
  *   title           — user-given camera name, e.g. "Terrasse"
  *   hardwareVersion — model string, e.g. "HOME_Eyes_Outdoor", "CAMERA_360"
  *   firmwareVersion — firmware string, e.g. "9.40.25"
@@ -31,7 +31,7 @@ import { CLOUD_API } from "./auth";
 
 /** A Bosch SHC camera as returned by the cloud API. */
 export interface BoschCamera {
-    /** UUID, e.g. "EF791764-A48D-4F00-9B32-EF04BEB0DDA0" */
+    /** UUID, e.g. "EFEFEFEF-1111-2222-3333-444455556666" */
     id: string;
     /** User-given title, e.g. "Terrasse" */
     name: string;
