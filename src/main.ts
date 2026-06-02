@@ -446,6 +446,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
     // single-type toggle doesn't clobber the others.
     private _notificationsCache = new Map<string, Record<string, unknown>>();
 
+    // v1.1.0: Gen2 Outdoor motion-light + ambient-light caches (full-body PUT).
+    // GET /lighting/motion → {lightOnMotionEnabled, motionLightSensitivity, …};
+    // GET /lighting/ambient → {ambientLightEnabled, ambientLightSchedule, …}.
+    private _motionLightCache = new Map<string, Record<string, unknown>>();
+    private _ambientLightCache = new Map<string, Record<string, unknown>>();
+
     // v1.1.0: DP-name → /notifications API-key map for the per-type toggles.
     private static readonly NOTIFY_TYPE_MAP: Record<string, string> = {
         notify_movement: "movement",
@@ -2330,6 +2336,68 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         read: true,
                         write: true,
                         def: 50,
+                    },
+                    native: {},
+                });
+            }
+
+            // v1.1.0: Gen2 Outdoor motion-light + ambient-light (own endpoints
+            // /lighting/motion + /lighting/ambient, separate from the wallwasher
+            // /lighting/switch path). Mirrors HA BoschMotionLightSwitch /
+            // BoschMotionLightSensitivityNumber / BoschAmbientLightSwitch /
+            // BoschAmbientLightScheduleSensor.
+            if (
+                cam.generation >= 2 &&
+                cam.hardwareVersion !== "HOME_Eyes_Indoor" &&
+                cam.hardwareVersion !== "CAMERA_INDOOR_GEN2"
+            ) {
+                await this.setObjectNotExistsAsync(`${prefix}.motion_light_enabled`, {
+                    type: "state",
+                    common: {
+                        name: "Turn light on at motion",
+                        role: "switch.light",
+                        type: "boolean",
+                        read: true,
+                        write: true,
+                        def: false,
+                    },
+                    native: {},
+                });
+                await this.setObjectNotExistsAsync(`${prefix}.motion_light_sensitivity`, {
+                    type: "state",
+                    common: {
+                        name: "Motion-light sensitivity (1–5)",
+                        role: "level",
+                        type: "number",
+                        min: 1,
+                        max: 5,
+                        read: true,
+                        write: true,
+                        def: 3,
+                    },
+                    native: {},
+                });
+                await this.setObjectNotExistsAsync(`${prefix}.ambient_light_enabled`, {
+                    type: "state",
+                    common: {
+                        name: "Ambient light",
+                        role: "switch.light",
+                        type: "boolean",
+                        read: true,
+                        write: true,
+                        def: false,
+                    },
+                    native: {},
+                });
+                await this.setObjectNotExistsAsync(`${prefix}.ambient_light_schedule`, {
+                    type: "state",
+                    common: {
+                        name: "Ambient light schedule (disabled/dusk_to_dawn/manual)",
+                        role: "text",
+                        type: "string",
+                        read: true,
+                        write: false,
+                        def: "",
                     },
                     native: {},
                 });
@@ -4415,6 +4483,15 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // power_led_brightness Indoor) — gated internally.
         await this._pollBatchDLeds(token, cam);
 
+        // v1.1.0: Gen2 Outdoor motion-light + ambient-light reads.
+        if (
+            cam.generation >= 2 &&
+            cam.hardwareVersion !== "HOME_Eyes_Indoor" &&
+            cam.hardwareVersion !== "CAMERA_INDOOR_GEN2"
+        ) {
+            await this._pollOutdoorLighting(token, cam.id);
+        }
+
         // v0.7.14: Gen2 intrusionDetectionConfig — mirrors sensitivity +
         // distance into DPs AND seeds the write-cache so the user-write
         // handler has a full body to merge into (Bosch rejects DELTA PUTs).
@@ -4759,6 +4836,86 @@ class BoschSmartHomeCamera extends utils.Adapter {
             } catch {
                 /* best-effort */
             }
+        }
+    }
+
+    // ── v1.1.0 Gen2 Outdoor motion/ambient lighting poll ───────────────────
+
+    /**
+     * v1.1.0: read /lighting/motion + /lighting/ambient and mirror DPs:
+     *  - motion_light_enabled ← lightOnMotionEnabled · motion_light_sensitivity ← motionLightSensitivity
+     *  - ambient_light_enabled ← ambientLightEnabled · ambient_light_schedule (derived enum)
+     * Seeds _motionLightCache / _ambientLightCache for the write merges. Gen2
+     * Outdoor only. Best-effort — 404/443/errors keep last value.
+     *
+     * @param token Current access_token
+     * @param camId Camera UUID
+     */
+    private async _pollOutdoorLighting(token: string, camId: string): Promise<void> {
+        const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
+        const okOr = (s: number): boolean => (s >= 200 && s < 300) || s === 404 || s === 443;
+        // /lighting/motion
+        try {
+            const r = await this._httpClient.get<unknown>(
+                `${CLOUD_API}/v11/video_inputs/${camId}/lighting/motion`,
+                { headers, validateStatus: okOr },
+            );
+            if (r.status >= 200 && r.status < 300 && r.data) {
+                const d = r.data as Record<string, unknown>;
+                this._motionLightCache.set(camId, { ...d });
+                const w: Promise<void>[] = [];
+                if (typeof d.lightOnMotionEnabled === "boolean") {
+                    w.push(
+                        this.upsertState(
+                            `cameras.${camId}.motion_light_enabled`,
+                            d.lightOnMotionEnabled,
+                        ),
+                    );
+                }
+                if (typeof d.motionLightSensitivity === "number") {
+                    w.push(
+                        this.upsertState(
+                            `cameras.${camId}.motion_light_sensitivity`,
+                            d.motionLightSensitivity,
+                        ),
+                    );
+                }
+                await Promise.all(w);
+            }
+        } catch {
+            /* best-effort */
+        }
+        // /lighting/ambient (+ derived schedule sensor)
+        try {
+            const r = await this._httpClient.get<unknown>(
+                `${CLOUD_API}/v11/video_inputs/${camId}/lighting/ambient`,
+                { headers, validateStatus: okOr },
+            );
+            if (r.status >= 200 && r.status < 300 && r.data) {
+                const d = r.data as Record<string, unknown>;
+                this._ambientLightCache.set(camId, { ...d });
+                const enabled = d.ambientLightEnabled === true;
+                const w: Promise<void>[] = [
+                    this.upsertState(`cameras.${camId}.ambient_light_enabled`, enabled),
+                ];
+                // Derive the schedule enum: disabled / dusk_to_dawn / manual.
+                const sched = d.ambientLightSchedule;
+                const schedType =
+                    typeof sched === "string"
+                        ? sched
+                        : sched && typeof sched === "object"
+                          ? String((sched as Record<string, unknown>).type ?? "")
+                          : "";
+                const schedEnum = !enabled
+                    ? "disabled"
+                    : schedType.toUpperCase() === "ENVIRONMENT"
+                      ? "dusk_to_dawn"
+                      : "manual";
+                w.push(this.upsertState(`cameras.${camId}.ambient_light_schedule`, schedEnum));
+                await Promise.all(w);
+            }
+        } catch {
+            /* best-effort */
         }
     }
 
@@ -5287,6 +5444,39 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         return;
                     }
                     if (!(await this._handlePowerLedBrightnessWrite(camId, Number(state.val)))) {
+                        return;
+                    }
+                    break;
+                }
+                case "motion_light_enabled":
+                case "motion_light_sensitivity":
+                case "ambient_light_enabled": {
+                    // v1.1.0: Gen2 Outdoor motion/ambient light (own endpoints).
+                    const camOl = this._cameras.get(camId);
+                    if (
+                        !camOl ||
+                        camOl.generation < 2 ||
+                        camOl.hardwareVersion === "HOME_Eyes_Indoor" ||
+                        camOl.hardwareVersion === "CAMERA_INDOOR_GEN2"
+                    ) {
+                        this.log.warn(
+                            `${stateName} write for ${camId.slice(0, 8)} ignored — Gen2 Outdoor only`,
+                        );
+                        return;
+                    }
+                    let ok: boolean;
+                    if (stateName === "ambient_light_enabled") {
+                        ok = await this._handleAmbientLightWrite(camId, Boolean(state.val));
+                    } else if (stateName === "motion_light_enabled") {
+                        ok = await this._handleMotionLightWrite(camId, {
+                            enabled: Boolean(state.val),
+                        });
+                    } else {
+                        ok = await this._handleMotionLightWrite(camId, {
+                            sensitivity: Number(state.val),
+                        });
+                    }
+                    if (!ok) {
                         return;
                     }
                     break;
@@ -6182,6 +6372,88 @@ class BoschSmartHomeCamera extends utils.Adapter {
             { value: clamped },
             "power_led_brightness",
         );
+    }
+
+    /**
+     * v1.1.0: full-body-merge PUT helper for a /lighting/{sub} sub-endpoint
+     * (motion / ambient). GET-from-cache (or live) → set the delta keys → PUT
+     * the whole object → cache it. Returns false on 443 (privacy).
+     *
+     * @param camId    Camera UUID
+     * @param sub      "motion" | "ambient"
+     * @param cache    the matching cache map
+     * @param delta    keys to merge into the full body
+     */
+    private async _putLightingMerge(
+        camId: string,
+        sub: string,
+        cache: Map<string, Record<string, unknown>>,
+        delta: Record<string, unknown>,
+    ): Promise<boolean> {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const url = `${CLOUD_API}/v11/video_inputs/${camId}/lighting/${sub}`;
+        const headers = {
+            Authorization: `Bearer ${this._currentAccessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        };
+        let body: Record<string, unknown>;
+        const cached = cache.get(camId);
+        if (cached) {
+            body = { ...cached };
+        } else {
+            const getResp = await this._httpClient.get<unknown>(url, {
+                headers,
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
+            });
+            if (getResp.status === 443) {
+                this.log.warn(
+                    `lighting/${sub} write for ${camId.slice(0, 8)} skipped — privacy (443)`,
+                );
+                return false;
+            }
+            body = (getResp.data as Record<string, unknown>) ?? {};
+        }
+        Object.assign(body, delta);
+        const resp = await this._httpClient.put<unknown>(url, body, {
+            headers,
+            validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
+        });
+        if (resp.status === 443) {
+            this.log.warn(
+                `lighting/${sub} write for ${camId.slice(0, 8)} rejected — privacy (443)`,
+            );
+            return false;
+        }
+        cache.set(camId, { ...body });
+        this.log.info(
+            `lighting/${sub} ${JSON.stringify(delta)} for ${camId.slice(0, 8)} (HTTP ${resp.status})`,
+        );
+        return true;
+    }
+
+    /** v1.1.0: motion-light on/off + sensitivity (Gen2 Outdoor, /lighting/motion). */
+    private _handleMotionLightWrite(
+        camId: string,
+        delta: { enabled?: boolean; sensitivity?: number },
+    ): Promise<boolean> {
+        const body: Record<string, unknown> = {};
+        if (delta.enabled !== undefined) {
+            body.lightOnMotionEnabled = delta.enabled;
+        }
+        if (delta.sensitivity !== undefined) {
+            body.motionLightSensitivity = Math.max(1, Math.min(5, Math.round(delta.sensitivity)));
+        }
+        return this._putLightingMerge(camId, "motion", this._motionLightCache, body);
+    }
+
+    /** v1.1.0: ambient-light on/off (Gen2 Outdoor, /lighting/ambient). */
+    private _handleAmbientLightWrite(camId: string, on: boolean): Promise<boolean> {
+        return this._putLightingMerge(camId, "ambient", this._ambientLightCache, {
+            ambientLightEnabled: on,
+        });
     }
 
     // ── v1.1.0 per-type notification write handler ─────────────────────────

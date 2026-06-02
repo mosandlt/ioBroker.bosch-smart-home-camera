@@ -274,6 +274,8 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _alarmSettingsCache;
     private _alarmStatusCache;
     private _notificationsCache;
+    private _motionLightCache;
+    private _ambientLightCache;
     private static readonly NOTIFY_TYPE_MAP;
     private _motionCache;
     /**
@@ -789,6 +791,17 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _pollBatchDLeds;
     /**
+     * v1.1.0: read /lighting/motion + /lighting/ambient and mirror DPs:
+     *  - motion_light_enabled ← lightOnMotionEnabled · motion_light_sensitivity ← motionLightSensitivity
+     *  - ambient_light_enabled ← ambientLightEnabled · ambient_light_schedule (derived enum)
+     * Seeds _motionLightCache / _ambientLightCache for the write merges. Gen2
+     * Outdoor only. Best-effort — 404/443/errors keep last value.
+     *
+     * @param token Current access_token
+     * @param camId Camera UUID
+     */
+    private _pollOutdoorLighting;
+    /**
      * Poll lens elevation from GET /v11/video_inputs/{id}/lens_elevation.
      * Seeds the write-cache and mirrors the value into the DP.
      * Gen2 only. Best-effort — errors swallowed.
@@ -993,6 +1006,21 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _handleTimestampWrite;
     /** v1.1.0: power/icon-LED brightness (Gen2 Indoor). PUT /iconLedBrightness {value:0-4}. */
     private _handlePowerLedBrightnessWrite;
+    /**
+     * v1.1.0: full-body-merge PUT helper for a /lighting/{sub} sub-endpoint
+     * (motion / ambient). GET-from-cache (or live) → set the delta keys → PUT
+     * the whole object → cache it. Returns false on 443 (privacy).
+     *
+     * @param camId    Camera UUID
+     * @param sub      "motion" | "ambient"
+     * @param cache    the matching cache map
+     * @param delta    keys to merge into the full body
+     */
+    private _putLightingMerge;
+    /** v1.1.0: motion-light on/off + sensitivity (Gen2 Outdoor, /lighting/motion). */
+    private _handleMotionLightWrite;
+    /** v1.1.0: ambient-light on/off (Gen2 Outdoor, /lighting/ambient). */
+    private _handleAmbientLightWrite;
     /**
      * v1.1.0: toggle a single notification type via PUT /v11/video_inputs/{id}/
      * notifications. Bosch requires the FULL body, so GET-from-cache (or live) →
