@@ -175,6 +175,38 @@ describe("fetchMjpegSnapshot()", () => {
         expect(rtspUrl).to.include(`?inst=${MJPEG_INST}`);
     });
 
+    // Regression (dev-sandbox smoke loop 2026-06-02): Bosch cbs Digest passwords
+    // contain reserved characters (e.g. "@", ":", "/"). Unescaped, an "@" splits
+    // the rtsps:// userinfo wrong and ffmpeg reported "Port missing in uri" — the
+    // MJPEG fast path failed for a Gen2 indoor cam. user + password must be
+    // percent-encoded (parity with HA mjpeg_snapshot.py quote(..., safe="")).
+    it("(4b) reserved chars in user/password are percent-encoded → port preserved", async () => {
+        const capturedArgs: string[][] = [];
+        mjpegMod._spawnFn = (_cmd, args) => {
+            capturedArgs.push([...args]);
+            return makeFakeSpawn({ stdoutData: VALID_JPEG })();
+        };
+
+        const { log } = makeLog();
+        const result = await fetchMjpegSnapshot(
+            "192.0.2.5",
+            443,
+            "cbs-a@b",
+            "p@ss:w/rd",
+            log,
+        );
+
+        expect(result).to.not.be.null;
+        const spawnArgs = capturedArgs[0];
+        const rtspUrl = spawnArgs[spawnArgs.indexOf("-i") + 1];
+        // The raw reserved chars must NOT appear in the authority — they are encoded.
+        expect(rtspUrl).to.equal(
+            `rtsps://cbs-a%40b:p%40ss%3Aw%2Frd@192.0.2.5:443/rtsp_tunnel?inst=${MJPEG_INST}`,
+        );
+        // The host:port authority is intact (the bug swallowed the ":443").
+        expect(rtspUrl).to.include("@192.0.2.5:443/rtsp_tunnel");
+    });
+
     // ── Non-zero exit code ─────────────────────────────────────────────────────
 
     it("(5) FFmpeg exits with non-zero code → returns null + warning log", async () => {
@@ -188,6 +220,26 @@ describe("fetchMjpegSnapshot()", () => {
 
         expect(result).to.be.null;
         expect(capture.warnLines.join(" ")).to.match(/exited with code 1/i);
+    });
+
+    // Security (2026-06-02): ffmpeg echoes the full input URL incl. Digest
+    // credentials in its stderr. The warning log must REDACT the userinfo so the
+    // camera's local-session password never lands in the ioBroker log.
+    it("(5b) credentials in ffmpeg stderr are redacted from the warning log", async () => {
+        mjpegMod._spawnFn = makeFakeSpawn({
+            exitCode: 234,
+            stderrData: Buffer.from(
+                "Error opening input file rtsps://cbs-00000000:fakeSecret@192.0.2.9:443/rtsp_tunnel",
+            ),
+        });
+
+        const { log, capture } = makeLog();
+        const result = await fetchMjpegSnapshot("192.0.2.9", 443, "cbs-00000000", "fakeSecret", log);
+
+        expect(result).to.be.null;
+        const joined = capture.warnLines.join(" ");
+        expect(joined, "password must not appear in the log").to.not.include("fakeSecret");
+        expect(joined, "userinfo is redacted to ***").to.include("rtsps://***@192.0.2.9:443");
     });
 
     // ── Empty stdout ───────────────────────────────────────────────────────────

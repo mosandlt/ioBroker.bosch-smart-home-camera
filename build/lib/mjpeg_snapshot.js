@@ -73,7 +73,15 @@ async function fetchMjpegSnapshot(camHost, camPort, user, password, log, timeout
         log.debug("fetchMjpegSnapshot: missing required params — skipping");
         return null;
     }
-    const rtspUrl = `rtsps://${user}:${password}@${camHost}:${camPort}` + `/rtsp_tunnel?inst=${exports.MJPEG_INST}`;
+    // URL-encode user + password — Bosch cbs Digest passwords contain reserved
+    // characters (e.g. "@", ":", "/") that otherwise break the rtsps:// authority
+    // parsing and make ffmpeg report "Port missing in uri" (the port is swallowed
+    // when an unescaped "@" splits the userinfo wrong). Parity with the HA Python
+    // mjpeg_snapshot.py (quote(..., safe="")). Found via dev-sandbox smoke loop
+    // 2026-06-02 on a Gen2 indoor camera whose Digest password contained "?".
+    const safeUser = encodeURIComponent(user);
+    const safePass = encodeURIComponent(password);
+    const rtspUrl = `rtsps://${safeUser}:${safePass}@${camHost}:${camPort}` + `/rtsp_tunnel?inst=${exports.MJPEG_INST}`;
     const t0 = Date.now();
     let proc = null;
     return new Promise((resolve) => {
@@ -148,7 +156,11 @@ async function fetchMjpegSnapshot(camHost, camPort, user, password, log, timeout
                 return;
             } // timeout already fired
             if (code !== 0) {
-                const stderrText = Buffer.concat(stderrChunks).toString("utf8", 0, 200) || "(no stderr)";
+                // Redact Digest credentials before logging: ffmpeg echoes the full
+                // input URL (rtsps://user:password@host:port/…) in its stderr, which
+                // would leak the camera's local-session password into the ioBroker
+                // log. Replace any URL userinfo with "***". (2026-06-02)
+                const stderrText = (Buffer.concat(stderrChunks).toString("utf8", 0, 200) || "(no stderr)").replace(/(rtsps?:\/\/)[^@\s/]+@/gi, "$1***@");
                 log.warn(`fetchMjpegSnapshot: FFmpeg exited with code ${code} for ${camHost} — ${stderrText}`);
                 settle(null);
                 return;

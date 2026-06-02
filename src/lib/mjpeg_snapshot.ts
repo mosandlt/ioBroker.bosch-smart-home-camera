@@ -101,8 +101,16 @@ export async function fetchMjpegSnapshot(
         return null;
     }
 
+    // URL-encode user + password — Bosch cbs Digest passwords contain reserved
+    // characters (e.g. "@", ":", "/") that otherwise break the rtsps:// authority
+    // parsing and make ffmpeg report "Port missing in uri" (the port is swallowed
+    // when an unescaped "@" splits the userinfo wrong). Parity with the HA Python
+    // mjpeg_snapshot.py (quote(..., safe="")). Found via dev-sandbox smoke loop
+    // 2026-06-02 on a Gen2 indoor camera whose Digest password contained "?".
+    const safeUser = encodeURIComponent(user);
+    const safePass = encodeURIComponent(password);
     const rtspUrl =
-        `rtsps://${user}:${password}@${camHost}:${camPort}` + `/rtsp_tunnel?inst=${MJPEG_INST}`;
+        `rtsps://${safeUser}:${safePass}@${camHost}:${camPort}` + `/rtsp_tunnel?inst=${MJPEG_INST}`;
 
     const t0 = Date.now();
     let proc: ChildProcess | null = null;
@@ -184,8 +192,13 @@ export async function fetchMjpegSnapshot(
             } // timeout already fired
 
             if (code !== 0) {
-                const stderrText =
-                    Buffer.concat(stderrChunks).toString("utf8", 0, 200) || "(no stderr)";
+                // Redact Digest credentials before logging: ffmpeg echoes the full
+                // input URL (rtsps://user:password@host:port/…) in its stderr, which
+                // would leak the camera's local-session password into the ioBroker
+                // log. Replace any URL userinfo with "***". (2026-06-02)
+                const stderrText = (
+                    Buffer.concat(stderrChunks).toString("utf8", 0, 200) || "(no stderr)"
+                ).replace(/(rtsps?:\/\/)[^@\s/]+@/gi, "$1***@");
                 log.warn(
                     `fetchMjpegSnapshot: FFmpeg exited with code ${code} for ${camHost} — ${stderrText}`,
                 );
