@@ -2612,12 +2612,16 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     return openLiveSession(this._httpClient, this._currentAccessToken, camId, hq);
                 },
                 onRenew: async (newSession: LiveSession) => {
-                    this._liveSessions.set(camId, newSession);
                     // Reset backoff + LAN-fail on successful renewal
                     this._renewalBackoff.delete(camId);
                     this._lanTcpFailCount.delete(camId);
                     this._sessionStartTime.set(camId, Date.now());
+                    // v1.1.0: publish the session ONLY after the proxy is up.
+                    // upsertSession can throw if startTlsProxy fails (sticky +
+                    // ephemeral both fail); setting _liveSessions first left a
+                    // session with no proxy in the map (clients/RCP then fail).
                     await this.upsertSession(camId, newSession);
+                    this._liveSessions.set(camId, newSession);
                 },
                 onError: (err: Error) => {
                     // v0.7.10: graceful renewal backoff — keep session alive and retry
@@ -2820,11 +2824,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 hq,
             );
             // Success — reset state and re-arm watchdog
-            this._liveSessions.set(camId, newSession);
             this._renewalBackoff.delete(camId);
             this._lanTcpFailCount.delete(camId);
             this._sessionStartTime.set(camId, Date.now());
+            // v1.1.0: publish the session only after the proxy is up (upsertSession
+            // can throw on proxy-start failure → don't leave a proxy-less session).
             await this.upsertSession(camId, newSession);
+            this._liveSessions.set(camId, newSession);
 
             // Re-arm watchdog if it was stopped
             if (!this._sessionWatchdogs.has(camId)) {
@@ -2844,11 +2850,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         );
                     },
                     onRenew: async (renewedSession: LiveSession) => {
-                        this._liveSessions.set(camId, renewedSession);
                         this._renewalBackoff.delete(camId);
                         this._lanTcpFailCount.delete(camId);
                         this._sessionStartTime.set(camId, Date.now());
+                        // v1.1.0: publish session only after the proxy is up.
                         await this.upsertSession(camId, renewedSession);
+                        this._liveSessions.set(camId, renewedSession);
                     },
                     onError: (renewErr: Error) => {
                         void this._handleRenewalFailure(camId, renewErr);
@@ -6400,7 +6407,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 // cutoff so an adapter restart doesn't fire scenes for
                 // four-week-old motion.
                 const eventTs = new Date(ts).getTime();
-                const eventAgeMs = Number.isFinite(eventTs) ? Date.now() - eventTs : 0;
+                // v1.1.0: an UNPARSEABLE timestamp (new Date(ts) → NaN) must be
+                // treated as STALE (Infinity age), not fresh. Pre-v1.1.0 it fell
+                // back to age 0 → isFresh=true → motion_active flip + auto-snapshot
+                // fired for malformed events, the opposite of the intended guard.
+                const eventAgeMs = Number.isFinite(eventTs)
+                    ? Date.now() - eventTs
+                    : Number.POSITIVE_INFINITY;
                 const MAX_FRESH_AGE_MS = 15 * 60_000;
                 const isFresh = eventAgeMs <= MAX_FRESH_AGE_MS;
 
