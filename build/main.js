@@ -2501,6 +2501,20 @@ class BoschSmartHomeCamera extends utils.Adapter {
         try {
             const hq = (this._streamQuality.get(camId) ?? "high") === "high";
             const newSession = await (0, live_session_1.openLiveSession)(this._httpClient, this._currentAccessToken, camId, hq);
+            // v1.1.0: the openLiveSession await above is a window in which a
+            // teardown (user stop / privacy toggle / LAN-fail) can run and bump
+            // the generation. If it did, this stream is no longer wanted — do
+            // NOT resurrect it (publish session + proxy + watchdog). Close the
+            // just-opened orphan session so it doesn't leak server-side. The
+            // top-of-function guard only covers a teardown BEFORE this retry ran.
+            if (expectedGeneration !== undefined &&
+                (this._streamGeneration.get(camId) ?? 0) !== expectedGeneration) {
+                this.log.debug(`RTSP watchdog: stream for ${camPrefix} torn down during renewal — discarding new session`);
+                if (this._currentAccessToken) {
+                    void (0, live_session_1.closeLiveSession)(this._httpClient, this._currentAccessToken, camId).catch(() => undefined);
+                }
+                return;
+            }
             // Success — reset state and re-arm watchdog
             this._renewalBackoff.delete(camId);
             this._lanTcpFailCount.delete(camId);
