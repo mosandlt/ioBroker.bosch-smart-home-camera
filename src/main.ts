@@ -2600,6 +2600,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
             // Reset backoff and LAN-fail counters on a fresh session open
             this._renewalBackoff.delete(camId);
             this._lanTcpFailCount.delete(camId);
+            // v1.1.0: the generation this watchdog is armed with — passed to
+            // onError so a teardown during an in-flight renewal still bails.
+            const armedGen = this._streamGeneration.get(camId) ?? 0;
 
             const watchdog = new SessionWatchdog({
                 openSession: () => {
@@ -2625,7 +2628,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 },
                 onError: (err: Error) => {
                     // v0.7.10: graceful renewal backoff — keep session alive and retry
-                    void this._handleRenewalFailure(camId, err);
+                    void this._handleRenewalFailure(camId, err, armedGen);
                 },
                 log: (level, msg) => this.log[level](msg),
                 setTimeout: this.setTimeout.bind(this),
@@ -2686,7 +2689,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * @param camId  Camera UUID
      * @param err    Error from the last failed openSession() call
      */
-    private _handleRenewalFailure(camId: string, err: Error): void {
+    private _handleRenewalFailure(camId: string, err: Error, armedGeneration?: number): void {
         const camPrefix = camId.slice(0, 8);
         // v1.1.0: drop the now-dead watchdog from the map. The watchdog always
         // calls stop() on itself BEFORE invoking onError→here (session_watchdog
@@ -2740,9 +2743,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
         );
 
         // Use adapter setTimeout so it's automatically cancelled on unload.
-        // v1.1.0: capture the current generation; if a teardown bumps it
-        // before this fires, _attemptBackoffRenewal bails (no resurrection).
-        const gen = this._streamGeneration.get(camId) ?? 0;
+        // v1.1.0: use the generation the failing watchdog was ARMED with
+        // (armedGeneration) when available, falling back to the current value.
+        // Capturing the current value here would miss a teardown that bumped the
+        // generation while this watchdog's renewal was already in-flight — the
+        // scheduled retry would then match and resurrect a torn-down stream.
+        const gen = armedGeneration ?? this._streamGeneration.get(camId) ?? 0;
         this.setTimeout(() => {
             void this._attemptBackoffRenewal(camId, gen).catch((retryErr: unknown) => {
                 const msg = retryErr instanceof Error ? retryErr.message : String(retryErr);
@@ -2799,7 +2805,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 }
                 // Not yet at threshold — schedule next backoff retry
                 const fakeErr = new Error(`LAN TCP connect failed (attempt ${next})`);
-                this._handleRenewalFailure(camId, fakeErr);
+                this._handleRenewalFailure(camId, fakeErr, expectedGeneration);
                 return;
             }
             // LAN TCP succeeded — reset the consecutive failure counter
@@ -2811,7 +2817,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
             this.log.warn(
                 `RTSP watchdog: no access token for camera ${camPrefix} — skipping renewal retry`,
             );
-            this._handleRenewalFailure(camId, new Error("No access token for renewal retry"));
+            this._handleRenewalFailure(
+                camId,
+                new Error("No access token for renewal retry"),
+                expectedGeneration,
+            );
             return;
         }
 
@@ -2834,6 +2844,10 @@ class BoschSmartHomeCamera extends utils.Adapter {
 
             // Re-arm watchdog if it was stopped
             if (!this._sessionWatchdogs.has(camId)) {
+                // v1.1.0: this re-armed watchdog belongs to the generation this
+                // backoff chain is running under — pass it to onError so a
+                // teardown during a future in-flight renewal still bails.
+                const armedGenInner = expectedGeneration ?? this._streamGeneration.get(camId) ?? 0;
                 const watchdog = new SessionWatchdog({
                     openSession: () => {
                         if (!this._currentAccessToken) {
@@ -2858,7 +2872,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         this._liveSessions.set(camId, renewedSession);
                     },
                     onError: (renewErr: Error) => {
-                        void this._handleRenewalFailure(camId, renewErr);
+                        void this._handleRenewalFailure(camId, renewErr, armedGenInner);
                     },
                     log: (level, msg) => this.log[level](msg),
                     setTimeout: this.setTimeout.bind(this),
@@ -2872,7 +2886,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
             this.log.info(`RTSP watchdog: cloud renewal backoff succeeded for camera ${camPrefix}`);
         } catch (renewErr: unknown) {
             const error = renewErr instanceof Error ? renewErr : new Error(String(renewErr));
-            this._handleRenewalFailure(camId, error);
+            this._handleRenewalFailure(camId, error, expectedGeneration);
         }
     }
 
@@ -3747,6 +3761,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
         await this.ensureCameraObjects(cameras);
         // F13: ensure cloud.feature_flags + cloud.feature_flags_raw DPs exist
         await this.ensureCloudObjects();
+
+        // v1.1.0: clear the upsertState shadow cache on every onReady alongside
+        // _cameras/_lanIpMap. It survived restarts before, so a value the cache
+        // believed was already written (but the DB lost, or that changed cloud-side
+        // while the adapter was down) could be skipped by the equality short-circuit
+        // in upsertState — the DP would never be refreshed this session.
+        this._stateCache.clear();
 
         // Populate in-memory camera cache (used by handlers for Gen1/Gen2 dispatch)
         this._cameras.clear();
@@ -6347,17 +6368,19 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     continue;
                 }
                 this._lastSeenEventId[camId] = newestId;
-                // v0.9.0: persist so restarts don't re-fire side effects for old events
-                void this.setStateAsync(
-                    `cameras.${camId}.last_seen_event_id`,
-                    newestId,
-                    true,
-                ).catch((err: unknown) => {
+                // v0.9.0: persist so restarts don't re-fire side effects for old events.
+                // v1.1.0: AWAIT the persist (was fire-and-forget) so a crash/unload
+                // right after the in-memory update can't leave the OLD id in storage
+                // → on restart the dedup would miss and the event re-fires. Mirrors
+                // the FCM path (onFcmEvent) which already awaits.
+                try {
+                    await this.setStateAsync(`cameras.${camId}.last_seen_event_id`, newestId, true);
+                } catch (err: unknown) {
                     this.log.debug(
                         `last_seen_event_id persist for ${camId.slice(0, 8)} failed: ` +
                             `${err instanceof Error ? err.message : String(err)}`,
                     );
-                });
+                }
 
                 // Normalise event type — mirrors HA fcm.py PERSON upgrade logic
                 const rawType = ((newest.eventType ?? "") as string).toUpperCase();
