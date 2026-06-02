@@ -351,6 +351,10 @@ class BoschSmartHomeCamera extends utils.Adapter {
     // GET /alarm_settings → {alarmDelayInSeconds, alarmActivationDelaySeconds, preAlarmDelayInSeconds, ...}.
     // PUT /alarm_settings requires the full body — cache holds all fields.
     _alarmSettingsCache = new Map();
+    // v1.1.0: alarmStatus cache (Gen2 Indoor only). GET /alarmStatus →
+    // {intrusionSystem: "ACTIVE"|"INACTIVE"|…, alarmType}. Read-only — drives
+    // the alarm_arm switch (ACTIVE=on) + alarm_state sensor.
+    _alarmStatusCache = new Map();
     // v1.1.0: motion config cache (all cameras).
     // GET /v11/video_inputs/{id}/motion → {enabled, motionAlarmConfiguration, ...}.
     // PUT /motion requires the FULL body — both motion_enabled and
@@ -2068,6 +2072,57 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     },
                     native: {},
                 });
+                // v1.1.0: alarm-system arm/disarm (PUT /intrusionSystem/arming).
+                await this.setObjectNotExistsAsync(`${prefix}.alarm_arm`, {
+                    type: "state",
+                    common: {
+                        name: "Alarm system armed",
+                        role: "switch",
+                        type: "boolean",
+                        read: true,
+                        write: true,
+                        def: false,
+                    },
+                    native: {},
+                });
+                // v1.1.0: alarm mode + pre-alarm enable (alarm_settings ON/OFF).
+                await this.setObjectNotExistsAsync(`${prefix}.alarm_mode`, {
+                    type: "state",
+                    common: {
+                        name: "Alarm mode enabled (alarm_settings.alarmMode)",
+                        role: "switch",
+                        type: "boolean",
+                        read: true,
+                        write: true,
+                        def: false,
+                    },
+                    native: {},
+                });
+                await this.setObjectNotExistsAsync(`${prefix}.pre_alarm`, {
+                    type: "state",
+                    common: {
+                        name: "Pre-alarm warning enabled (alarm_settings.preAlarmMode)",
+                        role: "switch",
+                        type: "boolean",
+                        read: true,
+                        write: true,
+                        def: false,
+                    },
+                    native: {},
+                });
+                // v1.1.0: alarm state sensor (read-only) — GET /alarmStatus.intrusionSystem.
+                await this.setObjectNotExistsAsync(`${prefix}.alarm_state`, {
+                    type: "state",
+                    common: {
+                        name: "Alarm system state (intrusionSystem)",
+                        role: "text",
+                        type: "string",
+                        read: true,
+                        write: false,
+                        def: "",
+                    },
+                    native: {},
+                });
             }
             // v0.9.0: persisted last-seen event ID — survives adapter restarts so
             // fetchAndProcessEvents() does not re-fire side effects for historical events.
@@ -3771,6 +3826,8 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (cam.hardwareVersion === "HOME_Eyes_Indoor" ||
             cam.hardwareVersion === "CAMERA_INDOOR_GEN2") {
             await this._pollAlarmSettings(token, cam.id);
+            // v1.1.0: alarm system arm-state + alarm_state sensor.
+            await this._pollAlarmStatus(token, cam.id);
         }
         // F4/F6 slow-tier LAN diagnostic reads — all cameras, before the Gen1/no-light
         // early return so Gen1 cams still get ONVIF scopes + RCP version.
@@ -4066,10 +4123,52 @@ class BoschSmartHomeCamera extends utils.Adapter {
             if (preDelay !== undefined) {
                 writes.push(this.upsertState(`cameras.${camId}.pre_alarm_delay`, preDelay));
             }
+            // v1.1.0: mirror alarmMode / preAlarmMode ("ON"/"OFF") → boolean DPs.
+            if (typeof data.alarmMode === "string") {
+                writes.push(this.upsertState(`cameras.${camId}.alarm_mode`, data.alarmMode === "ON"));
+            }
+            if (typeof data.preAlarmMode === "string") {
+                writes.push(this.upsertState(`cameras.${camId}.pre_alarm`, data.preAlarmMode === "ON"));
+            }
             await Promise.all(writes);
         }
         catch (err) {
             this.log.debug(`Alarm settings poll for ${camId.slice(0, 8)} failed: ` +
+                `${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+    // ── v1.1.0 alarm-status poll (Gen2 Indoor) ─────────────────────────────
+    /**
+     * v1.1.0: poll GET /v11/video_inputs/{id}/alarmStatus → mirror
+     * `intrusionSystem` into the alarm_state sensor (lower-cased string) and the
+     * alarm_arm switch (ACTIVE → true, else false). Gen2 Indoor II only.
+     * Best-effort — 404/443 keep last value, errors swallowed.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    async _pollAlarmStatus(token, camId) {
+        try {
+            const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/alarmStatus`;
+            const resp = await this._httpClient.get(url, {
+                headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 404 || s === 443,
+            });
+            if (resp.status === 404 || resp.status === 443 || !resp.data) {
+                return;
+            }
+            const data = resp.data;
+            this._alarmStatusCache.set(camId, { ...data });
+            if (typeof data.intrusionSystem === "string") {
+                const writes = [
+                    this.upsertState(`cameras.${camId}.alarm_state`, data.intrusionSystem.toLowerCase()),
+                    this.upsertState(`cameras.${camId}.alarm_arm`, data.intrusionSystem.toUpperCase() === "ACTIVE"),
+                ];
+                await Promise.all(writes);
+            }
+        }
+        catch (err) {
+            this.log.debug(`Alarm status poll for ${camId.slice(0, 8)} failed: ` +
                 `${err instanceof Error ? err.message : String(err)}`);
         }
     }
@@ -4625,6 +4724,33 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     });
                     break;
                 }
+                case "alarm_arm":
+                case "alarm_mode":
+                case "pre_alarm": {
+                    // v1.1.0: Gen2 Indoor II alarm-system controls.
+                    const camAl = this._cameras.get(camId);
+                    if (!camAl ||
+                        (camAl.hardwareVersion !== "HOME_Eyes_Indoor" &&
+                            camAl.hardwareVersion !== "CAMERA_INDOOR_GEN2")) {
+                        this.log.warn(`${stateName} write for ${camId.slice(0, 8)} ignored — Indoor II only`);
+                        return; // skip ack
+                    }
+                    const on = Boolean(state.val);
+                    if (stateName === "alarm_arm") {
+                        await this._handleAlarmArmWrite(camId, on);
+                    }
+                    else if (stateName === "alarm_mode") {
+                        await this._handleAlarmSettingsWrite(camId, {
+                            alarmMode: on ? "ON" : "OFF",
+                        });
+                    }
+                    else {
+                        await this._handleAlarmSettingsWrite(camId, {
+                            preAlarmMode: on ? "ON" : "OFF",
+                        });
+                    }
+                    break;
+                }
                 case "privacy_sound_enabled": {
                     // v0.9.0: privacy sound override — GET/PUT /privacy_sound_override
                     await this._handlePrivacySoundWrite(camId, Boolean(state.val));
@@ -4910,6 +5036,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * @param delta  {sensitivity?, distance?}
      * @param delta.sensitivity
      * @param delta.distance
+     * @param delta.detectionMode upper-case API enum (ALL_MOTIONS/ONLY_HUMANS/ZONES)
      */
     async _handleIntrusionWrite(camId, delta) {
         if (!this._currentAccessToken) {
@@ -5086,6 +5213,8 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * @param delta.alarmDelayInSeconds
      * @param delta.alarmActivationDelaySeconds
      * @param delta.preAlarmDelayInSeconds
+     * @param delta.alarmMode "ON"/"OFF" — alarm mode enable
+     * @param delta.preAlarmMode "ON"/"OFF" — pre-alarm warning enable
      */
     async _handleAlarmSettingsWrite(camId, delta) {
         if (!this._currentAccessToken) {
@@ -5120,12 +5249,44 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (delta.preAlarmDelayInSeconds !== undefined) {
             cfg.preAlarmDelayInSeconds = Math.max(0, Math.min(300, delta.preAlarmDelayInSeconds));
         }
+        // v1.1.0: alarm_mode / pre_alarm enable — string "ON"/"OFF" in the body.
+        if (delta.alarmMode !== undefined) {
+            cfg.alarmMode = delta.alarmMode;
+        }
+        if (delta.preAlarmMode !== undefined) {
+            cfg.preAlarmMode = delta.preAlarmMode;
+        }
         const resp = await this._httpClient.put(url, cfg, {
             headers,
             validateStatus: (s) => s >= 200 && s < 300,
         });
         this._alarmSettingsCache.set(camId, { ...cfg });
         this.log.info(`Alarm settings updated for ${camId.slice(0, 8)} (HTTP ${resp.status}): ${JSON.stringify(delta)}`);
+    }
+    // ── v1.1.0 alarm-system arming handler ─────────────────────────────────
+    /**
+     * v1.1.0: arm/disarm the Gen2 Indoor II alarm system via
+     * PUT /v11/video_inputs/{id}/intrusionSystem/arming {arm:bool} (single key).
+     * Read-mirrored from GET /alarmStatus.intrusionSystem (_pollAlarmStatus).
+     * Mirrors HA BoschAlarmSystemArmSwitch.
+     *
+     * @param camId Camera UUID (Gen2 Indoor II)
+     * @param arm   true → arm, false → disarm
+     */
+    async _handleAlarmArmWrite(camId, arm) {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/intrusionSystem/arming`;
+        const resp = await this._httpClient.put(url, { arm }, {
+            headers: {
+                Authorization: `Bearer ${this._currentAccessToken}`,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+            validateStatus: (s) => s >= 200 && s < 300,
+        });
+        this.log.info(`Alarm system ${arm ? "ARMED" : "DISARMED"} for ${camId.slice(0, 8)} (HTTP ${resp.status})`);
     }
     /**
      * Inject a synthetic motion event for a camera.

@@ -272,6 +272,7 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _lensElevationCache;
     private _globalLightingCache;
     private _alarmSettingsCache;
+    private _alarmStatusCache;
     private _motionCache;
     /**
      * Whether a continuous live RTSP stream is active per camera ID.
@@ -793,6 +794,16 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _pollAlarmSettings;
     /**
+     * v1.1.0: poll GET /v11/video_inputs/{id}/alarmStatus → mirror
+     * `intrusionSystem` into the alarm_state sensor (lower-cased string) and the
+     * alarm_arm switch (ACTIVE → true, else false). Gen2 Indoor II only.
+     * Best-effort — 404/443 keep last value, errors swallowed.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private _pollAlarmStatus;
+    /**
      * F4/F6 slow-tier: fetch ONVIF scopes (RCP 0x0a98) and RCP version (0xff00)
      * directly from the camera's LAN HTTPS endpoint using cached cbs Digest creds.
      *
@@ -930,6 +941,7 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param delta  {sensitivity?, distance?}
      * @param delta.sensitivity
      * @param delta.distance
+     * @param delta.detectionMode upper-case API enum (ALL_MOTIONS/ONLY_HUMANS/ZONES)
      */
     private _handleIntrusionWrite;
     /**
@@ -970,8 +982,20 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param delta.alarmDelayInSeconds
      * @param delta.alarmActivationDelaySeconds
      * @param delta.preAlarmDelayInSeconds
+     * @param delta.alarmMode "ON"/"OFF" — alarm mode enable
+     * @param delta.preAlarmMode "ON"/"OFF" — pre-alarm warning enable
      */
     private _handleAlarmSettingsWrite;
+    /**
+     * v1.1.0: arm/disarm the Gen2 Indoor II alarm system via
+     * PUT /v11/video_inputs/{id}/intrusionSystem/arming {arm:bool} (single key).
+     * Read-mirrored from GET /alarmStatus.intrusionSystem (_pollAlarmStatus).
+     * Mirrors HA BoschAlarmSystemArmSwitch.
+     *
+     * @param camId Camera UUID (Gen2 Indoor II)
+     * @param arm   true → arm, false → disarm
+     */
+    private _handleAlarmArmWrite;
     /**
      * Inject a synthetic motion event for a camera.
      *
