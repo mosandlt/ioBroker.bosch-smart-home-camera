@@ -1416,6 +1416,43 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 },
                 native: {},
             });
+            // v1.1.0: record-sound toggle (all cameras). PUT /recording_options
+            // {recordSound:bool} (single key, no merge). Read from the same GET.
+            // Mirrors HA BoschRecordSoundSwitch.
+            await this.setObjectNotExistsAsync(`${prefix}.record_sound`, {
+                type: "state",
+                common: {
+                    name: "Record sound with video",
+                    role: "switch",
+                    type: "boolean",
+                    read: true,
+                    write: true,
+                    def: true,
+                },
+                native: {},
+            });
+            // v1.1.0: detection-mode select (Gen2 only) — shares
+            // /intrusionDetectionConfig (full-body merge via _intrusionConfigCache).
+            // API enum is the upper-cased option key. Mirrors HA BoschDetectionModeSelect.
+            if (cam.generation >= 2) {
+                await this.setObjectNotExistsAsync(`${prefix}.detection_mode`, {
+                    type: "state",
+                    common: {
+                        name: "Detection mode",
+                        role: "level.mode",
+                        type: "string",
+                        read: true,
+                        write: true,
+                        def: "all_motions",
+                        states: {
+                            all_motions: "All motions",
+                            only_humans: "Only humans",
+                            zones: "Zones",
+                        },
+                    },
+                    native: {},
+                });
+            }
             // v0.7.6: gate light DPs on featureLight — Indoor II (Gen2, no LEDs)
             // must not get DPs that can never work. Gen1 always has light hardware
             // (lighting_override endpoint); Gen2 only when featureSupport.light=true.
@@ -3712,6 +3749,8 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // AND seeds _motionCache so the write handler has a full body to merge
         // into (Bosch /motion rejects partial PUTs). All cameras.
         await this._pollMotionConfig(token, cam.id);
+        // v1.1.0: record-sound — GET /recording_options mirrors record_sound DP.
+        await this._pollRecordingOptions(token, cam.id);
         // v0.7.14: Gen2 intrusionDetectionConfig — mirrors sensitivity +
         // distance into DPs AND seeds the write-cache so the user-write
         // handler has a full body to merge into (Bosch rejects DELTA PUTs).
@@ -3833,6 +3872,14 @@ class BoschSmartHomeCamera extends utils.Adapter {
             if (distance !== undefined) {
                 writes.push(this.upsertState(`cameras.${camId}.intrusion_distance`, distance));
             }
+            // v1.1.0: mirror detectionMode → detection_mode DP (lower-cased to
+            // match the select option keys). Only for the recognised values.
+            if (typeof data.detectionMode === "string") {
+                const dm = data.detectionMode.toLowerCase();
+                if (dm === "all_motions" || dm === "only_humans" || dm === "zones") {
+                    writes.push(this.upsertState(`cameras.${camId}.detection_mode`, dm));
+                }
+            }
             await Promise.all(writes);
         }
         catch (err) {
@@ -3886,6 +3933,35 @@ class BoschSmartHomeCamera extends utils.Adapter {
         }
         catch (err) {
             this.log.debug(`Motion config poll for ${camId.slice(0, 8)} failed: ` +
+                `${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+    // ── v1.1.0 recording-options poll ───────────────────────────────────────
+    /**
+     * v1.1.0: poll GET /v11/video_inputs/{id}/recording_options and mirror
+     * `recordSound` → record_sound DP. All cameras. 404/443 → keep last value.
+     * Best-effort — errors swallowed.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    async _pollRecordingOptions(token, camId) {
+        try {
+            const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/recording_options`;
+            const resp = await this._httpClient.get(url, {
+                headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 404 || s === 443,
+            });
+            if (resp.status === 404 || resp.status === 443 || !resp.data) {
+                return;
+            }
+            const data = resp.data;
+            if (typeof data.recordSound === "boolean") {
+                await this.upsertState(`cameras.${camId}.record_sound`, data.recordSound);
+            }
+        }
+        catch (err) {
+            this.log.debug(`Recording-options poll for ${camId.slice(0, 8)} failed: ` +
                 `${err instanceof Error ? err.message : String(err)}`);
         }
     }
@@ -4269,6 +4345,28 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     if (!(await this._handleMotionWrite(camId, { sensitivity: sens }))) {
                         return; // skip ack — write rejected (privacy 443)
                     }
+                    break;
+                }
+                case "record_sound":
+                    // v1.1.0: record-sound toggle (all cameras).
+                    if (!(await this._handleRecordSoundWrite(camId, Boolean(state.val)))) {
+                        return; // skip ack — write rejected (privacy 443)
+                    }
+                    break;
+                case "detection_mode": {
+                    // v1.1.0: detection-mode select (Gen2 only, shared /intrusionDetectionConfig).
+                    const camDm = this._cameras.get(camId);
+                    if (!camDm || camDm.generation < 2) {
+                        this.log.warn(`detection_mode write for ${camId.slice(0, 8)} ignored — Gen2 only`);
+                        return; // skip ack — unsupported on this camera
+                    }
+                    const dm = typeof state.val === "string" ? state.val : "";
+                    const dmAllowed = new Set(["all_motions", "only_humans", "zones"]);
+                    if (!dmAllowed.has(dm)) {
+                        this.log.warn(`detection_mode write for ${camId.slice(0, 8)} ignored — invalid value "${dm}"`);
+                        return; // skip ack — keep last valid value
+                    }
+                    await this._handleIntrusionWrite(camId, { detectionMode: dm.toUpperCase() });
                     break;
                 }
                 case "light_enabled": {
@@ -4855,6 +4953,10 @@ class BoschSmartHomeCamera extends utils.Adapter {
             // FW 9.40.102). Was min(10) → sending 9/10 returned 400. Clamp to 8.
             cfg.distance = Math.max(1, Math.min(8, Math.round(delta.distance)));
         }
+        if (delta.detectionMode !== undefined) {
+            // v1.1.0: API enum is upper-case (ALL_MOTIONS/ONLY_HUMANS/ZONES).
+            cfg.detectionMode = delta.detectionMode;
+        }
         // v0.7.14: HTTP 443 from Bosch = "cam is in privacy mode, config
         // writes are rejected". HA's same response shows a localised
         // `privacy_blocked` error. We surface a clear message so users
@@ -4870,6 +4972,36 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // Update cache with the body we just successfully wrote
         this._intrusionConfigCache.set(camId, { ...cfg });
         this.log.info(`Intrusion config updated for ${camId.slice(0, 8)} (HTTP ${resp.status}): ${JSON.stringify(cfg)}`);
+    }
+    // ── v1.1.0 record-sound write handler ──────────────────────────────────
+    /**
+     * v1.1.0: toggle recording audio via PUT /v11/video_inputs/{id}/recording_options.
+     * Single-key body {recordSound:bool} (no full-body merge needed). All cameras.
+     * Mirrors HA BoschRecordSoundSwitch. Returns false on 443 (privacy) so the
+     * caller skips the optimistic ack.
+     *
+     * @param camId Camera UUID
+     * @param on    true → record sound, false → mute recordings
+     */
+    async _handleRecordSoundWrite(camId, on) {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/recording_options`;
+        const resp = await this._httpClient.put(url, { recordSound: on }, {
+            headers: {
+                Authorization: `Bearer ${this._currentAccessToken}`,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+            validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
+        });
+        if (resp.status === 443) {
+            this.log.warn(`record_sound write for ${camId.slice(0, 8)} rejected — camera in privacy mode (HTTP 443)`);
+            return false;
+        }
+        this.log.info(`Record-sound ${on ? "ON" : "OFF"} for ${camId.slice(0, 8)} (HTTP ${resp.status})`);
+        return true;
     }
     // ── v0.8.0 lens elevation write handler ────────────────────────────────
     /**

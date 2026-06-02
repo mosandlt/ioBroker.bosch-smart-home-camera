@@ -757,6 +757,15 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _pollMotionConfig;
     /**
+     * v1.1.0: poll GET /v11/video_inputs/{id}/recording_options and mirror
+     * `recordSound` → record_sound DP. All cameras. 404/443 → keep last value.
+     * Best-effort — errors swallowed.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private _pollRecordingOptions;
+    /**
      * Poll lens elevation from GET /v11/video_inputs/{id}/lens_elevation.
      * Seeds the write-cache and mirrors the value into the DP.
      * Gen2 only. Best-effort — errors swallowed.
@@ -923,6 +932,16 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param delta.distance
      */
     private _handleIntrusionWrite;
+    /**
+     * v1.1.0: toggle recording audio via PUT /v11/video_inputs/{id}/recording_options.
+     * Single-key body {recordSound:bool} (no full-body merge needed). All cameras.
+     * Mirrors HA BoschRecordSoundSwitch. Returns false on 443 (privacy) so the
+     * caller skips the optimistic ack.
+     *
+     * @param camId Camera UUID
+     * @param on    true → record sound, false → mute recordings
+     */
+    private _handleRecordSoundWrite;
     /**
      * Set lens mounting height via PUT /v11/video_inputs/{id}/lens_elevation.
      * Gen2 only. Range clamped to 0.5–5.0 m.
