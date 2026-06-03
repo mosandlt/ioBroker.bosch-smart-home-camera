@@ -604,6 +604,20 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.2.0 (2026-06-03)
+Management-tier read-only datapoints (Home Assistant parity).
+
+New per-camera datapoints under `cameras.<id>` (all read-only):
+- **Motion zones:** `motion_zones` (raw JSON array of `{x,y,w,h}`) + `motion_zones_count`.
+- **Privacy masks:** `privacy_masks` (raw JSON) + `privacy_masks_count`.
+- **Automation rules:** `rules` (raw JSON array of `{id,name,isActive,startTime,endTime,weekdays}`) + `rules_count`.
+- **Floodlight schedule (Gen1 only):** `lighting_schedule_status` (the `scheduleStatus` mode) + `lighting_schedule` (raw JSON from `lighting_options`). Gen2 already exposes `ambient_light_schedule` via `/lighting/ambient`.
+- **Friend sharing (Gen2 only):** `shared_with_friends` (raw JSON array) + `shared_with_friends_count`. Gen1 cameras do not expose this endpoint.
+
+These are polled on the slow tier (~every 300 s) and are best-effort: HTTP 404/442/443/444 keep the last-known value and never raise. The matching write paths (zone/rule/share editing) are intentionally not wired yet.
+
+Internal: global `eslint .` is now clean (widgets linted against real browser/VIS globals instead of being ignored).
+
 ### 1.1.0 (2026-06-02)
 Feature + hardening release.
 
