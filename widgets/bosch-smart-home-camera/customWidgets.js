@@ -22,7 +22,8 @@
  * Compatibility: VIS-2 >= 2.0. Falls back gracefully if vis global absent.
  */
 
-/* global vis */
+// Browser + VIS globals (window/document/vis/...) are declared for widgets/**
+// in eslint.config.mjs rather than via inline /* global */ comments.
 (function () {
     "use strict";
 
@@ -121,7 +122,9 @@
     ].join("\n");
 
     function injectCSS() {
-        if (document.getElementById("bosch-camera-tile-css")) return;
+        if (document.getElementById("bosch-camera-tile-css")) {
+            return;
+        }
         var s = document.createElement("style");
         s.id = "bosch-camera-tile-css";
         s.textContent = CSS;
@@ -130,7 +133,9 @@
 
     // ── extract camId from a DP path like "bosch-smart-home-camera.0.cameras.UUID.name" ──
     function camIdFromDp(dp) {
-        if (!dp) return null;
+        if (!dp) {
+            return null;
+        }
         // accept full path "bosch-smart-home-camera.0.cameras.<UUID>.<field>"
         // or short path "cameras.<UUID>.<field>"
         var m = dp.match(/cameras\.([^.]+)/);
@@ -139,16 +144,16 @@
 
     // ── derive instance from DP path ─────────────────────────────────────────
     function instanceFromDp(dp) {
-        if (!dp) return "0";
+        if (!dp) {
+            return "0";
+        }
         var m = dp.match(/bosch-smart-home-camera\.(\d+)\./);
         return m ? m[1] : "0";
     }
 
     // ── build canonical DP path ───────────────────────────────────────────────
     function dp(instance, camId, field) {
-        return (
-            "bosch-smart-home-camera." + instance + ".cameras." + camId + "." + field
-        );
+        return `bosch-smart-home-camera.${instance}.cameras.${camId}.${field}`;
     }
 
     // ── Widget class ──────────────────────────────────────────────────────────
@@ -174,17 +179,11 @@
         this._camId = camIdFromDp(rawDp);
         this._instance = instanceFromDp(rawDp);
         this._showLight =
-            widgetData.show_light_btn !== undefined
-                ? widgetData.show_light_btn
-                : true;
-        this._refreshInterval = Math.max(
-            5,
-            parseInt(widgetData.refresh_interval, 10) || 30
-        );
-        var width =
-            parseInt(widgetData.tile_width, 10) || 320;
+            widgetData.show_light_btn !== undefined ? widgetData.show_light_btn : true;
+        this._refreshInterval = Math.max(5, parseInt(widgetData.refresh_interval, 10) || 30);
+        var width = parseInt(widgetData.tile_width, 10) || 320;
         if (width > 0) {
-            el.style.width = width + "px";
+            el.style.width = `${width}px`;
         } else {
             el.style.width = "100%";
         }
@@ -192,16 +191,66 @@
         injectCSS();
         this._render();
 
-        if (!this._camId) return; // no cam configured yet
+        if (!this._camId) {
+            return;
+        } // no cam configured yet
 
-        var self = this;
         var subs = [
-            ["name", function (id, state) { if (state) { self._states.name = state.val || ""; self._updateName(); } }],
-            ["online", function (id, state) { if (state) { self._states.online = !!state.val; self._updateBadges(); } }],
-            ["privacy_enabled", function (id, state) { if (state) { self._states.privacy = !!state.val; self._updateBadges(); self._updateButtons(); } }],
-            ["front_light_enabled", function (id, state) { if (state) { self._states.light = !!state.val; self._updateButtons(); } }],
-            ["motion_active", function (id, state) { if (state) { self._states.motion = !!state.val; self._updateBadges(); } }],
-            ["last_event_image", function (id, state) { if (state && state.val) { self._states.lastImage = state.val; self._updateSnapshot(); } }],
+            [
+                "name",
+                (id, state) => {
+                    if (state) {
+                        this._states.name = state.val || "";
+                        this._updateName();
+                    }
+                },
+            ],
+            [
+                "online",
+                (id, state) => {
+                    if (state) {
+                        this._states.online = !!state.val;
+                        this._updateBadges();
+                    }
+                },
+            ],
+            [
+                "privacy_enabled",
+                (id, state) => {
+                    if (state) {
+                        this._states.privacy = !!state.val;
+                        this._updateBadges();
+                        this._updateButtons();
+                    }
+                },
+            ],
+            [
+                "front_light_enabled",
+                (id, state) => {
+                    if (state) {
+                        this._states.light = !!state.val;
+                        this._updateButtons();
+                    }
+                },
+            ],
+            [
+                "motion_active",
+                (id, state) => {
+                    if (state) {
+                        this._states.motion = !!state.val;
+                        this._updateBadges();
+                    }
+                },
+            ],
+            [
+                "last_event_image",
+                (id, state) => {
+                    if (state && state.val) {
+                        this._states.lastImage = state.val;
+                        this._updateSnapshot();
+                    }
+                },
+            ],
         ];
 
         for (var i = 0; i < subs.length; i++) {
@@ -218,7 +267,7 @@
                                 }
                             }
                         };
-                    })(handler)
+                    })(handler),
                 );
                 vis.conn.subscribe(dpPath, handler);
                 this._subscriptions.push({ id: dpPath, handler: handler });
@@ -230,11 +279,14 @@
     };
 
     BoschCameraTileWidget.prototype._startSnapshotTimer = function () {
-        var self = this;
-        if (this._timer) clearInterval(this._timer);
-        this._timer = setInterval(function () {
-            if (!window.vis || !vis.conn || !self._camId) return;
-            var trigDp = dp(self._instance, self._camId, "snapshot_trigger");
+        if (this._timer) {
+            clearInterval(this._timer);
+        }
+        this._timer = setInterval(() => {
+            if (!window.vis || !vis.conn || !this._camId) {
+                return;
+            }
+            var trigDp = dp(this._instance, this._camId, "snapshot_trigger");
             vis.conn.setState(trigDp, true, function () {});
         }, this._refreshInterval * 1000);
     };
@@ -250,7 +302,8 @@
         header.className = "bosch-camera-tile__header";
         var nameEl = document.createElement("span");
         nameEl.className = "bosch-camera-tile__name";
-        nameEl.textContent = this._states.name || (this._camId ? this._camId.slice(0, 8) : "Bosch Camera");
+        nameEl.textContent =
+            this._states.name || (this._camId ? this._camId.slice(0, 8) : "Bosch Camera");
         header.appendChild(nameEl);
         var badges = document.createElement("span");
         badges.className = "bosch-camera-tile__badges";
@@ -264,12 +317,14 @@
             var img = document.createElement("img");
             img.className = "bosch-camera-tile__snap";
             img.alt = "Camera snapshot";
-            img.src = "data:image/jpeg;base64," + this._states.lastImage;
+            img.src = `data:image/jpeg;base64,${this._states.lastImage}`;
             snapWrap.appendChild(img);
         } else {
             var placeholder = document.createElement("div");
             placeholder.className = "bosch-camera-tile__snap--placeholder";
-            placeholder.textContent = this._camId ? "Waiting for snapshot…" : "Select a camera datapoint";
+            placeholder.textContent = this._camId
+                ? "Waiting for snapshot…"
+                : "Select a camera datapoint";
             snapWrap.appendChild(placeholder);
         }
         tile.appendChild(snapWrap);
@@ -279,39 +334,42 @@
         controls.className = "bosch-camera-tile__controls";
 
         var privBtn = document.createElement("button");
-        privBtn.className =
-            "bosch-camera-tile__btn " +
-            (this._states.privacy
+        privBtn.className = `bosch-camera-tile__btn ${
+            this._states.privacy
                 ? "bosch-camera-tile__btn--privacy-on"
-                : "bosch-camera-tile__btn--privacy-off");
+                : "bosch-camera-tile__btn--privacy-off"
+        }`;
         privBtn.textContent = this._states.privacy ? "Privacy ON" : "Privacy OFF";
-        var self = this;
-        privBtn.addEventListener("click", function () {
-            if (!self._camId || !window.vis || !vis.conn) return;
-            var newVal = !self._states.privacy;
+        privBtn.addEventListener("click", () => {
+            if (!this._camId || !window.vis || !vis.conn) {
+                return;
+            }
+            var newVal = !this._states.privacy;
             vis.conn.setState(
-                dp(self._instance, self._camId, "privacy_enabled"),
+                dp(this._instance, this._camId, "privacy_enabled"),
                 newVal,
-                function () {}
+                function () {},
             );
         });
         controls.appendChild(privBtn);
 
         if (this._showLight) {
             var lightBtn = document.createElement("button");
-            lightBtn.className =
-                "bosch-camera-tile__btn " +
-                (this._states.light
+            lightBtn.className = `bosch-camera-tile__btn ${
+                this._states.light
                     ? "bosch-camera-tile__btn--light-on"
-                    : "bosch-camera-tile__btn--light-off");
+                    : "bosch-camera-tile__btn--light-off"
+            }`;
             lightBtn.textContent = this._states.light ? "Light ON" : "Light OFF";
-            lightBtn.addEventListener("click", function () {
-                if (!self._camId || !window.vis || !vis.conn) return;
-                var newVal = !self._states.light;
+            lightBtn.addEventListener("click", () => {
+                if (!this._camId || !window.vis || !vis.conn) {
+                    return;
+                }
+                var newVal = !this._states.light;
                 vis.conn.setState(
-                    dp(self._instance, self._camId, "front_light_enabled"),
+                    dp(this._instance, this._camId, "front_light_enabled"),
                     newVal,
-                    function () {}
+                    function () {},
                 );
             });
             controls.appendChild(lightBtn);
@@ -336,16 +394,15 @@
     };
 
     BoschCameraTileWidget.prototype._updateBadges = function () {
-        if (!this._badges) return;
+        if (!this._badges) {
+            return;
+        }
         var html = "";
-        html +=
-            '<span class="bosch-camera-tile__badge ' +
-            (this._states.online
+        html += `<span class="bosch-camera-tile__badge ${
+            this._states.online
                 ? "bosch-camera-tile__badge--online"
-                : "bosch-camera-tile__badge--offline") +
-            '">' +
-            (this._states.online ? "Online" : "Offline") +
-            "</span>";
+                : "bosch-camera-tile__badge--offline"
+        }">${this._states.online ? "Online" : "Offline"}</span>`;
         if (this._states.motion) {
             html +=
                 '<span class="bosch-camera-tile__badge bosch-camera-tile__badge--motion">Motion</span>';
@@ -358,40 +415,38 @@
     };
 
     BoschCameraTileWidget.prototype._updateSnapshot = function () {
-        if (!this._snapWrap) return;
+        if (!this._snapWrap) {
+            return;
+        }
         var existing = this._snapWrap.querySelector("img.bosch-camera-tile__snap");
         if (existing) {
-            existing.src = "data:image/jpeg;base64," + this._states.lastImage;
+            existing.src = `data:image/jpeg;base64,${this._states.lastImage}`;
         } else {
             this._snapWrap.innerHTML = "";
             var img = document.createElement("img");
             img.className = "bosch-camera-tile__snap";
             img.alt = "Camera snapshot";
-            img.src = "data:image/jpeg;base64," + this._states.lastImage;
+            img.src = `data:image/jpeg;base64,${this._states.lastImage}`;
             this._snapWrap.appendChild(img);
         }
     };
 
     BoschCameraTileWidget.prototype._updateButtons = function () {
         if (this._privBtn) {
-            this._privBtn.className =
-                "bosch-camera-tile__btn " +
-                (this._states.privacy
+            this._privBtn.className = `bosch-camera-tile__btn ${
+                this._states.privacy
                     ? "bosch-camera-tile__btn--privacy-on"
-                    : "bosch-camera-tile__btn--privacy-off");
-            this._privBtn.textContent = this._states.privacy
-                ? "Privacy ON"
-                : "Privacy OFF";
+                    : "bosch-camera-tile__btn--privacy-off"
+            }`;
+            this._privBtn.textContent = this._states.privacy ? "Privacy ON" : "Privacy OFF";
         }
         if (this._lightBtn) {
-            this._lightBtn.className =
-                "bosch-camera-tile__btn " +
-                (this._states.light
+            this._lightBtn.className = `bosch-camera-tile__btn ${
+                this._states.light
                     ? "bosch-camera-tile__btn--light-on"
-                    : "bosch-camera-tile__btn--light-off");
-            this._lightBtn.textContent = this._states.light
-                ? "Light ON"
-                : "Light OFF";
+                    : "bosch-camera-tile__btn--light-off"
+            }`;
+            this._lightBtn.textContent = this._states.light ? "Light ON" : "Light OFF";
         }
     };
 
@@ -402,10 +457,7 @@
         }
         if (window.vis && vis.conn && this._subscriptions.length) {
             for (var i = 0; i < this._subscriptions.length; i++) {
-                vis.conn.unsubscribe(
-                    this._subscriptions[i].id,
-                    this._subscriptions[i].handler
-                );
+                vis.conn.unsubscribe(this._subscriptions[i].id, this._subscriptions[i].handler);
             }
         }
         this._subscriptions = [];

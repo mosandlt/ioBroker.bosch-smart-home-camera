@@ -38,4 +38,24 @@ export default [
             "jsdoc/escape-inline-tags": "off",
         },
     },
+    {
+        // VIS-2 widget bundle is browser-side vanilla JS, not adapter TS source.
+        // It runs inside the VIS-2 runtime and uses browser + VIS globals, so it
+        // must be linted with those globals declared rather than blanket-ignored.
+        files: ["widgets/**/*.js"],
+        languageOptions: {
+            globals: {
+                window: "readonly",
+                document: "readonly",
+                navigator: "readonly",
+                setInterval: "readonly",
+                clearInterval: "readonly",
+                setTimeout: "readonly",
+                clearTimeout: "readonly",
+                vis: "readonly",
+                jQuery: "readonly",
+                $: "readonly",
+            },
+        },
+    },
 ];
