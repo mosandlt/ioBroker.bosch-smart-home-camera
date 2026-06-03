@@ -11,6 +11,10 @@ export default [
             "node_modules/**",
             "coverage/**",
             "test/**",
+            // User copy-paste automation snippets for the ioBroker javascript
+            // adapter — they rely on its runtime globals (on/getState/setState)
+            // and are not part of the adapter's linted TS source.
+            "docs/examples/**",
             ".eslintrc.json",
         ],
     },
