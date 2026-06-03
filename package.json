@@ -69,6 +69,11 @@
     "typescript": "^6.0.3",
     "yargs": "^18.0.0"
   },
+  "overrides": {
+    "serialize-javascript": "^7.0.5",
+    "esbuild": "^0.25.0",
+    "diff": "^8.0.3"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/mosandlt/ioBroker.bosch-smart-home-camera.git"
