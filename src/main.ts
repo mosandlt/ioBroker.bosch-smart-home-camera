@@ -2418,6 +2418,146 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 });
             }
 
+            // v1.2.0: management-tier READ-only datapoints (HA-parity §2b).
+            // The Bosch cloud exposes motion zones, privacy masks, automation
+            // rules, the Gen1 floodlight schedule and the friend-share list as
+            // GET endpoints under /v11/video_inputs/{id}/…. These are surfaced
+            // READ-only here: the matching WRITE paths (zone/rule editing,
+            // share management) are parked — see docs/family-parity-status.md.
+            // count + raw-JSON pairs so a user can both gate automations on the
+            // count and inspect the full structure.
+            await this.setObjectNotExistsAsync(`${prefix}.motion_zones_count`, {
+                type: "state",
+                common: {
+                    name: "Motion-sensitive zones (count)",
+                    role: "value",
+                    type: "number",
+                    read: true,
+                    write: false,
+                    def: 0,
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.motion_zones`, {
+                type: "state",
+                common: {
+                    name: "Motion-sensitive zones (raw JSON array of {x,y,w,h})",
+                    role: "json",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "",
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.privacy_masks_count`, {
+                type: "state",
+                common: {
+                    name: "Privacy masks (count)",
+                    role: "value",
+                    type: "number",
+                    read: true,
+                    write: false,
+                    def: 0,
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.privacy_masks`, {
+                type: "state",
+                common: {
+                    name: "Privacy masks (raw JSON array of {x,y,w,h})",
+                    role: "json",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "",
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.rules_count`, {
+                type: "state",
+                common: {
+                    name: "Automation rules (count)",
+                    role: "value",
+                    type: "number",
+                    read: true,
+                    write: false,
+                    def: 0,
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.rules`, {
+                type: "state",
+                common: {
+                    name: "Automation rules (raw JSON array of {id,name,isActive,startTime,endTime,weekdays})",
+                    role: "json",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "",
+                },
+                native: {},
+            });
+
+            // Gen1 floodlight schedule — GET /lighting_options. Gen2 uses the
+            // /lighting/ambient path already mirrored above, so only create
+            // these for Gen1 (Indoor/360 Gen1 answer HTTP 442 → DP stays empty).
+            if (cam.generation < 2) {
+                await this.setObjectNotExistsAsync(`${prefix}.lighting_schedule_status`, {
+                    type: "state",
+                    common: {
+                        name: "Floodlight schedule mode (lighting_options.scheduleStatus)",
+                        role: "text",
+                        type: "string",
+                        read: true,
+                        write: false,
+                        def: "",
+                    },
+                    native: {},
+                });
+                await this.setObjectNotExistsAsync(`${prefix}.lighting_schedule`, {
+                    type: "state",
+                    common: {
+                        name: "Floodlight schedule (raw JSON from lighting_options)",
+                        role: "json",
+                        type: "string",
+                        read: true,
+                        write: false,
+                        def: "",
+                    },
+                    native: {},
+                });
+            }
+
+            // Friend-share list — GET /shared_with_friends. Gen2 only; Gen1
+            // cameras answer HTTP 404 (sharing not exposed on Gen1).
+            if (cam.generation >= 2) {
+                await this.setObjectNotExistsAsync(`${prefix}.shared_with_friends_count`, {
+                    type: "state",
+                    common: {
+                        name: "Friends this camera is shared with (count)",
+                        role: "value",
+                        type: "number",
+                        read: true,
+                        write: false,
+                        def: 0,
+                    },
+                    native: {},
+                });
+                await this.setObjectNotExistsAsync(`${prefix}.shared_with_friends`, {
+                    type: "state",
+                    common: {
+                        name: "Friends this camera is shared with (raw JSON array)",
+                        role: "json",
+                        type: "string",
+                        read: true,
+                        write: false,
+                        def: "",
+                    },
+                    native: {},
+                });
+            }
+
             // v0.8.0: alarm settings (HOME_Eyes_Indoor / CAMERA_INDOOR_GEN2 only).
             // GET/PUT /v11/video_inputs/{id}/alarm_settings → {alarmDelayInSeconds, alarmActivationDelaySeconds, preAlarmDelayInSeconds, ...}.
             if (
@@ -4560,6 +4700,14 @@ class BoschSmartHomeCamera extends utils.Adapter {
             await this._pollLanDiagnostics(cam.id);
         }
 
+        // v1.2.0: management-tier READ-only mirrors (zones / privacy masks /
+        // rules / Gen1 floodlight schedule / friend-share list). These change
+        // rarely, so they ride the slow tier (~every 10th poll) to keep the
+        // 30 s coordinator cycle lean. Best-effort; never throws.
+        if (doSlowTier) {
+            await this._pollManagementReads(token, cam);
+        }
+
         // v0.9.1: unread_events_count — sourced from GET /v11/events (count of
         // isRead=false events). The listing's `cam.numberOfUnreadEvents` field
         // was found unreliable in live testing 2026-05-28 (reported 0 while
@@ -4953,6 +5101,120 @@ class BoschSmartHomeCamera extends utils.Adapter {
             }
         } catch {
             /* best-effort */
+        }
+    }
+
+    // ── v1.2.0 management-tier READ-only mirrors ────────────────────────────
+
+    /**
+     * v1.2.0: mirror the cloud "management" GET endpoints into READ-only DPs.
+     *
+     * All endpoints live under /v11/video_inputs/{id}/… and ride the slow tier.
+     * WRITE paths (zone / rule / share editing) are intentionally not wired —
+     * see docs/family-parity-status.md "parked" section.
+     *
+     *   motion_sensitive_areas → motion_zones_count + motion_zones (Gen1; Gen2 → 404)
+     *   privacy_masks          → privacy_masks_count + privacy_masks
+     *   rules                  → rules_count + rules
+     *   lighting_options       → lighting_schedule_status + lighting_schedule (Gen1)
+     *   shared_with_friends    → shared_with_friends_count + shared_with_friends (Gen2)
+     *
+     * Tolerated non-2xx (keep last-known DP, never throw): 404 (endpoint absent
+     * for this generation), 442 (model unsupported), 443 (privacy mode active),
+     * 444 (camera offline).
+     *
+     * @param token  Current access_token
+     * @param cam    Camera metadata (generation gates which endpoints run)
+     */
+    private async _pollManagementReads(token: string, cam: BoschCamera): Promise<void> {
+        const camId = cam.id;
+        await this._pollCloudListDp(token, camId, "motion_sensitive_areas", "motion_zones");
+        await this._pollCloudListDp(token, camId, "privacy_masks", "privacy_masks");
+        await this._pollCloudListDp(token, camId, "rules", "rules");
+        if (cam.generation < 2) {
+            await this._pollLightingSchedule(token, camId);
+        }
+        if (cam.generation >= 2) {
+            await this._pollCloudListDp(token, camId, "shared_with_friends", "shared_with_friends");
+        }
+    }
+
+    /**
+     * Helper for the array-returning management endpoints. GETs
+     * /v11/video_inputs/{id}/{endpoint}; on a 2xx array response writes
+     * `cameras.{id}.{dpBase}_count` (length) and `cameras.{id}.{dpBase}` (raw
+     * JSON). Non-2xx or non-array → no write (keeps the last-known value).
+     * Best-effort: swallows network errors.
+     *
+     * @param token     Current access_token
+     * @param camId     Camera UUID
+     * @param endpoint  Cloud endpoint path segment (e.g. "rules")
+     * @param dpBase    DP base name (e.g. "rules" → rules_count + rules)
+     */
+    private async _pollCloudListDp(
+        token: string,
+        camId: string,
+        endpoint: string,
+        dpBase: string,
+    ): Promise<void> {
+        try {
+            const resp = await this._httpClient.get<unknown>(
+                `${CLOUD_API}/v11/video_inputs/${camId}/${endpoint}`,
+                {
+                    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                    validateStatus: (s) =>
+                        (s >= 200 && s < 300) || s === 404 || s === 442 || s === 443 || s === 444,
+                },
+            );
+            if (resp.status >= 200 && resp.status < 300 && Array.isArray(resp.data)) {
+                const arr = resp.data;
+                await this.upsertState(`cameras.${camId}.${dpBase}_count`, arr.length);
+                await this.upsertState(`cameras.${camId}.${dpBase}`, JSON.stringify(arr));
+            }
+        } catch (err: unknown) {
+            this.log.debug(
+                `Management read ${endpoint} for ${camId.slice(0, 8)} failed: ` +
+                    `${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
+    }
+
+    /**
+     * GETs the Gen1 floodlight schedule (/lighting_options) and mirrors
+     * `scheduleStatus` → lighting_schedule_status plus the full object →
+     * lighting_schedule (raw JSON). Indoor/360 Gen1 answer 442 → no write.
+     * Best-effort.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private async _pollLightingSchedule(token: string, camId: string): Promise<void> {
+        try {
+            const resp = await this._httpClient.get<unknown>(
+                `${CLOUD_API}/v11/video_inputs/${camId}/lighting_options`,
+                {
+                    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                    validateStatus: (s) =>
+                        (s >= 200 && s < 300) || s === 404 || s === 442 || s === 444,
+                },
+            );
+            if (
+                resp.status >= 200 &&
+                resp.status < 300 &&
+                resp.data &&
+                typeof resp.data === "object" &&
+                !Array.isArray(resp.data)
+            ) {
+                const d = resp.data as Record<string, unknown>;
+                const status = typeof d.scheduleStatus === "string" ? d.scheduleStatus : "";
+                await this.upsertState(`cameras.${camId}.lighting_schedule_status`, status);
+                await this.upsertState(`cameras.${camId}.lighting_schedule`, JSON.stringify(d));
+            }
+        } catch (err: unknown) {
+            this.log.debug(
+                `Lighting-schedule read for ${camId.slice(0, 8)} failed: ` +
+                    `${err instanceof Error ? err.message : String(err)}`,
+            );
         }
     }
 

@@ -802,6 +802,50 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _pollOutdoorLighting;
     /**
+     * v1.2.0: mirror the cloud "management" GET endpoints into READ-only DPs.
+     *
+     * All endpoints live under /v11/video_inputs/{id}/… and ride the slow tier.
+     * WRITE paths (zone / rule / share editing) are intentionally not wired —
+     * see docs/family-parity-status.md "parked" section.
+     *
+     *   motion_sensitive_areas → motion_zones_count + motion_zones (Gen1; Gen2 → 404)
+     *   privacy_masks          → privacy_masks_count + privacy_masks
+     *   rules                  → rules_count + rules
+     *   lighting_options       → lighting_schedule_status + lighting_schedule (Gen1)
+     *   shared_with_friends    → shared_with_friends_count + shared_with_friends (Gen2)
+     *
+     * Tolerated non-2xx (keep last-known DP, never throw): 404 (endpoint absent
+     * for this generation), 442 (model unsupported), 443 (privacy mode active),
+     * 444 (camera offline).
+     *
+     * @param token  Current access_token
+     * @param cam    Camera metadata (generation gates which endpoints run)
+     */
+    private _pollManagementReads;
+    /**
+     * Helper for the array-returning management endpoints. GETs
+     * /v11/video_inputs/{id}/{endpoint}; on a 2xx array response writes
+     * `cameras.{id}.{dpBase}_count` (length) and `cameras.{id}.{dpBase}` (raw
+     * JSON). Non-2xx or non-array → no write (keeps the last-known value).
+     * Best-effort: swallows network errors.
+     *
+     * @param token     Current access_token
+     * @param camId     Camera UUID
+     * @param endpoint  Cloud endpoint path segment (e.g. "rules")
+     * @param dpBase    DP base name (e.g. "rules" → rules_count + rules)
+     */
+    private _pollCloudListDp;
+    /**
+     * GETs the Gen1 floodlight schedule (/lighting_options) and mirrors
+     * `scheduleStatus` → lighting_schedule_status plus the full object →
+     * lighting_schedule (raw JSON). Indoor/360 Gen1 answer 442 → no write.
+     * Best-effort.
+     *
+     * @param token  Current access_token
+     * @param camId  Camera UUID
+     */
+    private _pollLightingSchedule;
+    /**
      * v1.1.0: GET /v11/video_inputs/{id}/commissioned → map {configured,
      * connected, commissioned} into the commissioned DP enum
      * (commissioned / not_commissioned / not_connected). All cameras, read-only.
