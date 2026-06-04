@@ -1,6 +1,6 @@
 {
   "name": "iobroker.bosch-smart-home-camera",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "ioBroker adapter for Bosch Smart Home Cameras (Eyes Outdoor/Indoor, 360°, Gen2 Indoor II/Outdoor II)",
   "author": {
     "name": "mosandlt",
@@ -61,7 +61,7 @@
     "@iobroker/eslint-config": "^2.3.4",
     "@iobroker/testing": "^5.2.2",
     "@tsconfig/node22": "^22.0.5",
-    "@types/node": "^22.0.0",
+    "@types/node": "^22.19.19",
     "@types/tough-cookie": "^4.0.5",
     "c8": "^11.0.0",
     "cross-env": "^10.1.0",

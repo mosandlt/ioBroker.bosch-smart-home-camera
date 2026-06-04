@@ -607,6 +607,11 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.2.4 (2026-06-04)
+Adapter icon fix.
+
+- **Adapter icon:** the admin icon was a solid blue placeholder; replaced it with the real red Bosch camera logo (the blue tile had shown in the ioBroker admin and in the adapter catalogue).
+
 ### 1.2.3 (2026-06-04)
 Session-quota log noise + snapshot retry hardening.
 

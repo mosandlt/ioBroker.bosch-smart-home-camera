@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "1.2.3",
+    "version": "1.2.4",
     "news": {
+      "1.2.4": {
+        "en": "Adapter icon: the blue placeholder is replaced with the real red Bosch camera logo. It had shown as a plain blue tile in the ioBroker admin and in the adapter catalogue.",
+        "de": "Adapter-Icon: Der blaue Platzhalter wurde durch das echte rote Bosch-Kameralogo ersetzt. Es erschien im ioBroker-Admin und im Adapter-Katalog als einfarbig blaue Kachel.",
+        "ru": "Значок адаптера: синий заполнитель заменен настоящим красным логотипом камеры Bosch. В админке ioBroker и в каталоге адаптеров он отображался как простая синяя плитка.",
+        "pt": "Ícone do adaptador: o espaço reservado azul é substituído pelo logotipo vermelho real da câmera Bosch. Ele apareceu como um bloco azul simples no administrador do ioBroker e no catálogo do adaptador.",
+        "nl": "Adapterpictogram: de blauwe tijdelijke aanduiding is vervangen door het echte rode Bosch-cameralogo. Het werd als een effen blauwe tegel weergegeven in de ioBroker-beheerder en in de adaptercatalogus.",
+        "fr": "Icône de l'adaptateur : l'espace réservé bleu est remplacé par le véritable logo rouge de la caméra Bosch. Il était affiché sous la forme d'une vignette bleue unie dans l'administrateur ioBroker et dans le catalogue de l'adaptateur.",
+        "it": "Icona dell'adattatore: il segnaposto blu viene sostituito dal vero logo rosso della fotocamera Bosch. Era mostrato come un semplice riquadro blu nell'amministratore di ioBroker e nel catalogo dell'adattatore.",
+        "es": "Icono del adaptador: el marcador de posición azul se reemplaza por el logotipo rojo real de la cámara Bosch. Se mostraba como un mosaico azul en el administrador de ioBroker y en el catálogo de adaptadores.",
+        "pl": "Ikona adaptera: niebieski symbol zastępczy zostaje zastąpiony prawdziwym czerwonym logo aparatu Bosch. Pokazywał się jako zwykły niebieski kafelek w panelu administracyjnym ioBroker oraz w katalogu adapterów.",
+        "uk": "Піктограма адаптера: синій заповнювач замінено справжнім червоним логотипом камери Bosch. Він відображався як проста синя плитка в адміністраторі ioBroker і в каталозі адаптера.",
+        "zh-cn": "适配器图标：蓝色占位符替换为真正的红色博世相机徽标。它在 ioBroker 管理和适配器目录中显示为纯蓝色磁贴。"
+      },
       "1.2.3": {
         "en": "Less session-quota log noise: a camera sharing Bosch's 3-session limit now warns once per 5-min window (not every 60s) for HTTP 444 and pauses retries after 5 attempts. Snapshots right after motion get an extra retry.",
         "de": "Weniger Session-Quota-Log-Rauschen: eine Kamera am Boschs 3-Session-Limit warnt bei HTTP 444 nur noch einmal pro 5-Minuten-Fenster (statt alle 60s) und pausiert Retries nach 5 Versuchen. Snapshots direkt nach Bewegung bekommen einen zusätzlichen Retry.",
@@ -80,19 +93,6 @@
         "pl": "intrusion_sensitivity potwierdza teraz zawężoną wartość 0-7 zamiast nieprzetworzonego wejścia (odzwierciedla intrusion_distance), więc punkt danych nigdy nie pokazuje czułości, której nie odebrała kamera.",
         "uk": "intrusion_sensitivity тепер підтверджує обмежене значення 0-7 замість необробленого введення (віддзеркалює intrusion_distance), тому точка даних ніколи не показує чутливість, яку камера не отримала.",
         "zh-cn": "intrusion_sensitivity 现在确认固定的 0-7 值而不是原始输入（镜像 intrusion_distance），因此数据点永远不会显示相机未接收到的灵敏度。"
-      },
-      "1.0.4": {
-        "en": "Internal hardening release, no functional changes. Polling and watchdog timers are now managed by the adapter core and cancelled reliably on unload; HTTP timeouts use AbortSignal.timeout. Added a CI security layer (CodeQL, gitleaks, dependency review).",
-        "de": "Internes Hardening-Release, keine funktionalen Änderungen. Poll- und Watchdog-Timer laufen jetzt über den Adapter-Core und werden beim Entladen zuverlässig abgebrochen; HTTP-Timeouts nutzen AbortSignal.timeout. Neue CI-Security-Schicht (CodeQL, gitleaks, Dependency-Review).",
-        "ru": "Внутренняя закалка, никаких функциональных изменений. Таймеры опроса и сторожевые таймеры теперь управляются ядром адаптера и надежно отменяются при выгрузке; Тайм-ауты HTTP используют AbortSignal.timeout. Добавлен уровень безопасности CI (CodeQL, gitleaks, проверка зависимостей).",
-        "pt": "Liberação de endurecimento interno, sem alterações funcionais. Os temporizadores de polling e watchdog agora são gerenciados pelo núcleo do adaptador e cancelados de forma confiável no descarregamento; Os tempos limite de HTTP usam AbortSignal.timeout. Adicionada uma camada de segurança CI (CodeQL, gileaks, revisão de dependência).",
-        "nl": "Interne verhardingsvrijgave, geen functionele veranderingen. Polling- en watchdog-timers worden nu beheerd door de adapterkern en betrouwbaar geannuleerd bij het ontladen; HTTP-time-outs gebruiken AbortSignal.timeout. Een CI-beveiligingslaag toegevoegd (CodeQL, gitleaks, afhankelijkheidsbeoordeling).",
-        "fr": "Libération de durcissement interne, aucune modification fonctionnelle. Les minuteries d'interrogation et de surveillance sont désormais gérées par le cœur de l'adaptateur et annulées de manière fiable lors du déchargement ; Les délais d'expiration HTTP utilisent AbortSignal.timeout. Ajout d'une couche de sécurité CI (CodeQL, gitleaks, révision des dépendances).",
-        "it": "Rilascio indurente interno, nessuna modifica funzionale. I timer di polling e watchdog sono ora gestiti dal core dell'adattatore e annullati in modo affidabile durante lo scaricamento; I timeout HTTP utilizzano AbortSignal.timeout. Aggiunto un livello di sicurezza CI (CodeQL, gitleaks, revisione delle dipendenze).",
-        "es": "Liberación del endurecimiento interno, sin cambios funcionales. Los temporizadores de sondeo y vigilancia ahora son administrados por el núcleo del adaptador y se cancelan de manera confiable durante la descarga; Los tiempos de espera HTTP utilizan AbortSignal.timeout. Se agregó una capa de seguridad de CI (CodeQL, gitleaks, revisión de dependencias).",
-        "pl": "Wewnętrzne zwolnienie hartowania, bez zmian funkcjonalnych. Zegary odpytywania i watchdoga są teraz zarządzane przez rdzeń adaptera i niezawodnie kasowane po rozładowaniu; Limity czasu HTTP używają AbortSignal.timeout. Dodano warstwę zabezpieczeń CI (CodeQL, gitleaks, przegląd zależności).",
-        "uk": "Внутрішнє зміцнення, без функціональних змін. Таймери опитування та контролю тепер керуються ядром адаптера та надійно скасовуються під час вивантаження; Час очікування HTTP використовує AbortSignal.timeout. Додано рівень безпеки CI (CodeQL, gitleaks, перегляд залежностей).",
-        "zh-cn": "内部硬化释放，无功能变化。轮询和看门狗定时器现在由适配器核心管理，并在卸载时可靠地取消； HTTP 超时使用 AbortSignal.timeout。添加了 CI 安全层（CodeQL、gitleaks、依赖项审查）。"
       }
     },
     "titleLang": {
