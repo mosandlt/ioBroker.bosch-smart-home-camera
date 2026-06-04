@@ -607,6 +607,12 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.2.3 (2026-06-04)
+Session-quota log noise + snapshot retry hardening.
+
+- **HTTP 444 session-quota:** when a camera shares Bosch's hard 3-session limit with the mobile app or another integration (Home Assistant / Python CLI), a 444 recurs every 60 s. The handler now warns **once per 5-minute window** (subsequent hits at `debug`), fires the "close other clients" advisory only when first crossing the threshold, and **caps the auto-retry loop at 5 attempts** — after that it logs a single info line and resumes on the next motion event / manual snapshot instead of looping forever.
+- **Snapshot after motion:** the `snap.jpg` retry now does up to 2 attempts with increasing backoff (0.8 s, 1.6 s) instead of one, so an empty/aborted image in the first moment after a motion trigger (camera still warming the stream) no longer fails.
+
 ### 1.2.2 (2026-06-04)
 Log-noise cleanup + Home Assistant polling parity.
 

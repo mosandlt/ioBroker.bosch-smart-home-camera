@@ -188,6 +188,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
     private _sessionLimitHits: Map<string, number[]> = new Map();
     private static readonly SESSION_QUOTA_WINDOW_MS = 300_000; // 5 minutes
     private static readonly SESSION_QUOTA_NOTIFY_THRESHOLD = 3;
+    // v1.2.3: cap the 60s auto-retry loop. After this many 444s in the window the
+    // slot is clearly held by another client (Bosch App / HA / Python sharing the
+    // 3-session budget) — stop hammering + logging until the window prunes or the
+    // next motion/manual trigger re-opens. 5 × 60 s ≈ the 5-min window.
+    private static readonly MAX_SESSION_RETRIES = 5;
 
     /**
      * v0.9.1: per-(camId,feature) cache for endpoints that responded HTTP 442
@@ -8407,41 +8412,40 @@ class BoschSmartHomeCamera extends utils.Adapter {
         snapUrl: string,
         session: { digestUser: string; digestPassword: string },
     ): Promise<Buffer> {
-        try {
-            return await fetchSnapshot(snapUrl, session.digestUser, session.digestPassword);
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : String(err);
-            // Only retry on "aborted" / connection-reset errors — not on auth (401)
-            // or non-image content type (no point retrying those).
-            // v1.2.2: an "empty body" is also transient — the camera often returns
-            // an empty snap.jpg in the first moment after a motion trigger while it
-            // is still warming the stream; the retry ~800 ms later succeeds.
-            const isTransient = /abort|reset|ECONNRESET|socket hang up|timeout|empty body/i.test(
-                msg,
-            );
-            if (!isTransient) {
-                await this.markCameraReachability(camId, false);
-                throw err;
-            }
-
-            // v1.2.2: Bosch routinely aborts the FIRST snap.jpg after an idle
-            // period; the retry below almost always succeeds. Log at silly so it
-            // stays out of normal debug logs (it is expected, not a problem).
-            this.log.silly(`Snapshot retry for ${camId.slice(0, 8)}: ${msg}`);
-            await new Promise<void>((r) => {
-                if (this._isUnloading) {
-                    r();
-                    return;
-                }
-                this.setTimeout(() => r(), 800);
-            });
+        // v1.2.3: up to 2 retries with increasing backoff (was 1). The camera
+        // often returns an aborted/empty snap.jpg right after a motion trigger
+        // while it is still warming the stream; a second retry ~1.6 s later
+        // catches the slower cameras the single 0.8 s retry missed.
+        const MAX_ATTEMPTS = 3; // 1 initial + 2 retries
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
                 return await fetchSnapshot(snapUrl, session.digestUser, session.digestPassword);
-            } catch (retryErr) {
-                await this.markCameraReachability(camId, false);
-                throw retryErr;
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                // Only retry on "aborted" / connection-reset / empty-body errors —
+                // not on auth (401) or non-image content type (no point retrying).
+                const isTransient =
+                    /abort|reset|ECONNRESET|socket hang up|timeout|empty body/i.test(msg);
+                if (!isTransient || attempt === MAX_ATTEMPTS) {
+                    await this.markCameraReachability(camId, false);
+                    throw err;
+                }
+                if (this._isUnloading) {
+                    throw err;
+                }
+                // Expected first-snap abort/empty after idle/motion — log at silly
+                // so it stays out of normal debug logs (the retry usually succeeds).
+                this.log.silly(
+                    `Snapshot retry ${attempt}/${MAX_ATTEMPTS - 1} for ${camId.slice(0, 8)}: ${msg}`,
+                );
+                const backoffMs = 800 * attempt; // 800 ms, then 1600 ms
+                await new Promise<void>((r) => {
+                    this.setTimeout(() => r(), backoffMs);
+                });
             }
         }
+        // Unreachable (loop returns or throws), but satisfies the type checker.
+        throw new Error("snapshot retry exhausted");
     }
 
     /**
@@ -8681,10 +8685,20 @@ class BoschSmartHomeCamera extends utils.Adapter {
 
         const camPrefix = camId.slice(0, 8);
 
-        this.log.warn(
-            `[session-quota] Bosch returned HTTP 444 for camera ${camPrefix} — ` +
-                `too many simultaneous live sessions. Hit ${hits.length} of ${threshold} in the 5-min window.`,
-        );
+        // v1.2.3: warn ONCE per 5-min window, then debug. When the dev box (or a
+        // second integration) competes with the Bosch App for the shared
+        // 3-session budget, a 444 recurs every 60 s — logging each at warn spammed
+        // dozens of identical lines. The first hit is the signal; the rest are noise.
+        if (hits.length === 1) {
+            this.log.warn(
+                `[session-quota] Bosch returned HTTP 444 for camera ${camPrefix} — too many ` +
+                    `simultaneous live sessions (shared 3-session limit). Will auto-retry.`,
+            );
+        } else {
+            this.log.debug(
+                `[session-quota] HTTP 444 for ${camPrefix} — hit ${hits.length} in the 5-min window.`,
+            );
+        }
 
         // Set DP session_limit_hit = true
         try {
@@ -8696,17 +8710,28 @@ class BoschSmartHomeCamera extends utils.Adapter {
             );
         }
 
-        if (hits.length >= threshold) {
+        // Advisory exactly once, when first crossing the notify threshold.
+        if (hits.length === threshold) {
             this.log.warn(
-                `[session-quota] ${hits.length} session-quota hits in 5 min for camera ` +
+                `[session-quota] ${threshold}+ session-quota hits in 5 min for camera ` +
                     `${camPrefix} — close the Bosch App on other devices or disable ` +
-                    `parallel integrations (HA, Python CLI). Retry auto-scheduled in 60 s.`,
+                    `parallel integrations (HA, Python CLI).`,
             );
         }
 
         // Auto-retry after 60 s — Bosch releases orphaned slots within ~60 s.
         // Fire-and-forget; if the retry also hits 444, _handleSessionLimitError is called again.
         if (this._isUnloading) {
+            return;
+        }
+        // v1.2.3: cap the retry loop. After MAX_SESSION_RETRIES 444s in the window
+        // the slot is held by another client — stop hammering + logging; a future
+        // motion event / manual snapshot (after the window prunes) resumes it.
+        if (hits.length >= BoschSmartHomeCamera.MAX_SESSION_RETRIES) {
+            this.log.info(
+                `[session-quota] Auto-retry paused for ${camPrefix} after ${hits.length} attempts ` +
+                    `in 5 min — will resume on the next motion event or manual snapshot.`,
+            );
             return;
         }
         this.setTimeout(() => {

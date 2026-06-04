@@ -157,7 +157,7 @@ describe("offline detection — _handleSessionLimitError gate (#84538)", () => {
             setStateAsync: sinon.stub().resolves(undefined),
             upsertState: sinon.stub().resolves(undefined),
             _maybeannounceCameraStatus: sinon.stub().resolves(undefined),
-            log: { warn: sinon.stub(), info: () => undefined, debug: () => undefined },
+            log: { warn: sinon.stub(), info: sinon.stub(), debug: sinon.stub() },
         };
     }
 
@@ -186,6 +186,31 @@ describe("offline detection — _handleSessionLimitError gate (#84538)", () => {
         await handle.call(s, CAM);
         expect(s.setTimeout.called, "quota hit arms a 60s retry").to.equal(true);
         expect(s.log.warn.called, "real quota hit warns the user").to.equal(true);
+    });
+
+    // v1.2.3: warn ONCE per 5-min window — the 2nd+ hit must NOT warn (debug only),
+    // otherwise a 60s retry loop spams dozens of identical lines.
+    it("SESSION_LIMIT 2nd hit in window → no extra WARN (debug only)", async () => {
+        const s = stub("SESSION_LIMIT");
+        s._sessionLimitHits.set(CAM, [Date.now()]); // one prior hit in window → this is #2
+        await handle.call(s, CAM);
+        expect(s.log.warn.called, "2nd hit must not warn again").to.equal(false);
+        expect(s.setTimeout.called, "but still retries (below cap)").to.equal(true);
+    });
+
+    // v1.2.3: cap the retry loop — after MAX_SESSION_RETRIES (5) hits in the window
+    // stop scheduling retries (slot held by another client) and log an info pause.
+    it("SESSION_LIMIT at retry cap → no further retry, info pause logged", async () => {
+        const s = stub("SESSION_LIMIT");
+        const now = Date.now();
+        // 4 prior recent hits → this call is the 5th → hits.length === MAX_SESSION_RETRIES
+        s._sessionLimitHits.set(CAM, [now - 4000, now - 3000, now - 2000, now - 1000]);
+        await handle.call(s, CAM);
+        expect(s.setTimeout.called, "no retry scheduled at the cap").to.equal(false);
+        const paused = s.log.info
+            .getCalls()
+            .some((c: sinon.SinonSpyCall) => String(c.args[0]).includes("Auto-retry paused"));
+        expect(paused, "logs an 'Auto-retry paused' info line").to.equal(true);
     });
 });
 

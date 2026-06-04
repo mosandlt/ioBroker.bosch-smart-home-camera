@@ -81,6 +81,7 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _sessionLimitHits;
     private static readonly SESSION_QUOTA_WINDOW_MS;
     private static readonly SESSION_QUOTA_NOTIFY_THRESHOLD;
+    private static readonly MAX_SESSION_RETRIES;
     /**
      * v0.9.1: per-(camId,feature) cache for endpoints that responded HTTP 442
      * (feature not supported on this hardware). Eliminates the warn-storm where
