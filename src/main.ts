@@ -2016,7 +2016,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
             await this.setObjectNotExistsAsync(`${prefix}.stream_url`, {
                 type: "state",
                 common: {
-                    name: "Local RTSP URL for RTSPS stream (copy into go2rtc / iobroker.cameras)",
+                    name: "Local RTSP URL — EMPTY until livestream_enabled=true; then copy into go2rtc / iobroker.cameras",
                     role: "text.url",
                     type: "string",
                     read: true,
@@ -4268,6 +4268,14 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 `Loaded ${this._lanIpMap.size} persisted LAN IP(s) for cloud-degraded LAN ping`,
             );
         }
+
+        // v1.2.5: one-time discoverability hint. Livestream is opt-in and OFF by
+        // default, so on a fresh install `stream_url` stays empty and a go2rtc /
+        // recorder pointed at the (not-yet-listening) proxy port gets "connection
+        // refused". New users have no signal that they must flip the switch first
+        // (forum #84538, vowill). Emit ONE actionable info line per adapter start
+        // when no camera has livestream enabled. Silent once any camera streams.
+        this._logLivestreamHintIfAllOff(cameras);
 
         // v0.9.0: restore persisted last-seen event IDs so side effects (motion_active,
         // auto-snapshot, MQTT) are not re-fired for events we already processed before restart.
@@ -7743,6 +7751,42 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // Clear the public stream_url DPs (main + sub) so consumers see "no stream"
         await this.upsertState(`cameras.${camId}.stream_url`, "");
         await this.upsertState(`cameras.${camId}.stream_url_sub`, "");
+    }
+
+    /**
+     * v1.2.5: emit a one-time, actionable startup hint when livestream is OFF on
+     * every camera (the default). Without it new users see an empty `stream_url`
+     * and their go2rtc / recorder reports "connection refused" — because the TLS
+     * proxy only listens while a livestream is active (forum #84538, vowill).
+     *
+     * Fires once per adapter start, info level, and only when NO camera streams.
+     * As soon as any camera has `livestream_enabled=true` it stays silent. The
+     * `rtsp_expose_to_lan` reminder is appended only when the proxy is bound to
+     * 127.0.0.1, the other root cause of a cross-host "connection refused".
+     *
+     * @param cameras  discovered cameras (already hydrated into _livestreamEnabled)
+     * @returns true if the hint was logged, false if any camera streams (testable)
+     */
+    private _logLivestreamHintIfAllOff(cameras: BoschCamera[]): boolean {
+        if (cameras.length === 0) {
+            return false;
+        }
+        const anyOn = cameras.some((cam) => this._livestreamEnabled.get(cam.id) === true);
+        if (anyOn) {
+            return false;
+        }
+        const first = cameras[0].id;
+        let hint =
+            `Livestream is opt-in and OFF by default → cameras.<id>.stream_url is empty and go2rtc/recorders ` +
+            `report "connection refused" until you start it. Set cameras.${first}.livestream_enabled = true ` +
+            `(per camera) to open the RTSP stream and populate stream_url. Snapshots & motion work without it.`;
+        if (this.config.rtsp_expose_to_lan !== true) {
+            hint +=
+                ` If go2rtc/your recorder runs on a DIFFERENT host than ioBroker, also enable ` +
+                `"Expose RTSP proxy to LAN" in the adapter settings (the proxy binds 127.0.0.1 otherwise).`;
+        }
+        this.log.info(hint);
+        return true;
     }
 
     /**

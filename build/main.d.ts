@@ -1298,6 +1298,21 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _teardownStream;
     /**
+     * v1.2.5: emit a one-time, actionable startup hint when livestream is OFF on
+     * every camera (the default). Without it new users see an empty `stream_url`
+     * and their go2rtc / recorder reports "connection refused" — because the TLS
+     * proxy only listens while a livestream is active (forum #84538, vowill).
+     *
+     * Fires once per adapter start, info level, and only when NO camera streams.
+     * As soon as any camera has `livestream_enabled=true` it stays silent. The
+     * `rtsp_expose_to_lan` reminder is appended only when the proxy is bound to
+     * 127.0.0.1, the other root cause of a cross-host "connection refused".
+     *
+     * @param cameras  discovered cameras (already hydrated into _livestreamEnabled)
+     * @returns true if the hint was logged, false if any camera streams (testable)
+     */
+    private _logLivestreamHintIfAllOff;
+    /**
      * Start or stop the continuous RTSP livestream for one camera.
      * Default behaviour for the adapter is OFF — each open Bosch session
      * counts against the LOCAL daily quota, and the TLS proxy + RTSP

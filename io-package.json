@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "1.2.4",
+    "version": "1.2.5",
     "news": {
+      "1.2.5": {
+        "en": "Streaming setup is easier to discover. The livestream is opt-in (off by default), so stream_url stays empty and go2rtc reports \"connection refused\" until you set livestream_enabled=true. A startup hint, a clearer stream_url name and a new README section now explain this.",
+        "de": "Streaming-Einrichtung ist leichter auffindbar. Der Livestream ist opt-in (standardmäßig aus), daher bleibt stream_url leer und go2rtc meldet \"connection refused\" bis livestream_enabled=true gesetzt ist. Ein Start-Hinweis, ein klarerer stream_url-Name und ein neuer README-Abschnitt erklären das.",
+        "ru": "Настройку потоковой передачи легче обнаружить. Прямая трансляция включена (по умолчанию отключена), поэтомуstream_url остается пустым, а go2rtc сообщает «отказано в соединении», пока вы не установите livestream_enabled=true. Теперь это объясняется подсказкой при запуске, более понятным именемstream_url и новым разделом README.",
+        "pt": "A configuração de streaming é mais fácil de descobrir. A transmissão ao vivo é opcional (desativada por padrão), então stream_url permanece vazio e go2rtc informa \"conexão recusada\" até que você defina livestream_enabled=true. Uma dica de inicialização, um nome stream_url mais claro e uma nova seção README agora explicam isso.",
+        "nl": "Streaming-instellingen zijn gemakkelijker te ontdekken. De livestream is opt-in (standaard uitgeschakeld), dus stream_url blijft leeg en go2rtc rapporteert \"verbinding geweigerd\" totdat je livestream_enabled=true instelt. Een opstarthint, een duidelijkere stream_url-naam en een nieuwe README-sectie leggen dit nu uit.",
+        "fr": "La configuration du streaming est plus facile à découvrir. Le livestream est opt-in (désactivé par défaut), donc stream_url reste vide et go2rtc signale \"connexion refusée\" jusqu'à ce que vous définissiez livestream_enabled=true. Un indice de démarrage, un nom stream_url plus clair et une nouvelle section README expliquent désormais cela.",
+        "it": "La configurazione dello streaming è più facile da scoprire. Il livestream è attivabile (disattivato per impostazione predefinita), quindi stream_url rimane vuoto e go2rtc segnala \"connessione rifiutata\" finché non imposti livestream_enabled=true. Un suggerimento di avvio, un nome stream_url più chiaro e una nuova sezione README ora lo spiegano.",
+        "es": "La configuración de transmisión es más fácil de descubrir. La transmisión en vivo está habilitada (desactivada de forma predeterminada), por lo que stream_url permanece vacío y go2rtc informa \"conexión rechazada\" hasta que establezca livestream_enabled=true. Una pista de inicio, un nombre stream_url más claro y una nueva sección README ahora explican esto.",
+        "pl": "Konfiguracja przesyłania strumieniowego jest łatwiejsza do odkrycia. Transmisja na żywo jest opcjonalna (domyślnie wyłączona), więc stream_url pozostaje pusty, a go2rtc zgłasza „odmowę połączenia”, dopóki nie ustawisz livestream_enabled=true. Wyjaśniają to teraz wskazówka dotycząca uruchamiania, wyraźniejsza nazwa adresu URL strumienia i nowa sekcja README.",
+        "uk": "Простіше виявити налаштування потокового передавання. Прямий ефір доступний (за замовчуванням вимкнено), тому stream_url залишається порожнім, а go2rtc повідомляє про «підключення відмовлено», доки ви не встановите livestream_enabled=true. Підказка щодо запуску, зрозуміліша назва stream_url і новий розділ README тепер пояснюють це.",
+        "zh-cn": "流媒体设置更容易发现。直播是选择加入的（默认情况下关闭），因此在您设置 livestream_enabled=true 之前，stream_url 保持为空并且 go2rtc 报告“连接被拒绝”。现在，启动提示、更清晰的stream_url 名称和新的自述文件部分对此进行了解释。"
+      },
       "1.2.4": {
         "en": "Adapter icon: the blue placeholder is replaced with the real red Bosch camera logo. It had shown as a plain blue tile in the ioBroker admin and in the adapter catalogue.",
         "de": "Adapter-Icon: Der blaue Platzhalter wurde durch das echte rote Bosch-Kameralogo ersetzt. Es erschien im ioBroker-Admin und im Adapter-Katalog als einfarbig blaue Kachel.",
@@ -80,19 +93,6 @@
         "pl": "v1.1.0: Serwer migawek HTTP (url.cam) + sendTo('migawka'); Kontrola parzystości HA — powiadomienia, ruch + czułość, nagrywanie dźwięku, tryb detekcji, system alarmowy Gen2-Indoor, diody LED, oświetlenie zewnętrzne Gen2, domofon, uruchomione; hartowanie strumieniowe/FCM; i18n 11 języków.",
         "uk": "v1.1.0: сервер знімків HTTP (url.cam) + sendTo('знімок'); Контроль паритету HA — сповіщення, рух + чутливість, запис звуку, режим виявлення, Gen2-Indoor сигналізація, світлодіоди, Gen2-Outdoor lights, домофон, введено в експлуатацію; зміцнення потоком/FCM; i18n 11 мов.",
         "zh-cn": "v1.1.0: HTTP 快照服务器 (url.cam) + sendTo('snapshot'); HA-奇偶校验控制 — 通知、运动 + 灵敏度、记录声音、检测模式、Gen2-室内报警系统、LED、Gen2-室外灯、对讲机、调试；流/FCM 强化； i18n 11 种语言。"
-      },
-      "1.0.5": {
-        "en": "intrusion_sensitivity now acks the clamped 0-7 value instead of the raw input (mirrors intrusion_distance), so the datapoint never shows a sensitivity the camera did not receive.",
-        "de": "intrusion_sensitivity bestätigt jetzt den auf 0-7 begrenzten Wert statt der Roheingabe (wie intrusion_distance), sodass der Datenpunkt nie eine Empfindlichkeit anzeigt, die die Kamera nicht erhalten hat.",
-        "ru": "intrusion_sensitivity теперь принимает фиксированное значение 0–7 вместо необработанных входных данных (отражает intrusion_distance), поэтому точка данных никогда не показывает чувствительность, которую камера не получила.",
-        "pt": "intrusion_sensitivity agora reconhece o valor fixado de 0 a 7 em vez da entrada bruta (espelha intrusion_distance), para que o ponto de dados nunca mostre uma sensibilidade que a câmera não recebeu.",
-        "nl": "inbraak_gevoeligheid bevestigt nu de vastgeklemde waarde 0-7 in plaats van de onbewerkte invoer (spiegelt inbraak_afstand), zodat het datapunt nooit een gevoeligheid vertoont die de camera niet heeft ontvangen.",
-        "fr": "intrusion_sensitivity accuse désormais la valeur bloquée 0-7 au lieu de l'entrée brute (miroirs intrusion_distance), de sorte que le point de données n'affiche jamais une sensibilité que la caméra n'a pas reçue.",
-        "it": "intrusion_sensitivity ora riconosce il valore bloccato 0-7 invece dell'input grezzo (rispecchia intrusion_distance), quindi il punto dati non mostra mai una sensibilità che la telecamera non ha ricevuto.",
-        "es": "intrusion_sensitivity ahora reconoce el valor fijado de 0 a 7 en lugar de la entrada sin procesar (refleja intrusion_distance), por lo que el punto de datos nunca muestra una sensibilidad que la cámara no recibió.",
-        "pl": "intrusion_sensitivity potwierdza teraz zawężoną wartość 0-7 zamiast nieprzetworzonego wejścia (odzwierciedla intrusion_distance), więc punkt danych nigdy nie pokazuje czułości, której nie odebrała kamera.",
-        "uk": "intrusion_sensitivity тепер підтверджує обмежене значення 0-7 замість необробленого введення (віддзеркалює intrusion_distance), тому точка даних ніколи не показує чутливість, яку камера не отримала.",
-        "zh-cn": "intrusion_sensitivity 现在确认固定的 0-7 值而不是原始输入（镜像 intrusion_distance），因此数据点永远不会显示相机未接收到的灵敏度。"
       }
     },
     "titleLang": {

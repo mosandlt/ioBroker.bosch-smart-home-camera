@@ -422,6 +422,24 @@ proxy for use with ffmpeg / mpv / `iobroker.cameras` / go2rtc. For VIS
 itself, either use the snapshot refresh in the example dashboard or bridge
 via go2rtc → WebRTC/HLS.
 
+### `stream_url` is empty / go2rtc says "connection refused"
+
+The livestream is **opt-in and OFF by default** — each open session counts
+against the Bosch LOCAL session quota and keeps a TLS proxy + watchdog running
+24/7, so the adapter never starts it on its own. While it is off, the per-camera
+proxy does not listen, `cameras.<id>.stream_url` stays empty, and any go2rtc /
+recorder pointed at the port gets `connection refused`. Snapshots and motion
+events work without it.
+
+1. Set `cameras.<id>.livestream_enabled = true` (per camera). The session opens,
+   the proxy starts listening, and `cameras.<id>.stream_url` is populated.
+2. Copy that URL into go2rtc / `iobroker.cameras` / your recorder.
+3. If go2rtc (or the recorder) runs on a **different host** than ioBroker, the
+   default `127.0.0.1` bind is unreachable from there → still `connection
+   refused`. Enable **Expose RTSP proxy to LAN** in the adapter settings and set
+   the **External hostname / LAN IP** (see the LAN-recorder steps below); the
+   URL then uses your ioBroker host's LAN IP instead of `127.0.0.1`.
+
 ---
 
 ## MQTT Bridge
@@ -606,6 +624,11 @@ HA stays the **reference implementation** — features land there first; the Pyt
 ---
 
 ## Changelog
+
+### 1.2.5 (2026-06-04)
+Stream setup is easier to discover.
+
+- **Empty `stream_url` / go2rtc "connection refused":** the livestream is opt-in and OFF by default, so on a fresh install `stream_url` stays empty and a go2rtc / recorder pointed at the not-yet-listening proxy port gets `connection refused`, with nothing to signal why (forum #84538). The adapter now logs a one-time, actionable hint at startup while no camera streams (set `cameras.<id>.livestream_enabled=true`; enable "Expose RTSP proxy to LAN" if go2rtc runs on another host), the `stream_url` datapoint name states it stays empty until `livestream_enabled=true`, and the README has a new troubleshooting section. No behaviour change — streaming was always opt-in.
 
 ### 1.2.4 (2026-06-04)
 Adapter icon fix.
