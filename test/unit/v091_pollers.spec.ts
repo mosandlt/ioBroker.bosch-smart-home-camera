@@ -93,8 +93,8 @@ const CAMERAS_GEN2_ONLY = [
  *   [6] _pollPrivacySound   → GET /privacy_sound_override
  *   [7] fetchLightingState  → GET /lighting/switch
  *
- * _pollLanDiagnostics fires only on slow-tier ticks (every 10th tick).
- * First boot has _diagPollTick=0 → 0 < 10 → doSlowTier=false → no diagnostics call.
+ * _pollLanDiagnostics fires only on slow-tier ticks (every 5th tick; v1.2.2).
+ * First boot has _diagPollTick=0 → 0 < 5 → doSlowTier=false → no diagnostics call.
  *
  * Use gen2OutdoorBootLeader() to build the first 5 stubs, then append your events stub.
  * Stubs beyond the queue fall back to FALLBACK={status:404} (defined in axios-mock.ts).

@@ -161,19 +161,24 @@ async function fetchMjpegSnapshot(camHost, camPort, user, password, log, timeout
                 // would leak the camera's local-session password into the ioBroker
                 // log. Replace any URL userinfo with "***". (2026-06-02)
                 const stderrText = (Buffer.concat(stderrChunks).toString("utf8", 0, 200) || "(no stderr)").replace(/(rtsps?:\/\/)[^@\s/]+@/gi, "$1***@");
-                log.warn(`fetchMjpegSnapshot: FFmpeg exited with code ${code} for ${camHost} — ${stderrText}`);
+                // v1.2.2: soft failure — the caller always falls back to snap.jpg,
+                // so this is not warn-worthy. Some Gen2 cams reject the MJPEG/RTSP
+                // sub-stream ("Invalid data found"); logging it at warn every poll
+                // was pure noise. The caller also disables the MJPEG fast-path for
+                // a camera after repeated failures.
+                log.debug(`fetchMjpegSnapshot: FFmpeg exited with code ${code} for ${camHost} — ${stderrText}`);
                 settle(null);
                 return;
             }
             const out = Buffer.concat(stdoutChunks);
             if (out.length === 0) {
-                log.warn(`fetchMjpegSnapshot: FFmpeg returned empty output for ${camHost}`);
+                log.debug(`fetchMjpegSnapshot: FFmpeg returned empty output for ${camHost}`);
                 settle(null);
                 return;
             }
             // Sanity-check: output must start with JPEG magic bytes 0xFF 0xD8
             if (out[0] !== JPEG_MAGIC[0] || out[1] !== JPEG_MAGIC[1]) {
-                log.warn(`fetchMjpegSnapshot: output does not start with JPEG magic ` +
+                log.debug(`fetchMjpegSnapshot: output does not start with JPEG magic ` +
                     `(got ${out.slice(0, 4).toString("hex")}) for ${camHost} — discarding`);
                 settle(null);
                 return;

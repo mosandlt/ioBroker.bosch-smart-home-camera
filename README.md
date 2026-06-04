@@ -607,6 +607,16 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.2.2 (2026-06-04)
+Log-noise cleanup + Home Assistant polling parity.
+
+- **Privacy HTTP 442:** the per-camera motion-config poll returned `442` (privacy mode / settings frozen) on every slow-tier tick for a camera in privacy mode, and logged a `Motion config poll failed` line each time. `442` is now treated like `443` — a benign "keep last value" skip, no log.
+- **MJPEG fast-path:** soft FFmpeg failures (non-zero exit / empty / non-JPEG output — all of which fall back to `snap.jpg`) dropped from `warn` to `debug`, and the MJPEG path is now disabled for a camera after 2 consecutive failures this session (no more FFmpeg spawn + fallback on every snapshot for cameras whose RTSP sub-stream rejects it).
+- **First-snapshot abort:** the expected Bosch "stream has been aborted" on the first `snap.jpg` after idle is now logged at `silly` (it always retries).
+- **Empty snapshot after motion:** an empty `snap.jpg` body right after a motion trigger (camera still warming the stream) is now retried instead of failing.
+- **Shutdown:** timers no longer re-arm during `onUnload`, removing the `setTimeout called, but adapter is shutting down` warnings.
+- **Polling interval:** the event-poll fallback and the camera-state base tick are now 60 s (was 30 s), matching the Home Assistant integration's default `scan_interval`; the slow diagnostic tier still lands at 300 s.
+
 ### 1.2.1 (2026-06-04)
 FCM push fix.
 

@@ -124,6 +124,16 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * transient network blip. Reset on every successful snapshot.
      */
     _snapshotFailCount = new Map();
+    // v1.2.2: per-camera MJPEG fast-path failure count. After
+    // MJPEG_FASTPATH_MAX_FAILS consecutive failures the MJPEG path is disabled
+    // for that camera (snap.jpg only) to stop spawning FFmpeg every poll for
+    // cameras whose RTSP sub-stream rejects it. Reset on a successful MJPEG grab.
+    _mjpegFailCount = new Map();
+    static MJPEG_FASTPATH_MAX_FAILS = 2;
+    // v1.2.2: set true at the start of onUnload so async callbacks that re-arm
+    // timers bail out instead of calling this.setTimeout on a shutting-down
+    // adapter (which logs "setTimeout called, but adapter is shutting down").
+    _isUnloading = false;
     /** Consecutive snapshot failures before a camera is marked offline. */
     static OFFLINE_THRESHOLD = 3;
     /**
@@ -160,8 +170,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * Undefined when FCM is healthy (push is the primary path).
      */
     _eventPollTimer = undefined;
-    /** Event-poll interval (ms) when FCM push is unavailable. */
-    static EVENT_POLL_INTERVAL_MS = 30_000;
+    /**
+     * Event-poll interval (ms) when FCM push is unavailable.
+     * v1.2.2: 60 s to match the Home Assistant integration's default
+     * `scan_interval` (60 s) — was 30 s.
+     */
+    static EVENT_POLL_INTERVAL_MS = 60_000;
     /**
      * v0.6.2: pending FCM auto-reconnect timer.
      * Armed on the listener's "disconnect" event and walks the backoff array
@@ -189,8 +203,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * via the app, ioBroker DP stayed `true` because we only fetched once.
      */
     _statePollTimer = undefined;
-    /** Camera-state poll interval (ms). */
-    static STATE_POLL_INTERVAL_MS = 30_000;
+    /**
+     * Camera-state poll interval (ms).
+     * v1.2.2: 60 s base tick to match the Home Assistant coordinator's default
+     * `scan_interval` (60 s) — was 30 s. The slow tier still lands at 300 s via
+     * SLOW_TIER_THRESHOLD=5 (5 × 60 s), matching HA's do_slow (every 5th tick).
+     */
+    static STATE_POLL_INTERVAL_MS = 60_000;
     /**
      * v0.7.0: periodic timer for cloud maintenance / outage discovery.
      * Fetches Bosch community RSS feeds every hour and surfaces the latest
@@ -268,12 +287,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
     static LOCAL_WRITE_GRACE_MS = 30_000;
     /**
      * Diagnostic slow-tier: counter incremented on every STATE_POLL_INTERVAL_MS tick.
-     * When it reaches SLOW_TIER_THRESHOLD (10), the slow-tier tasks run and it resets.
-     * STATE_POLL_INTERVAL_MS=30s × 10 = 300s cadence — mirrors HA's do_slow logic.
+     * When it reaches SLOW_TIER_THRESHOLD (5), the slow-tier tasks run and it resets.
+     * STATE_POLL_INTERVAL_MS=60s × 5 = 300s cadence — mirrors HA's do_slow logic.
      */
     _diagPollTick = 0;
-    /** Slow-tier runs every SLOW_TIER_THRESHOLD state-poll ticks (10 × 30s = 300s). */
-    static SLOW_TIER_THRESHOLD = 10;
+    /** Slow-tier runs every SLOW_TIER_THRESHOLD state-poll ticks (5 × 60s = 300s). */
+    static SLOW_TIER_THRESHOLD = 5;
     /**
      * F13: cached cloud feature flags result. Null until first successful fetch.
      * Account-level — one per adapter instance (not per camera).
@@ -4014,7 +4033,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
             void this._pingAllCamsDuringOutage().catch(() => undefined);
             throw err;
         }
-        // Slow-tier diagnostics: every SLOW_TIER_THRESHOLD ticks (10 × 30s = 300s).
+        // Slow-tier diagnostics: every SLOW_TIER_THRESHOLD ticks (5 × 60s = 300s).
         // F4/F6 run per-camera inside _pollSingleCameraState (slow-tier gate passed via arg).
         // F13 runs at account level here.
         this._diagPollTick++;
@@ -4310,9 +4329,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
             const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/motion`;
             const resp = await this._httpClient.get(url, {
                 headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-                validateStatus: (s) => (s >= 200 && s < 300) || s === 404 || s === 443,
+                // v1.2.2: 442 (like 443) = privacy mode active / settings frozen.
+                // A privacy camera returns 442 here every poll; treat it as a
+                // benign "keep last value" skip instead of throwing + logging a
+                // "Motion config poll failed" line on every slow-tier tick.
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 404 || s === 442 || s === 443,
             });
-            if (resp.status === 404 || resp.status === 443 || !resp.data) {
+            if (resp.status === 404 || resp.status === 442 || resp.status === 443 || !resp.data) {
                 return;
             }
             const data = resp.data;
@@ -6641,6 +6664,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (previous) {
             this.clearTimeout(previous);
         }
+        // v1.2.2: don't arm a fresh timer while shutting down (avoids the
+        // "setTimeout called, but adapter is shutting down" warning).
+        if (this._isUnloading) {
+            return;
+        }
         // v0.6.0: use this.setTimeout so adapter-core auto-cancels on unload.
         const timer = this.setTimeout(() => {
             this._snapshotIdleTimers.delete(camId);
@@ -7214,7 +7242,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 lanReachable &&
                 !privacyOn &&
                 session.digestUser &&
-                session.digestPassword;
+                session.digestPassword &&
+                // v1.2.2: skip the MJPEG fast-path for cameras that have failed
+                // it repeatedly this session — snap.jpg is the working fallback.
+                (this._mjpegFailCount.get(camId) ?? 0) <
+                    BoschSmartHomeCamera.MJPEG_FASTPATH_MAX_FAILS;
             if (useMjpeg) {
                 const lanIp = this._lanIpMap.get(camId) ?? session.lanAddress.split(":")[0];
                 const mjpegBuf = await (0, mjpeg_snapshot_1.fetchMjpegSnapshot)(lanIp, 443, session.digestUser, session.digestPassword, this.log, 8000, {
@@ -7223,10 +7255,19 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 });
                 if (mjpegBuf !== null) {
                     buf = mjpegBuf;
+                    this._mjpegFailCount.delete(camId); // recovered
                 }
                 else {
                     // MJPEG failed — fall through to snap.jpg
-                    this.log.debug(`MJPEG snapshot failed for ${camId.slice(0, 8)}, falling back to snap.jpg`);
+                    const fails = (this._mjpegFailCount.get(camId) ?? 0) + 1;
+                    this._mjpegFailCount.set(camId, fails);
+                    if (fails === BoschSmartHomeCamera.MJPEG_FASTPATH_MAX_FAILS) {
+                        this.log.debug(`MJPEG fast-path disabled for ${camId.slice(0, 8)} this session ` +
+                            `after ${fails} failures — using snap.jpg`);
+                    }
+                    else {
+                        this.log.debug(`MJPEG snapshot failed for ${camId.slice(0, 8)}, falling back to snap.jpg`);
+                    }
                     buf = await this._fetchSnapJpgWithRetry(camId, snapUrl, session);
                 }
             }
@@ -7283,13 +7324,23 @@ class BoschSmartHomeCamera extends utils.Adapter {
             const msg = err instanceof Error ? err.message : String(err);
             // Only retry on "aborted" / connection-reset errors — not on auth (401)
             // or non-image content type (no point retrying those).
-            const isTransient = /abort|reset|ECONNRESET|socket hang up|timeout/i.test(msg);
+            // v1.2.2: an "empty body" is also transient — the camera often returns
+            // an empty snap.jpg in the first moment after a motion trigger while it
+            // is still warming the stream; the retry ~800 ms later succeeds.
+            const isTransient = /abort|reset|ECONNRESET|socket hang up|timeout|empty body/i.test(msg);
             if (!isTransient) {
                 await this.markCameraReachability(camId, false);
                 throw err;
             }
-            this.log.debug(`Snapshot retry for ${camId.slice(0, 8)}: ${msg}`);
+            // v1.2.2: Bosch routinely aborts the FIRST snap.jpg after an idle
+            // period; the retry below almost always succeeds. Log at silly so it
+            // stays out of normal debug logs (it is expected, not a problem).
+            this.log.silly(`Snapshot retry for ${camId.slice(0, 8)}: ${msg}`);
             await new Promise((r) => {
+                if (this._isUnloading) {
+                    r();
+                    return;
+                }
                 this.setTimeout(() => r(), 800);
             });
             try {
@@ -7535,6 +7586,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
         }
         // Auto-retry after 60 s — Bosch releases orphaned slots within ~60 s.
         // Fire-and-forget; if the retry also hits 444, _handleSessionLimitError is called again.
+        if (this._isUnloading) {
+            return;
+        }
         this.setTimeout(() => {
             this.log.debug(`[session-quota] Auto-retry ensureLiveSession for ${camPrefix}`);
             void this.ensureLiveSession(camId)
@@ -7672,6 +7726,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * @param callback
      */
     onUnload(callback) {
+        this._isUnloading = true;
         void (async () => {
             try {
                 // Clear the refresh timer (this.clearTimeout auto-tracks via adapter-core)

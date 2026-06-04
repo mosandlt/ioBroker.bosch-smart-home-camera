@@ -66,6 +66,9 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * transient network blip. Reset on every successful snapshot.
      */
     private _snapshotFailCount;
+    private _mjpegFailCount;
+    private static readonly MJPEG_FASTPATH_MAX_FAILS;
+    private _isUnloading;
     /** Consecutive snapshot failures before a camera is marked offline. */
     private static readonly OFFLINE_THRESHOLD;
     /**
@@ -102,7 +105,11 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * Undefined when FCM is healthy (push is the primary path).
      */
     private _eventPollTimer;
-    /** Event-poll interval (ms) when FCM push is unavailable. */
+    /**
+     * Event-poll interval (ms) when FCM push is unavailable.
+     * v1.2.2: 60 s to match the Home Assistant integration's default
+     * `scan_interval` (60 s) — was 30 s.
+     */
     private static readonly EVENT_POLL_INTERVAL_MS;
     /**
      * v0.6.2: pending FCM auto-reconnect timer.
@@ -131,7 +138,12 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * via the app, ioBroker DP stayed `true` because we only fetched once.
      */
     private _statePollTimer;
-    /** Camera-state poll interval (ms). */
+    /**
+     * Camera-state poll interval (ms).
+     * v1.2.2: 60 s base tick to match the Home Assistant coordinator's default
+     * `scan_interval` (60 s) — was 30 s. The slow tier still lands at 300 s via
+     * SLOW_TIER_THRESHOLD=5 (5 × 60 s), matching HA's do_slow (every 5th tick).
+     */
     private static readonly STATE_POLL_INTERVAL_MS;
     /**
      * v0.7.0: periodic timer for cloud maintenance / outage discovery.
@@ -210,11 +222,11 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private static readonly LOCAL_WRITE_GRACE_MS;
     /**
      * Diagnostic slow-tier: counter incremented on every STATE_POLL_INTERVAL_MS tick.
-     * When it reaches SLOW_TIER_THRESHOLD (10), the slow-tier tasks run and it resets.
-     * STATE_POLL_INTERVAL_MS=30s × 10 = 300s cadence — mirrors HA's do_slow logic.
+     * When it reaches SLOW_TIER_THRESHOLD (5), the slow-tier tasks run and it resets.
+     * STATE_POLL_INTERVAL_MS=60s × 5 = 300s cadence — mirrors HA's do_slow logic.
      */
     private _diagPollTick;
-    /** Slow-tier runs every SLOW_TIER_THRESHOLD state-poll ticks (10 × 30s = 300s). */
+    /** Slow-tier runs every SLOW_TIER_THRESHOLD state-poll ticks (5 × 60s = 300s). */
     private static readonly SLOW_TIER_THRESHOLD;
     /**
      * F13: cached cloud feature flags result. Null until first successful fetch.

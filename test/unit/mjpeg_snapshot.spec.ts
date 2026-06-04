@@ -219,7 +219,9 @@ describe("fetchMjpegSnapshot()", () => {
         const result = await fetchMjpegSnapshot("192.0.2.1", 443, "cbs-user", "pass", log);
 
         expect(result).to.be.null;
-        expect(capture.warnLines.join(" ")).to.match(/exited with code 1/i);
+        // v1.2.2: soft failure (caller falls back to snap.jpg) → logged at debug, not warn.
+        expect(capture.debugLines.join(" ")).to.match(/exited with code 1/i);
+        expect(capture.warnLines.join(" "), "no warn-level noise for soft failure").to.equal("");
     });
 
     // Security (2026-06-02): ffmpeg echoes the full input URL incl. Digest
@@ -237,7 +239,9 @@ describe("fetchMjpegSnapshot()", () => {
         const result = await fetchMjpegSnapshot("192.0.2.9", 443, "cbs-00000000", "fakeSecret", log);
 
         expect(result).to.be.null;
-        const joined = capture.warnLines.join(" ");
+        // v1.2.2: soft FFmpeg failure is logged at debug now (caller has a fallback);
+        // redaction must still hold so the password never lands in any log line.
+        const joined = [...capture.debugLines, ...capture.warnLines].join(" ");
         expect(joined, "password must not appear in the log").to.not.include("fakeSecret");
         expect(joined, "userinfo is redacted to ***").to.include("rtsps://***@192.0.2.9:443");
     });
@@ -251,7 +255,7 @@ describe("fetchMjpegSnapshot()", () => {
         const result = await fetchMjpegSnapshot("192.0.2.1", 443, "cbs-user", "pass", log);
 
         expect(result).to.be.null;
-        expect(capture.warnLines.join(" ")).to.match(/empty output/i);
+        expect(capture.debugLines.join(" ")).to.match(/empty output/i);
     });
 
     // ── Non-JPEG magic bytes ───────────────────────────────────────────────────
@@ -264,7 +268,7 @@ describe("fetchMjpegSnapshot()", () => {
         const result = await fetchMjpegSnapshot("192.0.2.1", 443, "cbs-user", "pass", log);
 
         expect(result).to.be.null;
-        expect(capture.warnLines.join(" ")).to.match(/JPEG magic/i);
+        expect(capture.debugLines.join(" ")).to.match(/JPEG magic/i);
     });
 
     // ── Timeout ───────────────────────────────────────────────────────────────

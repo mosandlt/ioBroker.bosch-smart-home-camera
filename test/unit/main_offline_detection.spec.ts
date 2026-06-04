@@ -188,3 +188,57 @@ describe("offline detection — _handleSessionLimitError gate (#84538)", () => {
         expect(s.log.warn.called, "real quota hit warns the user").to.equal(true);
     });
 });
+
+// v1.2.2 log-noise fix: a privacy camera returns HTTP 442 on /motion every poll;
+// it must be treated as a benign "keep last value" skip, NOT logged as a failure.
+describe("motion config poll — HTTP 442 privacy skip (v1.2.2)", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let pollMotion: (...a: any[]) => Promise<void>;
+
+    before(() => {
+        pollMotion = loadAdapter()._pollMotionConfig;
+    });
+
+    it("HTTP 442 → silent skip: no 'failed' log, no DP write, cache untouched", async () => {
+        const getStub = sinon.stub().resolves({ status: 442, data: "" });
+        const upsert = sinon.stub().resolves(undefined);
+        const debug = sinon.stub();
+        const motionCache = new Map();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const s: any = {
+            _httpClient: { get: getStub },
+            _motionCache: motionCache,
+            upsertState: upsert,
+            log: { debug },
+        };
+        await pollMotion.call(s, "tok", CAM);
+
+        expect(upsert.called, "no DP write on privacy 442").to.equal(false);
+        expect(motionCache.size, "cache not polluted on 442").to.equal(0);
+        const failedLog = debug.getCalls().some((c: sinon.SinonSpyCall) =>
+            String(c.args[0]).includes("Motion config poll") && String(c.args[0]).includes("failed"),
+        );
+        expect(failedLog, "must NOT log a 'Motion config poll failed' line for 442").to.equal(false);
+    });
+
+    it("HTTP 200 still writes the DPs (regression guard)", async () => {
+        const getStub = sinon
+            .stub()
+            .resolves({ status: 200, data: { enabled: true, motionAlarmConfiguration: "HIGH" } });
+        const upsert = sinon.stub().resolves(undefined);
+        const motionCache = new Map();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const s: any = {
+            _httpClient: { get: getStub },
+            _motionCache: motionCache,
+            upsertState: upsert,
+            log: { debug: sinon.stub() },
+        };
+        await pollMotion.call(s, "tok", CAM);
+
+        const wroteEnabled = upsert
+            .getCalls()
+            .some((c: sinon.SinonSpyCall) => String(c.args[0]).endsWith(".motion_enabled"));
+        expect(wroteEnabled, "200 must still mirror motion_enabled").to.equal(true);
+    });
+});

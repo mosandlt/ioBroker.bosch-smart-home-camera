@@ -498,19 +498,19 @@ describe("Slow-tier tick counter", () => {
         const { db, adapter } = createAdapterWithMocks(undefined, ffStub);
         await bootWithTokens(db, adapter);
 
-        // Manually set the tick counter to 8 (just below threshold of 10).
+        // Manually set the tick counter to 3 (just below threshold of 5; v1.2.2).
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (adapter as any)._diagPollTick = 8;
+        (adapter as any)._diagPollTick = 3;
 
         // Verify _pollFeatureFlags has not been called yet.
         expect(ffStub.callCount).to.equal(0);
 
-        // Call _pollFeatureFlags directly with tick=8 should not happen because
-        // doSlowTier=false. Simulate a single poll tick that increments to 9
+        // Call _pollFeatureFlags directly with tick=3 should not happen because
+        // doSlowTier=false. Simulate a single poll tick that increments to 4
         // (still below threshold) without any real network call.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (adapter as any)._diagPollTick = 9;
-        // ffStub still not called — threshold is 10, not 9
+        (adapter as any)._diagPollTick = 4;
+        // ffStub still not called — threshold is 5, not 4
         expect(ffStub.callCount).to.equal(0);
 
         // Directly reset to 0 (as the real code does) and call _pollFeatureFlags
