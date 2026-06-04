@@ -702,4 +702,107 @@ describe("FcmListener — credential persistence (savedCredentials)", () => {
         expect(parsed.ecdhPrivateKey).to.be.an("array");
         expect(parsed.ecdhPublicKey).to.be.an("array");
     });
+
+    // Forum #84538: persisted ACG creds rejected by Google (HTTP 401) used to
+    // drop the adapter straight into 30 s polling forever. Self-heal: retry ONCE
+    // with a fresh registration (no acg) and recover push.
+    it("start() self-heals when saved creds are rejected: retries fresh, succeeds, emits 'heal'", async () => {
+        const registerStub = sinon.stub();
+        // First call (with saved acg) → rejected by Google; second call (fresh) → ok
+        registerStub.onFirstCall().resolves(new Error("HTTP 401 at fcmregistrations — invalid"));
+        registerStub.onSecondCall().resolves(makeFakeReg());
+        const deps: FcmDeps = {
+            registerToFCM: registerStub as unknown as FcmDeps["registerToFCM"],
+            createFcmECDH: sinon.stub().returns(makeFakeEcdh()) as unknown as FcmDeps["createFcmECDH"],
+            generateFcmAuthSecret: sinon
+                .stub()
+                .returns(Buffer.alloc(16, 0x11)) as unknown as FcmDeps["generateFcmAuthSecret"],
+            FcmClient: sinon.stub().returns(makeFakeClient()) as unknown as FcmDeps["FcmClient"],
+        };
+
+        stubAxiosSequence([{ status: 204, data: "" }]);
+
+        const savedRaw: FcmRawCredentials = {
+            acgId: "4658368044210161110",
+            acgSecurityToken: "6632001525114872722",
+            authSecret: Array.from(Buffer.alloc(16, 0x22)),
+            ecdhPrivateKey: Array.from(Buffer.alloc(32, 0xcc)),
+            ecdhPublicKey: Array.from(Buffer.alloc(65, 0x04)),
+            mode: "android",
+        };
+        const savedCreds: FcmCredentials = { fcmToken: "old", mode: "android", raw: savedRaw };
+
+        const listener = makeListener("tok", { mode: "android", savedCredentials: savedCreds }, deps);
+        const healSpy = sinon.spy();
+        const registeredSpy = sinon.spy();
+        listener.on("heal", healSpy);
+        listener.on("registered", registeredSpy);
+
+        await listener.start();
+
+        expect(registerStub.callCount).to.equal(2);
+        // First attempt carried the persisted acg, the retry must NOT
+        const firstCfg = registerStub.firstCall.args[0] as { acg?: unknown };
+        const secondCfg = registerStub.secondCall.args[0] as { acg?: unknown };
+        expect(firstCfg.acg).to.not.be.undefined;
+        expect(secondCfg.acg).to.be.undefined;
+        expect(healSpy.calledOnce).to.be.true;
+        expect(registeredSpy.calledOnce).to.be.true;
+        expect(listener.getFcmToken()).to.equal("fake-fcm-token-xyz");
+    });
+
+    // Forum #84538 ROOT CAUSE: @aracna/fcm puts applicationPubKey:<vapidKey> in the
+    // /registrations body and substitutes its DEFAULT Chrome VAPID when vapidKey is
+    // undefined; Google rejects that default with HTTP 401. We must pass vapidKey:null
+    // (NOT undefined) so aracna forwards applicationPubKey:null like firebase-messaging.
+    // Pin it: a regression to undefined / the default VAPID re-breaks push for everyone.
+    it("start() passes vapidKey:null to registerToFCM (never the default VAPID) — #84538", async () => {
+        const registerStub = sinon.stub().resolves(makeFakeReg());
+        const deps: FcmDeps = {
+            registerToFCM: registerStub as unknown as FcmDeps["registerToFCM"],
+            createFcmECDH: sinon.stub().returns(makeFakeEcdh()) as unknown as FcmDeps["createFcmECDH"],
+            generateFcmAuthSecret: sinon
+                .stub()
+                .returns(Buffer.alloc(16, 0x11)) as unknown as FcmDeps["generateFcmAuthSecret"],
+            FcmClient: sinon.stub().returns(makeFakeClient()) as unknown as FcmDeps["FcmClient"],
+        };
+        stubAxiosSequence([{ status: 204, data: "" }]);
+        const listener = makeListener("tok", { mode: "android" }, deps);
+        await listener.start();
+
+        const cfg = registerStub.firstCall.args[0] as { vapidKey?: unknown };
+        // Must be explicit null — undefined would let @aracna/fcm inject its
+        // rejected default VAPID. A non-empty string here is the regression.
+        expect(cfg.vapidKey).to.equal(null);
+        expect(cfg.vapidKey).to.not.be.a("string");
+    });
+
+    // Without saved creds there is nothing to heal — a register failure must NOT
+    // trigger a second attempt; start() fails so the caller falls back to polling.
+    it("start() does NOT retry on register failure when no saved creds exist", async () => {
+        const registerStub = sinon.stub().resolves(new Error("HTTP 401"));
+        const deps: FcmDeps = {
+            registerToFCM: registerStub as unknown as FcmDeps["registerToFCM"],
+            createFcmECDH: sinon.stub().returns(makeFakeEcdh()) as unknown as FcmDeps["createFcmECDH"],
+            generateFcmAuthSecret: sinon
+                .stub()
+                .returns(Buffer.alloc(16, 0x11)) as unknown as FcmDeps["generateFcmAuthSecret"],
+            FcmClient: sinon.stub().returns(makeFakeClient()) as unknown as FcmDeps["FcmClient"],
+        };
+
+        const listener = makeListener("tok", { mode: "android" }, deps);
+        const healSpy = sinon.spy();
+        listener.on("heal", healSpy);
+
+        let threw = false;
+        try {
+            await listener.start();
+        } catch {
+            threw = true;
+        }
+
+        expect(threw).to.be.true;
+        expect(registerStub.callCount).to.equal(1);
+        expect(healSpy.called).to.be.false;
+    });
 });

@@ -1467,6 +1467,18 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private static normaliseBoschTimestamp;
     /**
+     * Resolve a camera's live online status WITHOUT opening a live session,
+     * mirroring the HA integration's `_check_status` (LAN-TCP primary, cloud
+     * `/ping` + `/commissioned` fallback). Used to skip live-session/snapshot
+     * attempts for OFFLINE cameras: an offline camera can never serve a stream,
+     * so trying only burns Bosch's shared 3-session budget and spams HTTP 444.
+     * Forum #84538 (offline cameras).
+     *
+     * @param camId Camera UUID
+     * @returns "ONLINE" | "OFFLINE" | "SESSION_LIMIT" | "UPDATING" | "UNKNOWN"
+     */
+    private _resolveCameraStatus;
+    /**
      * Handle a Bosch HTTP 444 session-quota error.
      *
      * - Records the hit timestamp in _sessionLimitHits.

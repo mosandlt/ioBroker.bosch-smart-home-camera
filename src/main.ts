@@ -4267,6 +4267,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // field). Fire one snapshot per camera so markCameraReachability() can
         // flip it to the real state. Fire-and-forget — failure is logged at
         // debug, never blocks adapter start.
+        // v1.2.1: an OFFLINE camera can't serve a stream — the first snapshot
+        // hits Bosch's session quota (444). That now routes through
+        // _handleSessionLimitError, which confirms the camera is offline via a
+        // session-less status check and STOPS instead of looping retries that
+        // keep burning the shared 3-session budget. Forum #84538.
         for (const cam of cameras) {
             void this.handleSnapshotTrigger(cam.id).catch((err: unknown) => {
                 const msg = err instanceof Error ? err.message : String(err);
@@ -4340,6 +4345,17 @@ class BoschSmartHomeCamera extends utils.Adapter {
             if (info.error.stack) {
                 this.log.debug(`FCM ${info.mode} stack: ${info.error.stack}`);
             }
+        });
+
+        // Self-heal diagnostic — emitted by FcmListener._tryStart when persisted
+        // ACG creds were rejected by Google (e.g. HTTP 401) and a fresh
+        // registration is being retried. Surfaces why push briefly hiccuped on
+        // restart instead of looking like a hard failure. Forum #84538.
+        this._fcmListener.on("heal", (info: { reason: string; detail: string }) => {
+            this.log.info(
+                `FCM self-heal: persisted credentials rejected (${info.detail}) — ` +
+                    "retrying with a fresh registration",
+            );
         });
 
         // Error events from FCM internals
@@ -8486,6 +8502,85 @@ class BoschSmartHomeCamera extends utils.Adapter {
     }
 
     /**
+     * Resolve a camera's live online status WITHOUT opening a live session,
+     * mirroring the HA integration's `_check_status` (LAN-TCP primary, cloud
+     * `/ping` + `/commissioned` fallback). Used to skip live-session/snapshot
+     * attempts for OFFLINE cameras: an offline camera can never serve a stream,
+     * so trying only burns Bosch's shared 3-session budget and spams HTTP 444.
+     * Forum #84538 (offline cameras).
+     *
+     * @param camId Camera UUID
+     * @returns "ONLINE" | "OFFLINE" | "SESSION_LIMIT" | "UPDATING" | "UNKNOWN"
+     */
+    private async _resolveCameraStatus(
+        camId: string,
+    ): Promise<"ONLINE" | "OFFLINE" | "SESSION_LIMIT" | "UPDATING" | "UNKNOWN"> {
+        // Primary: LAN TCP-connect on 443. Reachable on the LAN ⇒ definitely
+        // online; skips the cloud round-trip entirely (HA does the same).
+        if (await this._tcpPing(camId)) {
+            return "ONLINE";
+        }
+        const token = this._currentAccessToken;
+        if (!token) {
+            return "UNKNOWN";
+        }
+        // Fallback 1: cloud /ping — tiny body "ONLINE" / "OFFLINE" / "UPDATING…".
+        try {
+            const pr = await this._httpClient.get<unknown>(
+                `${CLOUD_API}/v11/video_inputs/${camId}/ping`,
+                {
+                    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                    validateStatus: () => true,
+                },
+            );
+            if (pr.status === 200 && typeof pr.data === "string") {
+                const body = pr.data.trim().replace(/^"|"$/g, "");
+                if (body.startsWith("UPDATING")) {
+                    return "UPDATING";
+                }
+                if (body === "ONLINE" || body === "OFFLINE") {
+                    return body;
+                }
+            } else if (pr.status === 444) {
+                return "SESSION_LIMIT";
+            }
+        } catch (err: unknown) {
+            this.log.debug(
+                `[status] /ping for ${camId.slice(0, 8)} failed: ` +
+                    `${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
+        // Fallback 2: cloud /commissioned → {connected, commissioned, configured}.
+        try {
+            const cr = await this._httpClient.get<unknown>(
+                `${CLOUD_API}/v11/video_inputs/${camId}/commissioned`,
+                {
+                    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                    validateStatus: () => true,
+                },
+            );
+            if (cr.status === 444) {
+                return "SESSION_LIMIT";
+            }
+            if (cr.status === 200 && cr.data != null) {
+                const d = cr.data as Record<string, unknown>;
+                if (d.connected === true && d.commissioned === true) {
+                    return "ONLINE";
+                }
+                if (d.configured === true) {
+                    return "OFFLINE";
+                }
+            }
+        } catch (err: unknown) {
+            this.log.debug(
+                `[status] /commissioned for ${camId.slice(0, 8)} failed: ` +
+                    `${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
+        return "UNKNOWN";
+    }
+
+    /**
      * Handle a Bosch HTTP 444 session-quota error.
      *
      * - Records the hit timestamp in _sessionLimitHits.
@@ -8499,6 +8594,28 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * @param camId  Camera UUID
      */
     private async _handleSessionLimitError(camId: string): Promise<void> {
+        // v1.2.1: a 444 from an OFFLINE camera is not real session-quota
+        // contention — an offline camera simply can't serve a stream. Confirm
+        // via the session-less status check; if offline, mark it offline and
+        // STOP the retry loop instead of re-arming every 60 s forever (which
+        // also kept burning the shared session budget). Forum #84538.
+        const status = await this._resolveCameraStatus(camId);
+        if (status === "OFFLINE" || status === "UPDATING") {
+            this.log.debug(
+                `[session-quota] Camera ${camId.slice(0, 8)} is ${status} — not a quota ` +
+                    "issue; skipping retry and marking offline",
+            );
+            this._sessionLimitHits.delete(camId);
+            try {
+                await this.setStateAsync(`cameras.${camId}.session_limit_hit`, false, true);
+                await this.upsertState(`cameras.${camId}.online`, false);
+                await this._maybeannounceCameraStatus(camId, "offline");
+            } catch {
+                // non-fatal
+            }
+            return;
+        }
+
         const now = Date.now();
         const window = BoschSmartHomeCamera.SESSION_QUOTA_WINDOW_MS;
         const threshold = BoschSmartHomeCamera.SESSION_QUOTA_NOTIFY_THRESHOLD;

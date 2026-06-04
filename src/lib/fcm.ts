@@ -83,9 +83,18 @@ const FCM_OSS_API_KEY = Buffer.from(
     "base64",
 ).toString("utf8");
 
-// VAPID key from Bosch Firebase project (from fcm_credentials.json config.vapid_key)
-const FCM_VAPID_KEY =
-    "BDOU99-h67HcA6JeFXHbSNMu7e2yNNu3RzoMj8TM4W88jITfq7ZmPvIM1Iv-4_l2LxQcYwhqby2xGpWwzjfAnG4";
+// FCM web-push registration deliberately sends NO applicationPubKey (VAPID).
+// @aracna/fcm always writes `applicationPubKey: <vapidKey>` into the
+// /registrations body and substitutes its built-in default Chrome VAPID key
+// ("BDOU99-…") when vapidKey is `undefined`. Google's FCM Registrations API
+// rejects that well-known default key with HTTP 401 UNAUTHENTICATED ("Request
+// is missing required authentication credential"). firebase-messaging (the lib
+// HA/Python use) omits it (sends null) and registers fine — so we match that.
+// `null` (NOT undefined) is mandatory here: undefined makes @aracna/fcm fall
+// back to its rejected default. Verified live 2026-06-04 against
+// fcmregistrations.googleapis.com (null/omitted → HTTP 200, default VAPID →
+// HTTP 401). Forum #84538.
+const NO_VAPID_KEY = null as unknown as string;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -426,7 +435,7 @@ export class FcmListener extends EventEmitter {
 
             const appID = FCM_ANDROID_APP_ID;
             const apiKey = FCM_OSS_API_KEY;
-            const publicKey = ecdh.getPublicKey() as Uint8Array;
+            let publicKey = ecdh.getPublicKey() as Uint8Array;
 
             // Step 2: Register with Google FCM
             const regConfig = {
@@ -441,10 +450,44 @@ export class FcmListener extends EventEmitter {
                     appID: FCM_ANDROID_APP_ID,
                     projectID: FCM_PROJECT_ID,
                 },
-                vapidKey: FCM_VAPID_KEY,
+                vapidKey: NO_VAPID_KEY,
             };
 
-            const reg = await deps.registerToFCM(regConfig);
+            let reg = await deps.registerToFCM(regConfig);
+
+            // Self-heal (HA-parity, mirrors fcm.py hard-heal): if persisted ACG
+            // creds were used and Google rejected them (e.g. HTTP 401 — stale
+            // acgId/securityToken from an earlier registration that no longer
+            // validates), discard them and retry ONCE with a fresh registration.
+            // The fresh creds are emitted via "registered" and overwrite the
+            // stale persisted blob, so the next restart starts clean instead of
+            // re-failing on the same dead creds. Without this the adapter dropped
+            // straight into 30 s polling and never recovered push until a manual
+            // "reset login". Forum #84538: "registerToFCM failed … HTTP 401".
+            if (reg instanceof Error && acgInit) {
+                this.emit("heal", {
+                    reason: "fcm-register-rejected-saved-creds",
+                    detail: reg.message,
+                });
+                ecdh = deps.createFcmECDH();
+                authSecret = deps.generateFcmAuthSecret();
+                publicKey = ecdh.getPublicKey();
+                reg = await deps.registerToFCM({
+                    acg: undefined,
+                    appID,
+                    ece: {
+                        authSecret: Uint8Array.from(authSecret),
+                        publicKey: Uint8Array.from(publicKey),
+                    },
+                    firebase: {
+                        apiKey,
+                        appID: FCM_ANDROID_APP_ID,
+                        projectID: FCM_PROJECT_ID,
+                    },
+                    vapidKey: NO_VAPID_KEY,
+                });
+            }
+
             if (reg instanceof Error) {
                 // @aracna/fcm returns FetchError-like objects: { response: { status,
                 // statusText, url, data: { error: { code, message, status }}}}.

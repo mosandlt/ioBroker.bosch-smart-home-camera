@@ -607,6 +607,15 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.2.1 (2026-06-04)
+FCM push fix.
+
+Push registration failed with `HTTP 401 UNAUTHENTICATED` at the Google FCM Registrations API, so the adapter fell back to event polling every 30 s. Cause: the web-push registration sent the well-known default Chrome VAPID key as `applicationPubKey`, which Google rejects — the registration token used to receive Bosch push was therefore never issued. Fixed by omitting the default VAPID (`applicationPubKey: null`), matching the Home Assistant / Python client. Push now registers reliably and motion/person/audio events arrive instantly instead of with up to 30 s delay.
+
+Also added a self-heal: when persisted FCM credentials are rejected by Google on start, the adapter retries once with a fresh registration before falling back to polling.
+
+Offline-camera handling: an offline camera can never serve a stream, so the first live-session attempt hit Bosch's shared session quota (`HTTP 444`) and the adapter then retried every 60 s forever, spamming the log and burning the 3-session budget shared with the Bosch App / other integrations. The 444 handler now confirms the camera's status with a session-less probe (LAN ping, then cloud `/ping` / `/commissioned`, mirroring Home Assistant); a genuinely offline camera is marked `online=false` and the retry loop stops, while a real quota contention on an online camera still retries.
+
 ### 1.2.0 (2026-06-03)
 Management-tier read-only datapoints (Home Assistant parity).
 
