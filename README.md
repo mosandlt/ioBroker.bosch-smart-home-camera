@@ -2,38 +2,23 @@
 
 [![NPM version](https://img.shields.io/npm/v/iobroker.bosch-smart-home-camera.svg)](https://www.npmjs.com/package/iobroker.bosch-smart-home-camera)
 [![Downloads](https://img.shields.io/npm/dm/iobroker.bosch-smart-home-camera.svg)](https://www.npmjs.com/package/iobroker.bosch-smart-home-camera)
-![Number of Installations (latest)](https://iobroker.live/badges/bosch-smart-home-camera-installed.svg)
+![Number of Installations](https://iobroker.live/badges/bosch-smart-home-camera-installed.svg)
+[![License](https://img.shields.io/npm/l/iobroker.bosch-smart-home-camera.svg)](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera/blob/main/LICENSE)
+[![GitHub Release](https://img.shields.io/github/release/mosandlt/ioBroker.bosch-smart-home-camera.svg)](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera/releases)
+[![GitHub Activity](https://img.shields.io/github/commit-activity/y/mosandlt/ioBroker.bosch-smart-home-camera.svg)](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera/commits/main)
 [![Test and Release](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera/actions/workflows/test-and-release.yml/badge.svg)](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera/actions/workflows/test-and-release.yml)
+[![Project Maintenance](https://img.shields.io/badge/maintainer-%40mosandlt-blue.svg)](https://github.com/mosandlt)
+[![BuyMeCoffee](https://img.shields.io/badge/buy%20me%20a%20coffee-donate-yellow.svg)](https://buymeacoffee.com/mosandlts)
+[![Community Forum](https://img.shields.io/badge/community-forum-brightgreen.svg)](https://forum.iobroker.net/topic/84538)
+![AI-Assisted](https://img.shields.io/badge/AI--Assisted-blue.svg)
 
-[![NPM](https://nodei.co/npm/iobroker.bosch-smart-home-camera.png?downloads=true)](https://nodei.co/npm/iobroker.bosch-smart-home-camera/)
+[![NPM](https://nodei.co/npm/iobroker.bosch-smart-home-camera.png?downloads=true)](https://www.npmjs.com/package/iobroker.bosch-smart-home-camera)
 
 ioBroker adapter for Bosch Smart Home Cameras (Eyes Outdoor, 360 Indoor, Gen2 Eyes Indoor II + Outdoor II). The full core feature set is functional end-to-end and verified live against real hardware.
 
-**Supported models:** Eyes Außenkamera (Gen1), Eyes Außenkamera II (Gen2), 360 Innenkamera (Gen1), Eyes Innenkamera II (Gen2) — model-specific timing and configuration is automatic.
+**Supported models:** Eyes Outdoor (Gen1), Eyes Outdoor II (Gen2), 360 Indoor (Gen1), Eyes Indoor II (Gen2) — model-specific timing and configuration is automatic.
 
 > **No official API.** This adapter uses the reverse-engineered Bosch Cloud API, discovered via mitmproxy traffic analysis of the official Bosch Smart Camera app.
-
-[![GitHub Release][releases-shield]][releases]
-[![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
-
-[![Project Maintenance][maintenance-shield]][user_profile]
-[![BuyMeCoffee][buymecoffeebadge]][buymecoffee]
-
-[![Community Forum][forum-shield]][forum]
-![AI-Assisted](https://img.shields.io/badge/AI--Assisted-blue?style=for-the-badge)
-
-[releases-shield]: https://img.shields.io/github/release/mosandlt/ioBroker.bosch-smart-home-camera.svg?style=for-the-badge
-[releases]: https://github.com/mosandlt/ioBroker.bosch-smart-home-camera/releases
-[commits-shield]: https://img.shields.io/github/commit-activity/y/mosandlt/ioBroker.bosch-smart-home-camera.svg?style=for-the-badge
-[commits]: https://github.com/mosandlt/ioBroker.bosch-smart-home-camera/commits/main
-[license-shield]: https://img.shields.io/github/license/mosandlt/ioBroker.bosch-smart-home-camera.svg?style=for-the-badge
-[maintenance-shield]: https://img.shields.io/badge/maintainer-%40mosandlt-blue.svg?style=for-the-badge
-[user_profile]: https://github.com/mosandlt
-[buymecoffeebadge]: https://img.shields.io/badge/buy%20me%20a%20coffee-donate-yellow.svg?style=for-the-badge
-[buymecoffee]: https://buymeacoffee.com/mosandlts
-[forum-shield]: https://img.shields.io/badge/community-forum-brightgreen.svg?style=for-the-badge
-[forum]: https://forum.iobroker.net/topic/84538
 
 ---
 
@@ -50,7 +35,6 @@ ioBroker adapter for Bosch Smart Home Cameras (Eyes Outdoor, 360 Indoor, Gen2 Ey
 - [Example Automations](#example-automations)
 - [MQTT Bridge](#mqtt-bridge)
 - [External Recorders (BlueIris, Frigate)](#external-recorders-blueiris-frigate)
-- [Roadmap](#roadmap)
 - [Development](#development)
 - [Existing Adapter Landscape](#existing-adapter-landscape)
 - [Release Process](#release-process)
@@ -115,10 +99,10 @@ All four current Bosch Smart Home cameras are supported.
 
 | Camera | Generation | Type | Codec / FW seen | Highlights |
 |---|---|---|---|---|
-| [**360° Innenkamera**](https://www.bosch-smarthome.com/de/de/produkte/sicherheitsprodukte/360-grad-innenkamera/) | Gen1 | Indoor | H.264 + AAC · FW 7.91.x | Pan/tilt motor, autofollow, IR night vision, mechanical privacy shutter |
-| [**Eyes Innenkamera II**](https://www.bosch-smarthome.com/de/de/produkte/sicherheitsprodukte/eyes-innenkamera-2/) | Gen2 | Indoor | H.264 + AAC · FW 9.40.x | Built-in 75 dB siren, Audio+ glass-break / smoke / CO, ZONES detection mode, RGB LEDs, retractable head (Privacy hardware button) |
-| [**Eyes Außenkamera**](https://www.bosch-smarthome.com/de/de/produkte/sicherheitsprodukte/eyes-aussenkamera/) | Gen1 | Outdoor (IP66) | H.264 + AAC · FW 7.91.x | Front spotlight, motion-triggered light, ambient-light sensor, schedule-driven illumination |
-| [**Eyes Außenkamera II**](https://www.bosch-smarthome.com/de/de/produkte/sicherheitsprodukte/eyes-aussenkamera-2/) | Gen2 | Outdoor (IP66) | H.264 + AAC · FW 9.40.x | Front + Top + Bottom RGB LED groups, DualRadar (motion + intrusion), wallwasher mode, mounting-elevation parameter |
+| **360° Indoor** | Gen1 | Indoor | H.264 + AAC · FW 7.91.x | Pan/tilt motor, autofollow, IR night vision, mechanical privacy shutter |
+| **Eyes Indoor II** | Gen2 | Indoor | H.264 + AAC · FW 9.40.x | Built-in 75 dB siren, Audio+ glass-break / smoke / CO, ZONES detection mode, RGB LEDs, retractable head (Privacy hardware button) |
+| **Eyes Outdoor** | Gen1 | Outdoor (IP66) | H.264 + AAC · FW 7.91.x | Front spotlight, motion-triggered light, ambient-light sensor, schedule-driven illumination |
+| **Eyes Outdoor II** | Gen2 | Outdoor (IP66) | H.264 + AAC · FW 9.40.x | Front + Top + Bottom RGB LED groups, DualRadar (motion + intrusion), wallwasher mode, mounting-elevation parameter |
 
 ---
 
@@ -126,7 +110,7 @@ All four current Bosch Smart Home cameras are supported.
 
 **This project is an independent, community-developed adapter. It is not affiliated with, endorsed by, or connected to Robert Bosch GmbH. "Bosch" and "Bosch Smart Home" are registered trademarks of Robert Bosch GmbH.**
 
-This adapter communicates with a reverse-engineered, undocumented API. Provided **"as is"**, without warranty. Use at your own risk. The API may change or be shut down by Bosch at any time. Reverse engineering was performed solely for interoperability under **§ 69e UrhG** and **EU Directive 2009/24/EC**.
+This adapter communicates with a reverse-engineered, undocumented API. Provided **"as is"**, without warranty. Use at your own risk. The API may change or be shut down by Bosch at any time. Reverse engineering was performed solely for interoperability under **§ 69e of the German Copyright Act (UrhG)** and **EU Directive 2009/24/EC**.
 
 ---
 
@@ -475,7 +459,7 @@ available to any MQTT consumer without ioBroker-specific bindings.
 ```json
 {
   "timestamp": "2026-05-20T10:00:00.000Z",
-  "cam_name":  "Terrasse",
+  "cam_name":  "Front Door",
   "event_id":  "evt-uuid-or-empty",
   "event_type": "motion"
 }
@@ -530,17 +514,6 @@ another configured class — dog, cat, vehicle, license plate, face) does
 BlueIris flip to mainstream recording, with a few seconds of pre-roll. Cuts
 storage and false-positive alerts dramatically while keeping the rich
 mainstream footage for events that matter.
-
----
-
-## Roadmap
-
-| Version | Scope |
-| --- | --- |
-| v0.8.x | Motion zone read (RCP `0x0c0a`/`0x0c00`) — local-only; write blocked pending local-user availability |
-| v1.0.0 | ioBroker repository listing (stable badge) + feature parity checkpoint |
-
-Image rotation (v0.3.0) is a client-side display flag — Bosch's Cloud API has no rotation endpoint and RCP+ `0x0810` WRITE returns HTTP 401 on Gen2 FW 9.40.25, mirroring the HA integration's approach.
 
 ---
 
@@ -742,7 +715,7 @@ Live-audit pass on the Indoor II camera surfaced eight latent bugs in the data p
 - **`wifi_signal_pct` stuck at 0**: the `wifiinfo` endpoint returns `signalStrength` as a percent (0–100), not dBm — verified live against firmware 9.40.102. v0.7.7 had assumed dBm semantics and looked for a `signalStrengthPercentage` field that does not exist. The percent now maps to `wifi_signal_pct` directly.
 - **`wifi_signal_strength` DP retired**: it was labelled "dBm" but always received percent values from v0.7.7 onward. v0.7.14 migration removes the DP from existing instances so users don't see two contradictory readings.
 - **`trouble_disconnect` no longer classified as motion**: pre-v0.7.14 the `fetchAndProcessEvents` polling fallback wrote every cloud event — including connectivity status events (`trouble_disconnect`, `trouble_reconnect`) — into `last_motion_at` / `last_motion_event_type` and flipped `motion_active=true`. v0.7.14 limits motion DPs to an allowlist (`motion`, `person`, `audio_alarm`); status events are info-logged and skipped.
-- **Stale events no longer replay on every restart**: `_lastSeenEventId` is in-memory only, so after each adapter restart the newest cached cloud event was re-processed — including four-week-old `trouble_disconnect` events from offline Gen1 cameras. Side effects (motion_active flip, auto-snapshot, MQTT publish) are now skipped for events older than 15 minutes; `last_motion_at` still updates as historical "letzte Bewegung gesehen" record.
+- **Stale events no longer replay on every restart**: `_lastSeenEventId` is in-memory only, so after each adapter restart the newest cached cloud event was re-processed — including four-week-old `trouble_disconnect` events from offline Gen1 cameras. Side effects (motion_active flip, auto-snapshot, MQTT publish) are now skipped for events older than 15 minutes; `last_motion_at` still updates as a historical "last motion seen" record.
 - **`lan_reachable` refreshes per poll**: pre-v0.7.14 the TCP-ping only fired during cloud outages, so `lan_reachable` stayed at its `false` default during normal operation. v0.7.14 fires a fire-and-forget per-camera TCP-ping inside every `_pollSingleCameraState` tick (no impact on poll latency).
 - **`online` flips true under privacy mode**: the snapshot-based reachability check fails when the camera is in privacy mode, so `online` stayed at the default `false` even when the camera was clearly alive (TCP-pings succeed, cloud state syncs). v0.7.14 also flips `online=true` whenever the new periodic TCP-ping succeeds.
 - **Intrusion DPs mirror real cloud values**: `intrusion_sensitivity` and `intrusion_distance` were never read from `/intrusionDetectionConfig` — they showed only the DP defaults (3, 5). New `_pollIntrusionConfig` runs in every Gen2 state poll, caches the full body, and mirrors `sensitivity` + `distance` to the DPs.
@@ -814,7 +787,7 @@ LAN-fallback feature set.
 ### 0.7.2 (2026-05-19)
 Notification hooks for maintenance lifecycle and camera availability changes.
 
-- **Maintenance lifecycle notifications** (scheduled → active → past): when the RSS-derived `info.maintenance.state` enters `scheduled`, `active`, or `past`, the adapter writes a JSON payload to the new `info.maintenance.last_notification` DP. Three notifications per window: announcement when first seen as scheduled, "läuft" when the window opens, "beendet" when it closes. Deduped by `(RSS link, state)` so a poll tick during the same phase stays silent.
+- **Maintenance lifecycle notifications** (scheduled → active → past): when the RSS-derived `info.maintenance.state` enters `scheduled`, `active`, or `past`, the adapter writes a JSON payload to the new `info.maintenance.last_notification` DP. Three notifications per window: announcement when first seen as scheduled, "active" when the window opens, "ended" when it closes. Deduped by `(RSS link, state)` so a poll tick during the same phase stays silent.
 - **Per-camera offline / online transition notifications**: when `cameras.<id>.online` flips, a JSON payload is written to the new `cameras.<id>.last_status_notification` DP. The first observation after adapter start is silent (baseline recording). Payload: `{ title, message, status, ts }`.
 - Both notification DPs are writable via Blockly `on-change` triggers: parse the JSON, extract `title` + `message`, and forward to Telegram, Pushover, or any other notification adapter.
 - **+9 unit tests** covering the full transition matrix, dedupe, stale-past suppression, unknown-flap silence.
