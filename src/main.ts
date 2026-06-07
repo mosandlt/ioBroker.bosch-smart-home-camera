@@ -2227,6 +2227,52 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 native: {},
             });
 
+            // Split stream_url into host / port / path datapoints. iobroker.cameras
+            // has no single full-URL field — its generic "RTSP" type builds the
+            // URL from separate "Camera IP", "Port" and "Path" inputs (forum
+            // #84538). These read-only DPs mirror the parts of stream_url so users
+            // can paste each field 1:1 (Protocol must be set to TCP in the cameras
+            // adapter — the proxy is TCP-only). Empty / 0 until livestream_enabled
+            // = true, same lifecycle as stream_url.
+            await this.setObjectNotExistsAsync(`${prefix}.stream_host`, {
+                type: "state",
+                common: {
+                    name: 'RTSP host — iobroker.cameras "Camera IP" field (from stream_url)',
+                    role: "text",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "",
+                },
+                native: {},
+            });
+
+            await this.setObjectNotExistsAsync(`${prefix}.stream_port`, {
+                type: "state",
+                common: {
+                    name: 'RTSP port — iobroker.cameras "Port" field (from stream_url)',
+                    role: "value",
+                    type: "number",
+                    read: true,
+                    write: false,
+                    def: 0,
+                },
+                native: {},
+            });
+
+            await this.setObjectNotExistsAsync(`${prefix}.stream_path`, {
+                type: "state",
+                common: {
+                    name: 'RTSP path+query — iobroker.cameras "Path" field (set Protocol = TCP)',
+                    role: "text",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "",
+                },
+                native: {},
+            });
+
             // v0.7.2: last online/offline notification payload (JSON string).
             // Hookable via Blockly on-change triggers for push notifications.
             await this.setObjectNotExistsAsync(`${prefix}.last_status_notification`, {
@@ -3599,6 +3645,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
             });
             await this.upsertState(`cameras.${camId}.stream_url`, credsUrl);
             await this.upsertState(`cameras.${camId}.stream_url_sub`, subUrl);
+            await this._publishStreamParts(camId, credsUrl);
             this.log.info(
                 `TLS proxy for camera ${camId.slice(0, 8)}: ` +
                     `stream_url = ${credsUrl} | stream_url_sub = ${subUrl}`,
@@ -3653,6 +3700,33 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // header and only injects when needed.
         const dur = session.maxSessionDuration > 0 ? session.maxSessionDuration : 3600;
         return `${proxy.localRtspUrl}?inst=${instance}&enableaudio=1&fmtp=1&maxSessionDuration=${dur}`;
+    }
+
+    /**
+     * Publish the host / port / path parts of a built stream URL into the
+     * split datapoints (stream_host / stream_port / stream_path) so users can
+     * paste each value straight into iobroker.cameras, which composes its RTSP
+     * URL from separate fields rather than one full-URL input (forum #84538).
+     * Pass an empty string to clear all three (stream torn down).
+     *
+     * @param camId camera cloud-ID
+     * @param url   full `rtsp://host:port/path?query`, or "" to clear
+     */
+    private async _publishStreamParts(camId: string, url: string): Promise<void> {
+        let host = "";
+        let port = 0;
+        let path = "";
+        if (url) {
+            const m = /^rtsp:\/\/([^:/]+):(\d+)(\/.*)$/.exec(url);
+            if (m) {
+                host = m[1];
+                port = parseInt(m[2], 10);
+                path = m[3];
+            }
+        }
+        await this.upsertState(`cameras.${camId}.stream_host`, host);
+        await this.upsertState(`cameras.${camId}.stream_port`, port);
+        await this.upsertState(`cameras.${camId}.stream_path`, path);
     }
 
     /**
@@ -4715,6 +4789,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     // instead of trying the stale URL and getting a 401.
                     await this.upsertState(`cameras.${cam.id}.stream_url`, "");
                     await this.upsertState(`cameras.${cam.id}.stream_url_sub`, "");
+                    await this._publishStreamParts(cam.id, "");
                     this.log.info(
                         `Privacy toggled externally for ${cam.id.slice(0, 8)} — ` +
                             `dropped cached LiveSession (opened ${oldSession ? Math.round((Date.now() - oldSession.openedAt) / 1000) : "?"}s ago) ` +
@@ -7821,6 +7896,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // Clear the public stream_url DPs (main + sub) so consumers see "no stream"
         await this.upsertState(`cameras.${camId}.stream_url`, "");
         await this.upsertState(`cameras.${camId}.stream_url_sub`, "");
+        await this._publishStreamParts(camId, "");
     }
 
     /**

@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "1.2.6",
+    "version": "1.2.7",
     "news": {
+      "1.2.7": {
+        "en": "New read-only datapoints stream_host, stream_port and stream_path per camera split the live-stream URL into separate fields, so the generic RTSP camera type in the ioBroker.cameras adapter can be filled in field by field without splitting the URL by hand.",
+        "de": "Neue schreibgeschützte Datenpunkte stream_host, stream_port und stream_path je Kamera teilen die Livestream-URL in einzelne Felder auf, sodass der generische RTSP-Kameratyp im Adapter ioBroker.cameras Feld für Feld befüllt werden kann, ohne die URL von Hand zu zerlegen.",
+        "ru": "Новые точки данных только для чтения stream_host, stream_port и stream_path для каждой камеры разделяют URL-адрес прямой трансляции на отдельные поля, поэтому универсальную RTSP-камеру в адаптере ioBroker.cameras можно заполнять поле за полем, не разбивая URL-адрес вручную.",
+        "pt": "Novos pontos de dados somente leitura stream_host, stream_port e stream_path por câmera dividem o URL da transmissão ao vivo em campos separados, para que a câmera RTSP genérica do adaptador ioBroker.cameras possa ser preenchida campo a campo, sem dividir o URL manualmente.",
+        "nl": "Nieuwe alleen-lezen datapunten stream_host, stream_port en stream_path per camera splitsen de livestream-URL in afzonderlijke velden, zodat het generieke RTSP-cameratype in de ioBroker.cameras-adapter veld voor veld kan worden ingevuld zonder de URL handmatig te splitsen.",
+        "fr": "De nouveaux points de données en lecture seule stream_host, stream_port et stream_path par caméra divisent l'URL du flux en direct en champs distincts, afin que la caméra RTSP générique de l'adaptateur ioBroker.cameras puisse être remplie champ par champ sans découper l'URL à la main.",
+        "it": "Nuovi datapoint di sola lettura stream_host, stream_port e stream_path per ogni telecamera dividono l'URL del live streaming in campi separati, così la telecamera RTSP generica nell'adattatore ioBroker.cameras può essere compilata campo per campo senza dividere l'URL a mano.",
+        "es": "Nuevos puntos de datos de solo lectura stream_host, stream_port y stream_path por cámara dividen la URL de la transmisión en directo en campos separados, de modo que la cámara RTSP genérica del adaptador ioBroker.cameras se puede rellenar campo por campo sin dividir la URL a mano.",
+        "pl": "Nowe punkty danych tylko do odczytu stream_host, stream_port i stream_path dla każdej kamery dzielą adres URL transmisji na żywo na osobne pola, dzięki czemu ogólny typ kamery RTSP w adapterze ioBroker.cameras można wypełniać pole po polu, bez ręcznego dzielenia adresu URL.",
+        "uk": "Нові точки даних лише для читання stream_host, stream_port і stream_path для кожної камери розділяють URL-адресу прямої трансляції на окремі поля, тож загальний тип RTSP-камери в адаптері ioBroker.cameras можна заповнювати поле за полем, не розбиваючи URL-адресу вручну.",
+        "zh-cn": "每个摄像头新增只读数据点 stream_host、stream_port 和 stream_path，将实时流 URL 拆分为独立字段，因此 ioBroker.cameras 适配器中的通用 RTSP 摄像头类型可以逐个字段填写，无需手动拆分 URL。"
+      },
       "1.2.6": {
         "en": "Fixed invalid object roles flagged by the repository object-structure check (E1008/E1009). Affected status, timestamp, select, JSON, signal and pan states now use catalogue-valid roles; a one-time automatic migration corrects existing installations.",
         "de": "Ungültige Objekt-Rollen behoben, die der Objektstruktur-Check des Repositorys meldete (E1008/E1009). Betroffene Status-, Zeitstempel-, Auswahl-, JSON-, Signal- und Schwenk-States nutzen jetzt katalog-gültige Rollen; eine einmalige Migration korrigiert bestehende Installationen.",
@@ -80,19 +93,6 @@
         "pl": "Naprawiono: Push FCM nie powiódł się przy użyciu protokołu HTTP 401 i powrócił do odpytywania trwającego 30 sekund; teraz rejestruje się niezawodnie, a odrzucone dane uwierzytelniające samonaprawiają się. Kamery działające w trybie offline nie spamują już ponownych prób HTTP 444 — wykrywany jest tryb offline i pętla ponawiania zatrzymuje się.",
         "uk": "Виправлено: FCM push не вдавався з HTTP 401 і повертався до опитування 30 секунд; тепер він надійно реєструє та відхиляє облікові дані самовідновлення. Офлайн-камери більше не надсилають спам при повторних спробах HTTP 444 — офлайн виявляється, і цикл повторів припиняється.",
         "zh-cn": "修复：FCM 推送失败并出现 HTTP 401，并回退到 30 秒轮询；它现在可以可靠地注册并拒绝凭据自我修复。离线摄像机不再发送垃圾邮件 HTTP 444 重试 — 检测到离线并停止重试循环。"
-      },
-      "1.2.0": {
-        "en": "v1.2.0: management-tier read-only datapoints — motion_zones, privacy_masks and rules (count + raw JSON) for all cameras; lighting_schedule (Gen1 floodlight) and shared_with_friends (Gen2); polled on the slow tier, best-effort with 404/442/443/444 tolerated.",
-        "de": "v1.2.0: Read-only Datenpunkte der Verwaltungsebene — motion_zones, privacy_masks und rules (Anzahl + Roh-JSON) für alle Kameras; lighting_schedule (Gen1-Flutlicht) und shared_with_friends (Gen2); Abruf im Slow-Tier, best-effort mit Toleranz für 404/442/443/444.",
-        "ru": "v1.2.0: точки данных уровня управления, доступные только для чтения — motion_zones, Privacy_masks и правила (количество + необработанный JSON) для всех камер; Lightning_schedule (прожектор Gen1) и Shared_with_Friends (Gen2); опрос проводился на медленном уровне, максимально возможный вариант с допустимыми значениями 404/442/443/444.",
-        "pt": "v1.2.0: pontos de dados somente leitura da camada de gerenciamento — motion_zones, privacy_masks e regras (contagem + JSON bruto) para todas as câmeras; lighting_schedule (holofote Gen1) e shared_with_friends (Gen2); pesquisado no nível lento, melhor esforço com 404/442/443/444 tolerado.",
-        "nl": "v1.2.0: alleen-lezen datapunten op managementniveau - motion_zones, privacy_masks en regels (count + raw JSON) voor alle camera's; lighting_schedule (Gen1 floodlight) en gedeeld_met_vrienden (Gen2); ondervraagd op het langzame niveau, beste inspanning met 404/442/443/444 getolereerd.",
-        "fr": "v1.2.0 : points de données en lecture seule au niveau de la gestion – motion_zones, Privacy_masks et règles (nombre + JSON brut) pour toutes les caméras ; Lighting_schedule (projecteur Gen1) et shared_with_friends (Gen2) ; interrogé sur le niveau lent, meilleur effort avec 404/442/443/444 toléré.",
-        "it": "v1.2.0: datapoint di sola lettura a livello di gestione: motion_zones, privacy_masks e regole (conteggio + JSON non elaborato) per tutte le telecamere; lighting_schedule (proiettore Gen1) e shared_with_friends (Gen2); intervistato sul livello lento, massimo sforzo con 404/442/443/444 tollerato.",
-        "es": "v1.2.0: puntos de datos de solo lectura del nivel de administración: zonas de movimiento, máscaras de privacidad y reglas (recuento + JSON sin formato) para todas las cámaras; iluminación_schedule (reflector Gen1) y compartido_con_amigos (Gen2); encuestado en el nivel lento, mejor esfuerzo con 404/442/443/444 tolerado.",
-        "pl": "v1.2.0: punkty danych tylko do odczytu warstwy zarządzania — strefy ruchu, maski_prywatności i reguły (liczba + surowy JSON) dla wszystkich kamer; oświetlenie_schedule (reflektor Gen1) i udostępnione_przyjaciołom (Gen2); odpytywane na wolnym poziomie, tolerowany najlepszy wysiłek z 404/442/443/444.",
-        "uk": "v1.2.0: точки даних рівня керування лише для читання — motion_zones, privacy_masks і правила (кількість + необроблений JSON) для всіх камер; lighting_schedule (прожектор Gen1) і shared_with_friends (Gen2); опитується на повільному рівні, найкраща спроба з 404/442/443/444 допускається.",
-        "zh-cn": "v1.2.0：管理层只读数据点——所有摄像机的motion_zones、privacy_masks和规则（计数+原始JSON）； lighting_schedule（Gen1 泛光灯）和shared_with_friends（Gen2）；在慢速层进行轮询，尽力而为，容忍 404/442/443/444。"
       }
     },
     "titleLang": {

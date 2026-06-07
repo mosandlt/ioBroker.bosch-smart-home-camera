@@ -105,9 +105,11 @@ interface StreamMocks {
     fakeProxy: ReturnType<typeof makeFakeProxy>;
 }
 
-function createAdapterWithStreamMocks(
-    configOverrides: Record<string, unknown> = {},
-): { db: MockDatabase; adapter: TestAdapter; mocks: StreamMocks } {
+function createAdapterWithStreamMocks(configOverrides: Record<string, unknown> = {}): {
+    db: MockDatabase;
+    adapter: TestAdapter;
+    mocks: StreamMocks;
+} {
     const db = new MockDatabaseCtor();
     let capturedAdapter: MockAdapter | null = null;
 
@@ -194,9 +196,7 @@ function createAdapterWithStreamMocks(
     class FakeWatchdog {
         public start = watchdogStartStub;
         public stop = watchdogStopStub;
-        constructor(
-            _opts: unknown,
-        ) {}
+        constructor(_opts: unknown) {}
     }
     const watchdogPath = resolveBuildModule("session_watchdog");
     delete require.cache[watchdogPath];
@@ -289,15 +289,83 @@ describe("main adapter — livestream toggle (v0.5.2)", () => {
 
         // Simulate stateChange: livestream_enabled = true (ack=false)
         const stateId = `${adapter.namespace}.cameras.${CAM_ID}.livestream_enabled`;
-        await adapter.stateChangeHandler!(stateId, { val: true, ack: false, ts: Date.now(), lc: Date.now(), from: "user" });
+        await adapter.stateChangeHandler!(stateId, {
+            val: true,
+            ack: false,
+            ts: Date.now(),
+            lc: Date.now(),
+            from: "user",
+        });
 
-        expect(mocks.openLiveSession.callCount).to.be.greaterThan(0, "openLiveSession must be called");
+        expect(mocks.openLiveSession.callCount).to.be.greaterThan(
+            0,
+            "openLiveSession must be called",
+        );
         expect(mocks.startTlsProxy.callCount).to.be.greaterThan(0, "startTlsProxy must be called");
         expect(mocks.WatchdogStart.callCount).to.be.greaterThan(0, "watchdog.start must be called");
 
         const streamUrl = getStateVal(db, adapter, `cameras.${CAM_ID}.stream_url`) as string;
         expect(streamUrl).to.be.a("string").and.to.have.length.greaterThan(0);
         expect(streamUrl).to.include("rtsp://");
+    });
+
+    // ── Split stream parts for iobroker.cameras (forum #84538) ──────────────────
+
+    it("handleLivestreamToggle(true): publishes stream_host/port/path split from stream_url", async () => {
+        stubAxiosSequence([{ status: 200, data: CAMERAS_BODY }]);
+        const { db, adapter } = createAdapterWithStreamMocks();
+        await bootAdapterWithTokens(db, adapter);
+
+        const stateId = `${adapter.namespace}.cameras.${CAM_ID}.livestream_enabled`;
+        await adapter.stateChangeHandler!(stateId, {
+            val: true,
+            ack: false,
+            ts: Date.now(),
+            lc: Date.now(),
+            from: "user",
+        });
+
+        // Mock proxy localRtspUrl = rtsp://127.0.0.1:18000/rtsp_tunnel → the three
+        // DPs must mirror exactly the host / port / path a user pastes into the
+        // iobroker.cameras generic RTSP type (Camera IP / Port / Path fields).
+        const streamUrl = getStateVal(db, adapter, `cameras.${CAM_ID}.stream_url`) as string;
+        const host = getStateVal(db, adapter, `cameras.${CAM_ID}.stream_host`);
+        const port = getStateVal(db, adapter, `cameras.${CAM_ID}.stream_port`);
+        const streamPath = getStateVal(db, adapter, `cameras.${CAM_ID}.stream_path`) as string;
+
+        expect(host).to.equal("127.0.0.1");
+        expect(port).to.equal(18000);
+        expect(streamPath).to.equal(
+            "/rtsp_tunnel?inst=1&enableaudio=1&fmtp=1&maxSessionDuration=3600",
+        );
+        // The parts must reassemble into the full stream_url
+        expect(`rtsp://${host as string}:${port as number}${streamPath}`).to.equal(streamUrl);
+    });
+
+    it("handleLivestreamToggle(false): clears stream_host/port/path", async () => {
+        stubAxiosSequence([{ status: 200, data: CAMERAS_BODY }]);
+        const { db, adapter } = createAdapterWithStreamMocks();
+        await bootAdapterWithTokens(db, adapter);
+
+        const stateId = `${adapter.namespace}.cameras.${CAM_ID}.livestream_enabled`;
+        await adapter.stateChangeHandler!(stateId, {
+            val: true,
+            ack: false,
+            ts: Date.now(),
+            lc: Date.now(),
+            from: "user",
+        });
+        await adapter.stateChangeHandler!(stateId, {
+            val: false,
+            ack: false,
+            ts: Date.now(),
+            lc: Date.now(),
+            from: "user",
+        });
+
+        expect(getStateVal(db, adapter, `cameras.${CAM_ID}.stream_host`)).to.equal("");
+        expect(getStateVal(db, adapter, `cameras.${CAM_ID}.stream_port`)).to.equal(0);
+        expect(getStateVal(db, adapter, `cameras.${CAM_ID}.stream_path`)).to.equal("");
     });
 
     // ── Toggle OFF ────────────────────────────────────────────────────────────
@@ -309,16 +377,31 @@ describe("main adapter — livestream toggle (v0.5.2)", () => {
 
         // First toggle ON to create the session/proxy/watchdog
         const stateId = `${adapter.namespace}.cameras.${CAM_ID}.livestream_enabled`;
-        await adapter.stateChangeHandler!(stateId, { val: true, ack: false, ts: Date.now(), lc: Date.now(), from: "user" });
+        await adapter.stateChangeHandler!(stateId, {
+            val: true,
+            ack: false,
+            ts: Date.now(),
+            lc: Date.now(),
+            from: "user",
+        });
         expect(mocks.openLiveSession.callCount).to.be.greaterThan(0);
 
         // Now toggle OFF
-        await adapter.stateChangeHandler!(stateId, { val: false, ack: false, ts: Date.now(), lc: Date.now(), from: "user" });
+        await adapter.stateChangeHandler!(stateId, {
+            val: false,
+            ack: false,
+            ts: Date.now(),
+            lc: Date.now(),
+            from: "user",
+        });
 
         // Watchdog should be stopped
         expect(mocks.WatchdogStop.callCount).to.be.greaterThan(0, "watchdog.stop must be called");
         // Proxy stop must be called
-        expect(mocks.fakeProxy._stopStub.callCount).to.be.greaterThan(0, "proxy.stop must be called");
+        expect(mocks.fakeProxy._stopStub.callCount).to.be.greaterThan(
+            0,
+            "proxy.stop must be called",
+        );
         // stream_url must be cleared
         const streamUrl = getStateVal(db, adapter, `cameras.${CAM_ID}.stream_url`);
         expect(streamUrl).to.equal("");
@@ -334,11 +417,20 @@ describe("main adapter — livestream toggle (v0.5.2)", () => {
         await bootAdapterWithTokens(db, adapter);
 
         const stateId = `${adapter.namespace}.cameras.${CAM_ID}.livestream_enabled`;
-        await adapter.stateChangeHandler!(stateId, { val: true, ack: false, ts: Date.now(), lc: Date.now(), from: "user" });
+        await adapter.stateChangeHandler!(stateId, {
+            val: true,
+            ack: false,
+            ts: Date.now(),
+            lc: Date.now(),
+            from: "user",
+        });
 
         // stream_url must remain empty (never set)
         const streamUrl = getStateVal(db, adapter, `cameras.${CAM_ID}.stream_url`);
-        expect(streamUrl === "" || streamUrl === undefined || streamUrl === null, "stream_url stays empty on failure").to.equal(true);
+        expect(
+            streamUrl === "" || streamUrl === undefined || streamUrl === null,
+            "stream_url stays empty on failure",
+        ).to.equal(true);
         // Connection should still be true (adapter stays running)
         expect(getStateVal(db, adapter, "info.connection")).to.equal(true);
     });
@@ -352,10 +444,28 @@ describe("main adapter — livestream toggle (v0.5.2)", () => {
 
         const stateId = `${adapter.namespace}.cameras.${CAM_ID}.livestream_enabled`;
         // Toggle ON then OFF twice — should not throw
-        await adapter.stateChangeHandler!(stateId, { val: true, ack: false, ts: Date.now(), lc: Date.now(), from: "user" });
-        await adapter.stateChangeHandler!(stateId, { val: false, ack: false, ts: Date.now(), lc: Date.now(), from: "user" });
+        await adapter.stateChangeHandler!(stateId, {
+            val: true,
+            ack: false,
+            ts: Date.now(),
+            lc: Date.now(),
+            from: "user",
+        });
+        await adapter.stateChangeHandler!(stateId, {
+            val: false,
+            ack: false,
+            ts: Date.now(),
+            lc: Date.now(),
+            from: "user",
+        });
         // Second OFF — proxy is already gone; should be a no-op, no error
-        await adapter.stateChangeHandler!(stateId, { val: false, ack: false, ts: Date.now(), lc: Date.now(), from: "user" });
+        await adapter.stateChangeHandler!(stateId, {
+            val: false,
+            ack: false,
+            ts: Date.now(),
+            lc: Date.now(),
+            from: "user",
+        });
 
         // Just verify we didn't crash and state is still empty
         const streamUrl = getStateVal(db, adapter, `cameras.${CAM_ID}.stream_url`);
@@ -374,10 +484,19 @@ describe("main adapter — livestream toggle (v0.5.2)", () => {
         const openCallsBefore = mocks.openLiveSession.callCount;
 
         // Change quality while livestream is off (default)
-        await adapter.stateChangeHandler!(qualityId, { val: "low", ack: false, ts: Date.now(), lc: Date.now(), from: "user" });
+        await adapter.stateChangeHandler!(qualityId, {
+            val: "low",
+            ack: false,
+            ts: Date.now(),
+            lc: Date.now(),
+            from: "user",
+        });
 
         // openLiveSession must NOT be called for this quality change (no live session to re-open)
-        expect(mocks.openLiveSession.callCount).to.equal(openCallsBefore, "no session opened on quality change while stream off");
+        expect(mocks.openLiveSession.callCount).to.equal(
+            openCallsBefore,
+            "no session opened on quality change while stream off",
+        );
         void db; // db captured in closure
     });
 
@@ -390,32 +509,59 @@ describe("main adapter — livestream toggle (v0.5.2)", () => {
         const qualityId = `${adapter.namespace}.cameras.${CAM_ID}.stream_quality`;
 
         // First turn on livestream
-        await adapter.stateChangeHandler!(stateId, { val: true, ack: false, ts: Date.now(), lc: Date.now(), from: "user" });
+        await adapter.stateChangeHandler!(stateId, {
+            val: true,
+            ack: false,
+            ts: Date.now(),
+            lc: Date.now(),
+            from: "user",
+        });
         expect(mocks.openLiveSession.callCount).to.be.greaterThan(0);
 
         // Now change quality
         const closeBefore = mocks.closeLiveSession.callCount;
-        await adapter.stateChangeHandler!(qualityId, { val: "low", ack: false, ts: Date.now(), lc: Date.now(), from: "user" });
+        await adapter.stateChangeHandler!(qualityId, {
+            val: "low",
+            ack: false,
+            ts: Date.now(),
+            lc: Date.now(),
+            from: "user",
+        });
 
         // closeLiveSession should be called (to close the existing session)
-        expect(mocks.closeLiveSession.callCount).to.be.greaterThan(closeBefore, "closeLiveSession called on quality change while streaming");
+        expect(mocks.closeLiveSession.callCount).to.be.greaterThan(
+            closeBefore,
+            "closeLiveSession called on quality change while streaming",
+        );
         void db;
     });
 
     // ── onUnload teardown ─────────────────────────────────────────────────────
 
     it("onUnload: calls proxy.stop() for active streams", async () => {
-        stubAxiosSequence([{ status: 200, data: TOKEN_BODY }, { status: 200, data: CAMERAS_BODY }]);
+        stubAxiosSequence([
+            { status: 200, data: TOKEN_BODY },
+            { status: 200, data: CAMERAS_BODY },
+        ]);
         const { db, adapter, mocks } = createAdapterWithStreamMocks({
             redirect_url: "https://www.bosch.com/boschcam?code=D1&state=T1",
         });
-        db.publishState(`${adapter.namespace}.info.pkce_verifier`, { val: "pkce-verifier-unload-test-abcdef123", ack: true });
+        db.publishState(`${adapter.namespace}.info.pkce_verifier`, {
+            val: "pkce-verifier-unload-test-abcdef123",
+            ack: true,
+        });
         db.publishState(`${adapter.namespace}.info.pkce_state`, { val: "T1", ack: true });
         await adapter.readyHandler!();
 
         // Start a stream
         const stateId = `${adapter.namespace}.cameras.${CAM_ID}.livestream_enabled`;
-        await adapter.stateChangeHandler!(stateId, { val: true, ack: false, ts: Date.now(), lc: Date.now(), from: "user" });
+        await adapter.stateChangeHandler!(stateId, {
+            val: true,
+            ack: false,
+            ts: Date.now(),
+            lc: Date.now(),
+            from: "user",
+        });
         expect(mocks.startTlsProxy.callCount).to.be.greaterThan(0);
 
         // Unload
@@ -423,7 +569,10 @@ describe("main adapter — livestream toggle (v0.5.2)", () => {
             adapter.unloadHandler!(() => resolve());
         });
 
-        expect(mocks.fakeProxy._stopStub.callCount).to.be.greaterThan(0, "proxy.stop must be called during unload");
+        expect(mocks.fakeProxy._stopStub.callCount).to.be.greaterThan(
+            0,
+            "proxy.stop must be called during unload",
+        );
         void db;
     });
 });

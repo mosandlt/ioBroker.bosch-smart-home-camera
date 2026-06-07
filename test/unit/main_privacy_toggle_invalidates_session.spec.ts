@@ -66,6 +66,7 @@ interface PollStub {
     _lanIpMap: Map<string, string>;
     getStateAsync: sinon.SinonStub;
     upsertState: sinon.SinonStub;
+    _publishStreamParts: sinon.SinonStub;
     ensureLiveSession: sinon.SinonStub;
     _tcpPing: sinon.SinonStub;
     _pollWifiInfo: sinon.SinonStub;
@@ -109,12 +110,15 @@ function makeStub(opts: {
         _cameras: new Map(),
         _livestreamEnabled: new Map(),
         _lanIpMap: new Map(),
-        getStateAsync: sinon.stub().resolves(
-            opts.currentPrivacyDp === null
-                ? null
-                : { val: opts.currentPrivacyDp ?? false, ack: true },
-        ),
+        getStateAsync: sinon
+            .stub()
+            .resolves(
+                opts.currentPrivacyDp === null
+                    ? null
+                    : { val: opts.currentPrivacyDp ?? false, ack: true },
+            ),
         upsertState: sinon.stub().resolves(),
+        _publishStreamParts: sinon.stub().resolves(),
         ensureLiveSession: ensureStub,
         _tcpPing: sinon.stub().resolves(false),
         _pollWifiInfo: sinon.stub().resolves(),
@@ -150,12 +154,21 @@ function makeStub(opts: {
 function loadMethod(): { pollSingleCameraState: AnyFn } {
     const db = new MockDatabaseCtor();
     let capturedAdapter: MockAdapter | null = null;
-    const core = mockAdapterCoreFn(db, { onAdapterCreated: (a) => { capturedAdapter = a; } });
+    const core = mockAdapterCoreFn(db, {
+        onAdapterCreated: (a) => {
+            capturedAdapter = a;
+        },
+    });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (require.cache as any)[ADAPTER_CORE_PATH] = {
-        id: ADAPTER_CORE_PATH, filename: ADAPTER_CORE_PATH, loaded: true,
-        parent: module, children: [], path: path.dirname(ADAPTER_CORE_PATH),
-        paths: [], exports: core,
+        id: ADAPTER_CORE_PATH,
+        filename: ADAPTER_CORE_PATH,
+        loaded: true,
+        parent: module,
+        children: [],
+        path: path.dirname(ADAPTER_CORE_PATH),
+        paths: [],
+        exports: core,
     };
     delete require.cache[MAIN_JS_PATH];
     // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
@@ -174,8 +187,12 @@ function loadMethod(): { pollSingleCameraState: AnyFn } {
 describe("privacy-toggle invalidates cached LiveSession (forum #1341076)", () => {
     let method: ReturnType<typeof loadMethod>;
 
-    before(() => { method = loadMethod(); });
-    afterEach(() => { sinon.restore(); });
+    before(() => {
+        method = loadMethod();
+    });
+    afterEach(() => {
+        sinon.restore();
+    });
 
     it("ON→OFF transition deletes the cached LiveSession + clears stream_url DPs", async () => {
         const stub = makeStub({ hasSession: true, currentPrivacyDp: true });
@@ -226,8 +243,12 @@ describe("privacy-toggle invalidates cached LiveSession (forum #1341076)", () =>
 // reconnect attempt. Forum #1341076.
 describe("privacy ON→OFF eager LiveSession refresh (forum #1341076)", () => {
     let method: ReturnType<typeof loadMethod>;
-    before(() => { method = loadMethod(); });
-    afterEach(() => { sinon.restore(); });
+    before(() => {
+        method = loadMethod();
+    });
+    afterEach(() => {
+        sinon.restore();
+    });
 
     it("ON→OFF + livestream_enabled=true → ensureLiveSession fired exactly once", async () => {
         const stub = makeStub({
@@ -315,8 +336,12 @@ describe("privacy ON→OFF eager LiveSession refresh (forum #1341076)", () => {
 // v1.1.0 regression — privacy toggle must also stop watchdog + bump generation
 describe("privacy toggle stops watchdog + bumps generation (v1.1.0 regression)", () => {
     let method: ReturnType<typeof loadMethod>;
-    before(() => { method = loadMethod(); });
-    afterEach(() => { sinon.restore(); });
+    before(() => {
+        method = loadMethod();
+    });
+    afterEach(() => {
+        sinon.restore();
+    });
 
     it("OFF→ON: watchdog stopped + deleted + generation bumped", async () => {
         const stub = makeStub({ hasSession: true, currentPrivacyDp: false });

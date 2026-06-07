@@ -216,7 +216,7 @@ What works:
 - Browser-based OAuth2 PKCE login via Bosch SingleKey ID (no programmatic password handling — captcha/MFA happen in the browser)
 - Token auto-refresh (~45 min cadence; 4xx → re-login required, 5xx → silent retry). Stored `refresh_token` also used at startup to mint a fresh `access_token` silently — no PKCE re-login required after restart, even if the adapter was stopped longer than the 1 h access-token lifetime.
 - Camera discovery (Gen1 + Gen2, `GET /v11/video_inputs`)
-- Per-camera state tree: `name`, `firmware_version`, `hardware_version`, `generation`, `online`, `privacy_enabled`, `light_enabled`, `front_light_enabled`, `wallwasher_enabled`, `image_rotation_180`, `snapshot_trigger`, `motion_trigger`, `motion_trigger_event_type`, `snapshot_path`, `stream_url`, `last_motion_at`, `last_motion_event_type`
+- Per-camera state tree: `name`, `firmware_version`, `hardware_version`, `generation`, `online`, `privacy_enabled`, `light_enabled`, `front_light_enabled`, `wallwasher_enabled`, `image_rotation_180`, `snapshot_trigger`, `motion_trigger`, `motion_trigger_event_type`, `snapshot_path`, `stream_url`, `stream_host`, `stream_port`, `stream_path`, `last_motion_at`, `last_motion_event_type`
 - Privacy toggle via Bosch Cloud API `PUT /v11/video_inputs/{id}/privacy`
 - Light toggle, Gen-specific and now split into independent datapoints:
   - Gen2: `PUT /lighting/switch/front` + `/topdown`
@@ -252,6 +252,9 @@ Per-camera datapoints under `cameras.<id>.*`:
 | `livestream_enabled` | boolean | Opt-in RTSP livestream switch |
 | `stream_url` | string | `rtsp://user:pwd@host:port/rtsp_tunnel?inst=1&…` |
 | `stream_url_sub` | string | Sub-stream URL (`inst=2`, experimental) |
+| `stream_host` | string | Host part of `stream_url` — paste into iobroker.cameras "Camera IP" |
+| `stream_port` | number | Port part of `stream_url` — paste into iobroker.cameras "Port" |
+| `stream_path` | string | Path+query of `stream_url` — paste into iobroker.cameras "Path" (Protocol = TCP) |
 | `snapshot_trigger` | button | Fetch fresh JPEG to `snapshot_path` |
 | `snapshot_path` | string | File-store path for last JPEG |
 | `last_event_image` | string | Base64 `data:image/jpeg;base64,…` (auto-snapshot on motion) |
@@ -515,6 +518,39 @@ BlueIris flip to mainstream recording, with a few seconds of pre-roll. Cuts
 storage and false-positive alerts dramatically while keeping the rich
 mainstream footage for events that matter.
 
+### iobroker.cameras (snapshot / Vis tile)
+
+[iobroker.cameras](https://github.com/ioBroker/ioBroker.cameras) wraps a
+generic RTSP source into JPEG snapshots and a Vis MJPEG tile (no H.264/audio —
+for full live playback use this adapter's [VIS-2 Camera Tile widget](#vis-2-camera-tile-widget-alpha)
+or go2rtc instead). It does **not** take a full `rtsp://…` URL in one field —
+it builds the URL from separate fields, so the `stream_url` has to be split.
+
+1. Enable the stream: set `cameras.<id>.livestream_enabled = true`. The proxy
+   starts and `cameras.<id>.stream_url` populates, e.g.
+   `rtsp://127.0.0.1:8554/rtsp_tunnel?inst=1&enableaudio=1&fmtp=1&maxSessionDuration=3600`.
+2. In the `cameras.0` instance add a camera, type **RTSP** (the generic
+   ffmpeg-snapshot type). To save you splitting the URL by hand, the adapter
+   also publishes the three parts as ready-to-paste datapoints —
+   `cameras.<id>.stream_host`, `stream_port` and `stream_path`:
+
+   | iobroker.cameras field | Copy from datapoint | Example | Notes |
+   |---|---|---|---|
+   | **Camera IP** | `stream_host` | `127.0.0.1` | Same host → `127.0.0.1`. LAN IP appears here automatically when **Expose RTSP proxy to LAN** is on. |
+   | **Port** | `stream_port` | `8554` | Sticky across restarts. |
+   | **Protocol** | *(set manually)* | **TCP** | Must be changed — the field defaults to UDP, but the proxy is TCP-only. |
+   | **Path** | `stream_path` | `/rtsp_tunnel?inst=1&enableaudio=1&fmtp=1&maxSessionDuration=3600` | Query string included — copy verbatim. |
+   | **Username / Password** | — | *(leave empty)* | The proxy injects Bosch Digest auth transparently; no credentials needed. |
+
+3. Save. iobroker.cameras serves the snapshot at
+   `http://<iobroker-host>:8082/cameras.0/<camera-name>` (use that URL in a Vis
+   Basic-Image widget) and offers the live MJPEG tile via its bundled Vis
+   widget.
+
+Because both adapters normally run on the same ioBroker host, `127.0.0.1`
+works directly — **Expose RTSP proxy to LAN** is only needed when
+iobroker.cameras runs on a different machine.
+
 ---
 
 ## Development
@@ -558,7 +594,7 @@ cp -r "$SRC/admin" "$DST/"
 ## Existing Adapter Landscape
 
 - **[iobroker.bshb](https://github.com/holomekc/ioBroker.bshb)** — SHC Local REST API (thermostats, switches, alarms). Camera on/off only, no stream or snapshot. Active maintainer.
-- **[iobroker.cameras](https://github.com/ioBroker/ioBroker.cameras)** — generic HTTP snapshot / RTSP wrapper. Pair this adapter's `stream_url` state with iobroker.cameras to get a Vis tile.
+- **[iobroker.cameras](https://github.com/ioBroker/ioBroker.cameras)** — generic HTTP snapshot / RTSP wrapper. Pair this adapter's `stream_url` state with iobroker.cameras to get a Vis tile — see [iobroker.cameras (snapshot / Vis tile)](#iobrokercameras-snapshot--vis-tile) for the field-by-field config.
 - **[iobroker.onvif](https://github.com/iobroker-community-adapters/ioBroker.onvif)** — generic ONVIF. Bosch cameras don't currently expose a local ONVIF endpoint, so this adapter is the only path for Bosch hardware.
 
 ---
@@ -599,6 +635,12 @@ HA stays the **reference implementation** — features land there first; the Pyt
 ---
 
 ## Changelog
+
+### 1.2.7 (2026-06-07)
+Easier integration with the ioBroker.cameras adapter.
+
+- **New per-camera datapoints `stream_host`, `stream_port`, `stream_path`:** the live-stream URL is now also published as three separate read-only fields. The generic RTSP camera type in the [ioBroker.cameras](https://github.com/ioBroker/ioBroker.cameras) adapter has no single full-URL input, so these can be pasted field by field without splitting `stream_url` by hand (forum request). They are populated alongside `stream_url` on stream start and cleared on teardown and on privacy-driven credential rotation.
+- **README:** added an "External recorders → ioBroker.cameras" how-to with the field-by-field mapping (set Protocol to TCP — the proxy is TCP-only).
 
 ### 1.2.6 (2026-06-07)
 Object-structure roles corrected for the ioBroker repository review.

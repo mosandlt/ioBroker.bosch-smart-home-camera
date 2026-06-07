@@ -626,6 +626,17 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _buildStreamUrl;
     /**
+     * Publish the host / port / path parts of a built stream URL into the
+     * split datapoints (stream_host / stream_port / stream_path) so users can
+     * paste each value straight into iobroker.cameras, which composes its RTSP
+     * URL from separate fields rather than one full-URL input (forum #84538).
+     * Pass an empty string to clear all three (stream torn down).
+     *
+     * @param camId camera cloud-ID
+     * @param url   full `rtsp://host:port/path?query`, or "" to clear
+     */
+    private _publishStreamParts;
+    /**
      * Replace `user:password@` with `***:***@` for log lines.
      *
      * @param url
