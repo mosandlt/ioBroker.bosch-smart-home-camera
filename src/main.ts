@@ -865,7 +865,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         await this.setObjectNotExistsAsync("info.fcm_active", {
             type: "state",
             common: {
-                role: "indicator.status",
+                role: "info.status",
                 name: "FCM push listener status: healthy / polling / disconnected / error / stub / stopped",
                 type: "string",
                 read: true,
@@ -924,7 +924,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         await this.setObjectNotExistsAsync("info.connection_status", {
             type: "state",
             common: {
-                role: "indicator.state",
+                role: "info.status",
                 name: "Adapter login phase (logged_out | awaiting_login | connected | auth_error)",
                 type: "string",
                 read: true,
@@ -996,7 +996,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         }> = [
             {
                 id: "info.maintenance.state",
-                role: "indicator.state",
+                role: "info.status",
                 name: "Maintenance state (active/scheduled/past/recent/unknown/idle)",
                 type: "string",
                 def: "idle",
@@ -1407,6 +1407,70 @@ class BoschSmartHomeCamera extends utils.Adapter {
         }
     }
 
+    /**
+     * v1.2.6 migration: fix `common.role` values that are not in the ioBroker
+     * role catalogue (repochecker object-structure check E1008/E1009). Older
+     * installs created states with roles that the checker rejects:
+     *   indicator.status / indicator.state → info.status (string status text)
+     *   level.mode                         → text        (writable string enum)
+     *   value.signal                       → value       (read-only number %)
+     *   value.angle                        → level       (writable number, degrees)
+     *   info                               → json        (JSON diagnostic string)
+     *   value.time + common.type "string"  → date        (value.time needs number)
+     *   value + common.type "string"       → text        (value needs number)
+     * `setObjectNotExistsAsync` never rewrites an existing object, so a plain
+     * version bump would leave old installs on the invalid roles — this sweep
+     * extends every affected state in place. Idempotent: a state already on the
+     * correct role is skipped.
+     */
+    private async _migrateStateRoles(): Promise<void> {
+        // Exact-match remap. `value.time` and `info` are handled below because
+        // they depend on common.type (value.time) or are otherwise valid as a
+        // longer role (info.* stays untouched — only the bare "info" is wrong).
+        const ROLE_REMAP: Record<string, string> = {
+            "indicator.status": "info.status",
+            "indicator.state": "info.status",
+            "level.mode": "text",
+            "value.signal": "value",
+            "value.angle": "level",
+            info: "json",
+        };
+        let fixed = 0;
+        try {
+            const objects = await this.getAdapterObjectsAsync();
+            for (const [id, obj] of Object.entries(objects)) {
+                if (!obj || obj.type !== "state" || !obj.common) {
+                    continue;
+                }
+                const role = obj.common.role;
+                let next: string | undefined;
+                if (role && Object.prototype.hasOwnProperty.call(ROLE_REMAP, role)) {
+                    next = ROLE_REMAP[role];
+                } else if (role === "value.time" && obj.common.type === "string") {
+                    // value.time only supports common.type "number"; our ISO-8601
+                    // strings need the type-flexible "date" role instead.
+                    next = "date";
+                } else if (role === "value" && obj.common.type === "string") {
+                    // value only supports "number" (E1009); a string-typed state
+                    // (e.g. last_seen_event_id) belongs to the "text" role.
+                    next = "text";
+                }
+                if (next && next !== role) {
+                    await this.extendObjectAsync(id, { common: { role: next } });
+                    fixed++;
+                    this.log.debug(`v1.2.6 role migration: ${id} "${role}" → "${next}"`);
+                }
+            }
+        } catch (err) {
+            this.log.warn(
+                `v1.2.6 role migration failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
+        if (fixed > 0) {
+            this.log.info(`v1.2.6 migration: corrected common.role on ${fixed} state object(s)`);
+        }
+    }
+
     private async _migrateLightDps(cameras: BoschCamera[]): Promise<void> {
         const LIGHT_DPS = ["light_enabled", "front_light_enabled", "wallwasher_enabled"];
         let removed = 0;
@@ -1651,7 +1715,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 type: "state",
                 common: {
                     name: "Motion sensitivity",
-                    role: "level.mode",
+                    role: "text",
                     type: "string",
                     read: true,
                     write: true,
@@ -1750,7 +1814,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     type: "state",
                     common: {
                         name: "Detection mode",
-                        role: "level.mode",
+                        role: "text",
                         type: "string",
                         read: true,
                         write: true,
@@ -1842,7 +1906,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     type: "state",
                     common: {
                         name: `Pan position in degrees (range: -${cam.panLimit} to +${cam.panLimit})`,
-                        role: "value.angle",
+                        role: "level",
                         type: "number",
                         min: -cam.panLimit,
                         max: cam.panLimit,
@@ -2054,7 +2118,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 type: "state",
                 common: {
                     name: "Stream quality: high (full bitrate) / low (bandwidth saver)",
-                    role: "level.mode",
+                    role: "text",
                     type: "string",
                     read: true,
                     write: true,
@@ -2071,7 +2135,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 type: "state",
                 common: {
                     name: "Timestamp of last motion/person/audio event (ISO 8601)",
-                    role: "value.time",
+                    role: "date",
                     type: "string",
                     read: true,
                     write: false,
@@ -2135,7 +2199,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 type: "state",
                 common: {
                     name: "Timestamp of the JPEG in last_event_image (ISO 8601)",
-                    role: "value.time",
+                    role: "date",
                     type: "string",
                     read: true,
                     write: false,
@@ -2321,7 +2385,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 type: "state",
                 common: {
                     name: "WiFi signal strength percentage 0–100",
-                    role: "value.signal",
+                    role: "value",
                     type: "number",
                     min: 0,
                     max: 100,
@@ -2707,7 +2771,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
             await this.setObjectNotExistsAsync(`${prefix}.last_seen_event_id`, {
                 type: "state",
                 common: {
-                    role: "value",
+                    role: "text",
                     name: "ID of the last cloud event processed (persisted, diagnostic)",
                     type: "string",
                     read: true,
@@ -2722,7 +2786,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 type: "state",
                 common: {
                     name: "ONVIF scopes from RCP 0x0a98 (LAN, diagnostic) — JSON",
-                    role: "info",
+                    role: "json",
                     type: "string",
                     read: true,
                     write: false,
@@ -2861,7 +2925,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
             type: "state",
             common: {
                 name: "Bosch cloud feature flags (enabled, diagnostic)",
-                role: "info",
+                role: "json",
                 type: "string",
                 read: true,
                 write: false,
@@ -4037,6 +4101,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
         await this.ensureInfoObjects();
         // v0.7.0: ensure maintenance state objects exist before the first fetch
         await this.ensureMaintenanceObjects();
+        // v1.2.6: rewrite legacy invalid common.role values on existing installs
+        // (repochecker E1008/E1009). Runs unconditionally — before the login flow
+        // which may return early waiting for a browser URL — so existing camera
+        // objects are corrected even when discovery is skipped this start. Newly
+        // created objects below already use valid roles.
+        await this._migrateStateRoles();
 
         // v0.6.0: one-shot re-encrypt of any plaintext token/PKCE secret left
         // behind by an upgrade from <=v0.5.x.

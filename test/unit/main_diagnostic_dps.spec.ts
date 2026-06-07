@@ -527,3 +527,117 @@ describe("Slow-tier tick counter", () => {
         void db;
     });
 });
+
+// ── Regression: state-object common.role validity (repochecker E1008/E1009) ──
+//
+// 2026-06-07: the PR-5983 object-structure check rejected 14 states because
+// their common.role was either not in the ioBroker role catalogue (E1008:
+// indicator.status, indicator.state, level.mode, value.signal, value.angle,
+// bare "info") or carried a type the role forbids (E1009: value.time only
+// supports common.type "number", not the ISO-8601 "string" we store). These
+// tests boot a full instance (info + maintenance + per-camera + cloud objects)
+// and pin every affected role to its corrected, catalogue-valid value so the
+// invalid roles can never silently reappear.
+describe("state common.role validity (repochecker E1008/E1009 regression)", () => {
+    // Roles the checker rejects outright (not in lib/config_StateRoles.js).
+    const INVALID_ROLES = new Set([
+        "indicator.status",
+        "indicator.state",
+        "level.mode",
+        "value.signal",
+        "value.angle",
+        "info",
+    ]);
+
+    // Second camera with panLimit > 0 (Gen1 360° Indoor) so the pan_position
+    // DP — gated on cam.panLimit > 0 — is actually created for assertion.
+    const PAN_CAM_ID = "AAAAAAAA-1111-2222-3333-444455556666";
+    const ROLE_CAMERAS_BODY = [
+        ...CAMERAS_BODY,
+        {
+            id: PAN_CAM_ID,
+            title: "Innen 360",
+            hardwareVersion: "CAMERA_360",
+            firmwareVersion: "9.40.25",
+            featureSupport: { panLimit: 120 },
+        },
+    ];
+
+    async function bootAllObjects(): Promise<{ db: MockDatabase; adapter: TestAdapter }> {
+        stubAxiosSequence([{ status: 200, data: ROLE_CAMERAS_BODY }]);
+        const { db, adapter } = createAdapterWithMocks();
+        await bootWithTokens(db, adapter);
+        return { db, adapter };
+    }
+
+    it("no created state uses a role outside the ioBroker catalogue", async () => {
+        const { db, adapter } = await bootAllObjects();
+        const states = db.getObjects(`${adapter.namespace}.*`, "state");
+        const offenders: string[] = [];
+        for (const [id, obj] of Object.entries(states)) {
+            const role = obj?.common?.role;
+            if (typeof role === "string" && INVALID_ROLES.has(role)) {
+                offenders.push(`${id} → "${role}"`);
+            }
+        }
+        expect(offenders, `invalid roles still present:\n${offenders.join("\n")}`).to.be.empty;
+    });
+
+    it("no value.time state is typed as string (must be number)", async () => {
+        const { db, adapter } = await bootAllObjects();
+        const states = db.getObjects(`${adapter.namespace}.*`, "state");
+        const offenders: string[] = [];
+        for (const [id, obj] of Object.entries(states)) {
+            if (obj?.common?.role === "value.time" && obj?.common?.type === "string") {
+                offenders.push(id);
+            }
+        }
+        expect(offenders, `value.time+string offenders:\n${offenders.join("\n")}`).to.be.empty;
+    });
+
+    it("pins each corrected role to its catalogue-valid replacement", async () => {
+        const { db, adapter } = await bootAllObjects();
+        const ns = adapter.namespace;
+        const roleOf = (id: string): string | undefined => db.getObject(`${ns}.${id}`)?.common?.role;
+        const typeOf = (id: string): string | undefined => db.getObject(`${ns}.${id}`)?.common?.type;
+
+        // info.* status text → info.status (read-only, no type constraint)
+        expect(roleOf("info.fcm_active")).to.equal("info.status");
+        expect(roleOf("info.connection_status")).to.equal("info.status");
+        expect(roleOf("info.maintenance.state")).to.equal("info.status");
+
+        // bare "info" JSON diagnostics → json
+        expect(roleOf(`cameras.${CAM_ID}.onvif_scopes`)).to.equal("json");
+        expect(roleOf("cloud.feature_flags")).to.equal("json");
+
+        // ISO-8601 string timestamps: value.time → date (date supports string)
+        expect(roleOf(`cameras.${CAM_ID}.last_motion_at`)).to.equal("date");
+        expect(typeOf(`cameras.${CAM_ID}.last_motion_at`)).to.equal("string");
+        expect(roleOf(`cameras.${CAM_ID}.last_event_image_at`)).to.equal("date");
+
+        // writable string enum select: level.mode → text
+        expect(roleOf(`cameras.${CAM_ID}.stream_quality`)).to.equal("text");
+
+        // read-only WiFi signal %: value.signal → value
+        expect(roleOf(`cameras.${CAM_ID}.wifi_signal_pct`)).to.equal("value");
+
+        // writable pan angle (number, degrees): value.angle → level (Gen1 360° only)
+        expect(roleOf(`cameras.${PAN_CAM_ID}.pan_position`)).to.equal("level");
+
+        // read-only string event id: value (number-only) → text
+        expect(roleOf(`cameras.${CAM_ID}.last_seen_event_id`)).to.equal("text");
+        expect(typeOf(`cameras.${CAM_ID}.last_seen_event_id`)).to.equal("string");
+    });
+
+    it("no value-role state is typed as string (must be number)", async () => {
+        const { db, adapter } = await bootAllObjects();
+        const states = db.getObjects(`${adapter.namespace}.*`, "state");
+        const offenders: string[] = [];
+        for (const [id, obj] of Object.entries(states)) {
+            if (obj?.common?.role === "value" && obj?.common?.type === "string") {
+                offenders.push(id);
+            }
+        }
+        expect(offenders, `value+string offenders:\n${offenders.join("\n")}`).to.be.empty;
+    });
+});

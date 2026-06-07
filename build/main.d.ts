@@ -463,6 +463,23 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param cameras  camera list fetched from Bosch Cloud
      */
     private _migrateWifiSignalDp;
+    /**
+     * v1.2.6 migration: fix `common.role` values that are not in the ioBroker
+     * role catalogue (repochecker object-structure check E1008/E1009). Older
+     * installs created states with roles that the checker rejects:
+     *   indicator.status / indicator.state → info.status (string status text)
+     *   level.mode                         → text        (writable string enum)
+     *   value.signal                       → value       (read-only number %)
+     *   value.angle                        → level       (writable number, degrees)
+     *   info                               → json        (JSON diagnostic string)
+     *   value.time + common.type "string"  → date        (value.time needs number)
+     *   value + common.type "string"       → text        (value needs number)
+     * `setObjectNotExistsAsync` never rewrites an existing object, so a plain
+     * version bump would leave old installs on the invalid roles — this sweep
+     * extends every affected state in place. Idempotent: a state already on the
+     * correct role is skipped.
+     */
+    private _migrateStateRoles;
     private _migrateLightDps;
     /**
      * Read + decrypt + JSON-parse the persisted FCM credentials. Returns null

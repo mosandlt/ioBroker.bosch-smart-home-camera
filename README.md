@@ -5,6 +5,8 @@
 ![Number of Installations (latest)](https://iobroker.live/badges/bosch-smart-home-camera-installed.svg)
 [![Test and Release](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera/actions/workflows/test-and-release.yml/badge.svg)](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera/actions/workflows/test-and-release.yml)
 
+[![NPM](https://nodei.co/npm/iobroker.bosch-smart-home-camera.png?downloads=true)](https://nodei.co/npm/iobroker.bosch-smart-home-camera/)
+
 ioBroker adapter for Bosch Smart Home Cameras (Eyes Outdoor, 360 Indoor, Gen2 Eyes Indoor II + Outdoor II). The full core feature set is functional end-to-end and verified live against real hardware.
 
 **Supported models:** Eyes Außenkamera (Gen1), Eyes Außenkamera II (Gen2), 360 Innenkamera (Gen1), Eyes Innenkamera II (Gen2) — model-specific timing and configuration is automatic.
@@ -624,6 +626,12 @@ HA stays the **reference implementation** — features land there first; the Pyt
 ---
 
 ## Changelog
+
+### 1.2.6 (2026-06-07)
+Object-structure roles corrected for the ioBroker repository review.
+
+- **Invalid `common.role` values fixed (repochecker object-structure check E1008/E1009):** status states (`info.fcm_active`, `info.connection_status`, `info.maintenance.state`) now use `info.status`; ISO-8601 timestamp states (`last_motion_at`, `last_event_image_at`, …) use `date` instead of `value.time` (which only allows `number`); writable string selects (`stream_quality`, `motion_sensitivity`, `detection_mode`) use `text` instead of the non-catalogue `level.mode`; JSON diagnostics (`onvif_scopes`, `cloud.feature_flags`) use `json`; the WiFi signal percentage uses `value`; the pan angle uses `level`; the string event id (`last_seen_event_id`) uses `text` instead of `value`.
+- **Automatic one-time migration:** on first start of 1.2.6 existing installations have these roles rewritten in place (idempotent), so no manual object cleanup is needed.
 
 ### 1.2.5 (2026-06-04)
 Stream setup is easier to discover.
