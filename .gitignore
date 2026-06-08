@@ -42,3 +42,7 @@ simon42-*.md
 # Integration tests rely on live cameras + manual env vars — keep out of CI/release
 test/integration/
 backups/
+
+# vis-2 widget build
+src-widgets/node_modules/
+src-widgets/build/

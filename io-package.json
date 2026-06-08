@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "1.2.7",
+    "version": "1.3.0",
     "news": {
+      "1.3.0": {
+        "en": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+        "de": "Neues vis-2-Kamera-Widget (React): Live-Video über den lokalen Proxy (MJPEG), Near-Live-Snapshot und go2rtc-WebRTC-Modus, Steuerung im iOS/Android-Stil (Privatsphäre, Livestream, Licht, Snapshot, Schwenken, Sirene) mit Privatsphäre-Gating, Vollbild und klarer Offline-Anzeige. Fix: RTSP-Proxy bleibt aktiv, wenn der Livestream während eines Snapshots startet.",
+        "ru": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+        "pt": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+        "nl": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+        "fr": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+        "it": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+        "es": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+        "pl": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+        "uk": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+        "zh-cn": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot."
+      },
       "1.2.7": {
         "en": "New read-only datapoints stream_host, stream_port and stream_path per camera split the live-stream URL into separate fields, so the generic RTSP camera type in the ioBroker.cameras adapter can be filled in field by field without splitting the URL by hand.",
         "de": "Neue schreibgeschützte Datenpunkte stream_host, stream_port und stream_path je Kamera teilen die Livestream-URL in einzelne Felder auf, sodass der generische RTSP-Kameratyp im Adapter ioBroker.cameras Feld für Feld befüllt werden kann, ohne die URL von Hand zu zerlegen.",
@@ -80,19 +93,6 @@
         "pl": "Cichsze dzienniki + parzystość HA: tryb prywatności HTTP 442 nie jest już rejestrowany jako awaria, błędy programowe MJPEG i pierwszej migawki zostały przeniesione do debugowania, pusta migawka zaraz po ponownym uruchomieniu ruchu, koniec z ostrzeżeniami setTimeout-podczas zamykania, a interwał sondowania jest zgodny z Home Assistant (60s).",
         "uk": "Тихіше журнали + паритет високої доступності: HTTP 442 у режимі конфіденційності більше не реєструється як збій, MJPEG і програмні помилки першого знімка переміщено до налагодження, порожній знімок відразу після руху тепер повторюється, більше немає попереджень setTimeout-during-shutdown, а інтервал опитування відповідає Home Assistant (60 с).",
         "zh-cn": "更安静的日志 + HA 奇偶校验：隐私模式 HTTP 442 不再记录为故障，MJPEG 和第一个快照软故障移至调试，运动后立即重试的空快照，不再出现 setTimeout-during-shutdown 警告，并且轮询间隔与 Home Assistant 匹配（60 秒）。"
-      },
-      "1.2.1": {
-        "en": "Fixed: FCM push failed with HTTP 401 and fell back to 30s polling; it now registers reliably and rejected credentials self-heal. Offline cameras no longer spam HTTP 444 retries — offline is detected and the retry loop stops.",
-        "de": "Behoben: FCM-Push schlug mit HTTP 401 fehl und fiel auf 30s-Polling zurück; registriert jetzt zuverlässig, abgelehnte Anmeldedaten heilen sich. Offline-Kameras spammen keine HTTP-444-Retries mehr — offline wird erkannt, die Schleife stoppt.",
-        "ru": "Исправлено: отправка FCM не удалась с HTTP 401 и возвратился к опросу 30 секунд; теперь он надежно регистрируется, а отклоняемые учетные данные самовосстанавливаются. Офлайн-камеры больше не спамят повторными попытками HTTP 444 — обнаруживается, что они находятся в автономном режиме, и цикл повторных попыток прекращается.",
-        "pt": "Corrigido: o push do FCM falhou com HTTP 401 e voltou para a pesquisa de 30 segundos; agora ele registra de forma confiável e rejeita a autocorreção de credenciais. As câmeras off-line não enviam mais spam para novas tentativas HTTP 444 – o off-line é detectado e o loop de novas tentativas é interrompido.",
-        "nl": "Opgelost: FCM-push mislukte met HTTP 401 en viel terug naar 30s polling; het registreert nu betrouwbaar en zelfherstel van afgewezen inloggegevens. Offlinecamera's spammen niet langer HTTP 444-pogingen: offline wordt gedetecteerd en de herhalingslus stopt.",
-        "fr": "Corrigé : le push FCM a échoué avec HTTP 401 et est revenu à une interrogation de 30 s ; il s'enregistre désormais de manière fiable et les informations d'identification rejetées s'auto-réparent. Les caméras hors ligne ne spamment plus les tentatives HTTP 444 : la connexion hors ligne est détectée et la boucle de nouvelle tentative s'arrête.",
-        "it": "Risolto: il push FCM non riusciva con HTTP 401 e tornava al polling 30s; ora viene registrato in modo affidabile e le credenziali rifiutate si autoriparano. Le telecamere offline non inviano più spam ai tentativi HTTP 444: viene rilevato offline e il ciclo di tentativi si interrompe.",
-        "es": "Corregido: la inserción de FCM falló con HTTP 401 y volvió al sondeo de 30 segundos; ahora registra de manera confiable y las credenciales rechazadas se reparan automáticamente. Las cámaras sin conexión ya no envían spam a los reintentos HTTP 444: se detecta sin conexión y el ciclo de reintento se detiene.",
-        "pl": "Naprawiono: Push FCM nie powiódł się przy użyciu protokołu HTTP 401 i powrócił do odpytywania trwającego 30 sekund; teraz rejestruje się niezawodnie, a odrzucone dane uwierzytelniające samonaprawiają się. Kamery działające w trybie offline nie spamują już ponownych prób HTTP 444 — wykrywany jest tryb offline i pętla ponawiania zatrzymuje się.",
-        "uk": "Виправлено: FCM push не вдавався з HTTP 401 і повертався до опитування 30 секунд; тепер він надійно реєструє та відхиляє облікові дані самовідновлення. Офлайн-камери більше не надсилають спам при повторних спробах HTTP 444 — офлайн виявляється, і цикл повторів припиняється.",
-        "zh-cn": "修复：FCM 推送失败并出现 HTTP 401，并回退到 30 秒轮询；它现在可以可靠地注册并拒绝凭据自我修复。离线摄像机不再发送垃圾邮件 HTTP 444 重试 — 检测到离线并停止重试循环。"
       }
     },
     "titleLang": {
@@ -164,13 +164,14 @@
       }
     ],
     "visWidgets": {
-      "boschCameraSet": {
-        "name": "Bosch Smart Home Camera",
+      "vis2BoschCameraWidgets": {
+        "name": "vis2BoschCameraWidgets",
         "url": "bosch-smart-home-camera/customWidgets.js",
-        "i18n": true,
-        "version": "0.1.0",
+        "bundlerType": "module",
+        "i18n": "component",
+        "version": "0.2.0",
         "components": [
-          "boschCamera"
+          "BoschCamera"
         ]
       }
     }

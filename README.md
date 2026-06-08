@@ -317,10 +317,11 @@ See [`docs/vis-2-example/README.md`](./docs/vis-2-example/README.md) for the
 walkthrough, including how to swap the camera UUIDs and how to wire go2rtc /
 HLS for low-latency live video instead of the default snapshot refresh.
 
-### VIS-2 Camera Tile widget (alpha)
+### VIS-2 Camera widget
 
-Starting with v0.7.9 the adapter ships a built-in **VIS-2 widget** that can be
-dropped onto any VIS-2 view without importing a JSON file.
+The adapter ships a built-in **VIS-2 widget** (proper React / Module-Federation
+widget, built from `src-widgets/`) that can be dropped onto any VIS-2 view
+without importing a JSON file.
 
 **Requirements:** VIS-2 adapter installed and running.
 
@@ -328,25 +329,31 @@ dropped onto any VIS-2 view without importing a JSON file.
 
 1. Open the VIS-2 editor (`http://HOST:8082/vis-2/index.html?edit=1`).
 2. In the widget panel, find the **Bosch Smart Home Camera** widget set.
-3. Drag **Bosch Camera Tile** onto your view.
-4. In the widget properties, set **Camera ID datapoint** to any DP under
-   `bosch-smart-home-camera.0.cameras.<UUID>` (e.g. `.name`) — the adapter
-   extracts the UUID automatically.
-5. Optionally: adjust **Snapshot refresh** (default 30 s), toggle the light
-   button visibility, and set a fixed tile width.
+3. Drag **Bosch Camera** onto your view.
+4. Set **Camera datapoint** to any DP under
+   `bosch-smart-home-camera.0.cameras.<UUID>` (e.g. `.name`) — the camera is
+   detected automatically from the path.
+5. Pick a **Stream mode** (see below).
 
-**What the tile shows:**
+**Stream modes:**
 
-- Camera name + Online/Offline badge
-- Live snapshot image (auto-refreshed at the configured interval)
-- Motion and Privacy badges when active
-- Privacy toggle button (reads/writes `privacy_enabled`)
-- Light toggle button (reads/writes `front_light_enabled`; hide via settings
-  for cameras without LEDs such as the Indoor II)
+| Mode | What it shows | Needs | Audio |
+|---|---|---|---|
+| **Snapshot (near-live)** *(default)* | `<img>` polled from the adapter's snapshot HTTP server (`snapshot_url`) at a configurable interval (default 1 s) | `snapshot_http_port` set in the adapter | no |
+| **MJPEG (frames)** | continuous ~2 fps JPEG frames streamed from the local RTSP proxy via FFmpeg, drawn on a canvas | `livestream_enabled = true` for the camera + `ffmpeg` on the host | no |
+| **go2rtc WebRTC** | low-latency live via an embedded go2rtc player (`stream.html?src=…&mode=webrtc`) | a running go2rtc with the camera's `stream_url` configured | **yes** |
 
-> **Alpha status:** the widget registers via a vanilla-JS bundle without React.
-> It works with VIS-2 >= 2.0 but has not been stress-tested across all VIS-2
-> versions. Feedback welcome via GitHub Issues.
+**Overlay controls:** camera name, Online/Offline + Motion + Privacy badges,
+privacy toggle, light toggle (auto-hidden for cameras without LEDs such as the
+Indoor II), and a fullscreen button.
+
+**Building the widget** (for contributors): `npm run build:widget` installs
+`src-widgets/`, runs the craco/Module-Federation build and copies the bundle
+into `widgets/bosch-smart-home-camera/`.
+
+> The MJPEG and WebRTC modes need a live setup to verify end-to-end (an active
+> Bosch session, and go2rtc for WebRTC). Snapshot mode works with just the
+> built-in snapshot HTTP server. Feedback welcome via GitHub Issues.
 
 ---
 
@@ -635,6 +642,12 @@ HA stays the **reference implementation** — features land there first; the Pyt
 ---
 
 ## Changelog
+
+### 1.3.0 (2026-06-08)
+New VIS-2 camera widget (React) with live video, plus a livestream-stability fix.
+
+- **New VIS-2 "Bosch Camera" widget (React / Module Federation):** drop it on any VIS-2 view. Three stream modes — **snapshot** (near-live image), **live MJPEG** (started by the play button, streamed from the local RTSP proxy), and **go2rtc WebRTC** (low-latency + audio). iOS/Android-style frosted control bar with privacy, livestream, light, snapshot, pan and siren buttons; actions are gated while privacy is on (only the privacy toggle and fullscreen stay active). Pan is shown only on the Gen1 360° indoor. Fullscreen renders via a portal so it always covers the whole screen, and offline cameras get a clear "Offline" state.
+- **Fix:** the RTSP proxy is no longer torn down ~60 s after start when the livestream is enabled during a snapshot (a race armed the snapshot idle-teardown with a stale flag), so VLC/recorders/the widget no longer get "connection refused".
 
 ### 1.2.7 (2026-06-07)
 Easier integration with the ioBroker.cameras adapter.

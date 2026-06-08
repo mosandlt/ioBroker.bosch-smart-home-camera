@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+    <head>
+          <script type="module" src="./assets/hostInit-C6Y0fjcP.js"></script>
+        
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Bosch Camera widget</title>
+        <script type="text/javascript" src="_socket/info.js"></script>
+        <script>
+            var script = document.createElement('script');
+            window.registerSocketOnLoad = function (cb) {
+                window.socketLoadedHandler = cb;
+            };
+            script.onload = function () {
+                typeof window.socketLoadedHandler === 'function' && window.socketLoadedHandler();
+            };
+            script.src = `${window.location.protocol}//${window.location.hostname}:8082/lib/js/socket.io.js`;
+            document.head.appendChild(script);
+        </script>
+    </head>
+    <body>
+        <div id="root"></div>
+    </body>
+</html>

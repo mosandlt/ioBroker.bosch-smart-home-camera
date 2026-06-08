@@ -68,6 +68,7 @@ const snapshot_1 = require("./lib/snapshot");
 const mjpeg_snapshot_1 = require("./lib/mjpeg_snapshot");
 const snapshot_server_1 = require("./lib/snapshot_server");
 const tls_proxy_1 = require("./lib/tls_proxy");
+const web_stream_1 = require("./lib/web_stream");
 const fcm_1 = require("./lib/fcm");
 const alarm_light_1 = require("./lib/alarm_light");
 const maintenance_1 = require("./lib/maintenance");
@@ -93,6 +94,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
     _liveSessions = new Map();
     /** TLS proxy handles keyed by camera ID. */
     _tlsProxies = new Map();
+    // v0.2.0 vis-2 widget MJPEG mode: manages per-camera FFmpeg frame streams
+    // pushed to subscribing UI clients via sendToUI. Created in onReady.
+    _webStream = null;
     /** Camera metadata keyed by camera ID (populated in onReady from fetchCameras). */
     _cameras = new Map();
     /** FCM push listener (null until onReady wires it up). */
@@ -478,11 +482,83 @@ class BoschSmartHomeCamera extends utils.Adapter {
         super({
             ...options,
             name: "bosch-smart-home-camera",
+            // vis-2 widget (mode "mjpeg") subscribes via subscribeOnInstance →
+            // these route the start/stop of per-camera MJPEG frame streams.
+            uiClientSubscribe: (info) => this.onUiClientSubscribe(info),
+            uiClientUnsubscribe: (info) => this.onUiClientUnsubscribe(info),
         });
         this.on("ready", this.onReady.bind(this));
         this.on("stateChange", this.onStateChange.bind(this));
         this.on("unload", this.onUnload.bind(this));
         this.on("message", this.onMessage.bind(this));
+    }
+    /**
+     * vis-2 BoschCamera widget (mode "mjpeg") subscription handler. The widget
+     * calls socket.subscribeOnInstance(inst, "startCamera/<camId>", {width}, cb);
+     * we register the viewer and start a shared FFmpeg MJPEG stream. Requires an
+     * active live session (livestream_enabled=true) so the TLS proxy listens.
+     *
+     * @param info adapter-core subscribe info
+     * @param info.clientId UI client id used to push frames via sendToUI
+     * @param info.message wrapped subscription message ({type, data})
+     */
+    onUiClientSubscribe(info) {
+        const body = info.message?.message;
+        const type = body?.type;
+        if (!type || !type.startsWith("startCamera/")) {
+            return { accepted: false, error: "Unknown subscription type" };
+        }
+        const camId = type.substring("startCamera/".length);
+        const url = this._resolveWebStreamUrl(camId);
+        if (!url) {
+            return {
+                accepted: false,
+                error: "No live stream — set cameras.<id>.livestream_enabled = true first",
+            };
+        }
+        const ok = this._webStream?.addViewer(info.clientId, camId, body?.data?.width ?? 0) ?? false;
+        if (!ok) {
+            return { accepted: false, error: "Could not start stream" };
+        }
+        // Widget re-subscribes within this interval; missing heartbeats drop the
+        // viewer (handled by adapter-core → uiClientUnsubscribe with reason).
+        return { accepted: true, heartbeat: 60000 };
+    }
+    /**
+     * vis-2 widget unsubscribe / heartbeat-timeout handler — drops the viewer
+     * and stops FFmpeg when the camera has no more viewers.
+     *
+     * @param info adapter-core unsubscribe info
+     * @param info.clientId UI client id that is leaving
+     * @param info.message optional wrapped message ({type}) on explicit unsubscribe
+     */
+    onUiClientUnsubscribe(info) {
+        const body = info.message?.message;
+        const types = body?.type;
+        if (!types) {
+            // timeout / connection loss without a body → drop from every camera
+            this._webStream?.removeViewer(info.clientId);
+            return;
+        }
+        const list = Array.isArray(types) ? types : [types];
+        for (const t of list) {
+            if (t && t.startsWith("startCamera/")) {
+                this._webStream?.removeViewer(info.clientId, t.substring("startCamera/".length));
+            }
+        }
+    }
+    /**
+     * Build the local RTSP URL FFmpeg reads for a camera's MJPEG web stream, or
+     * null when no TLS proxy is active for it (livestream not enabled).
+     *
+     * @param camId camera cloud-ID
+     */
+    _resolveWebStreamUrl(camId) {
+        const proxy = this._tlsProxies.get(camId);
+        if (!proxy) {
+            return null;
+        }
+        return `${proxy.localRtspUrl}?inst=1`;
     }
     /**
      * v0.5.4: handle sendTo messages from Admin UI.
@@ -3728,6 +3804,17 @@ class BoschSmartHomeCamera extends utils.Adapter {
     }
     async onReady() {
         this.log.info("Bosch Smart Home Camera adapter starting…");
+        // vis-2 widget MJPEG mode: per-camera FFmpeg frame streamer. Reads the
+        // active local RTSP proxy and pushes base64 frames to UI clients.
+        this._webStream = new web_stream_1.WebStreamManager({
+            resolveUrl: (camId) => this._resolveWebStreamUrl(camId),
+            sendFrame: (clientId, base64) => this.sendToUI({ clientId, data: base64 }),
+            log: {
+                debug: (m) => this.log.debug(m),
+                warn: (m) => this.log.warn(m),
+                info: (m) => this.log.info(m),
+            },
+        });
         // Ensure object tree for info/token states
         await this.ensureInfoObjects();
         // v0.7.0: ensure maintenance state objects exist before the first fetch
@@ -7416,7 +7503,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // in `finally`; back-to-back snaps within
         // SNAPSHOT_SESSION_IDLE_MS reset it and reuse the cached session.
         // After the idle window expires the timer fires _teardownStream.
-        const livestreamOn = this._livestreamEnabled.get(camId) === true;
+        // NOTE: the livestream flag is re-read in `finally` (NOT captured here).
+        // A startup/auto snapshot can race handleLivestreamToggle(true): if the
+        // flag was captured as `false` before the await, a user enabling the
+        // livestream mid-snapshot got the early _cancelSnapshotIdleTeardown
+        // (timer not armed yet), then this block armed the idle teardown anyway
+        // → it fired ~60 s later and killed the just-started live stream.
         try {
             let buf;
             // v0.7.16: MJPEG fast path — Gen2 + LAN reachable + config opt-in.
@@ -7483,7 +7575,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
             this.log.debug(`Snapshot saved for camera ${camId.slice(0, 8)}: ${buf.length} bytes`);
         }
         finally {
-            if (!livestreamOn) {
+            // Re-read the live flag NOW (not a pre-await capture) so a livestream
+            // enabled during this snapshot wins the race and no idle teardown is armed.
+            if (this._livestreamEnabled.get(camId) !== true) {
                 // v0.5.3: arm idle teardown instead of closing immediately so
                 // a burst of snapshot_triggers reuses the warm session. The
                 // timer is reset on every snap, so the window always extends
@@ -7937,6 +8031,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 if (this._refreshTimeout) {
                     this.clearTimeout(this._refreshTimeout);
                     this._refreshTimeout = null;
+                }
+                // Stop all vis-2 widget MJPEG FFmpeg streams
+                if (this._webStream) {
+                    this._webStream.stopAll();
+                    this._webStream = null;
                 }
                 // Stop event polling timer (only set when FCM fell back to polling)
                 if (this._eventPollTimer) {

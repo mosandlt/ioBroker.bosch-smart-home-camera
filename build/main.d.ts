@@ -35,6 +35,7 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _liveSessions;
     /** TLS proxy handles keyed by camera ID. */
     private _tlsProxies;
+    private _webStream;
     /** Camera metadata keyed by camera ID (populated in onReady from fetchCameras). */
     private _cameras;
     /** FCM push listener (null until onReady wires it up). */
@@ -354,6 +355,33 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param options
      */
     constructor(options?: Partial<utils.AdapterOptions>);
+    /**
+     * vis-2 BoschCamera widget (mode "mjpeg") subscription handler. The widget
+     * calls socket.subscribeOnInstance(inst, "startCamera/<camId>", {width}, cb);
+     * we register the viewer and start a shared FFmpeg MJPEG stream. Requires an
+     * active live session (livestream_enabled=true) so the TLS proxy listens.
+     *
+     * @param info adapter-core subscribe info
+     * @param info.clientId UI client id used to push frames via sendToUI
+     * @param info.message wrapped subscription message ({type, data})
+     */
+    private onUiClientSubscribe;
+    /**
+     * vis-2 widget unsubscribe / heartbeat-timeout handler — drops the viewer
+     * and stops FFmpeg when the camera has no more viewers.
+     *
+     * @param info adapter-core unsubscribe info
+     * @param info.clientId UI client id that is leaving
+     * @param info.message optional wrapped message ({type}) on explicit unsubscribe
+     */
+    private onUiClientUnsubscribe;
+    /**
+     * Build the local RTSP URL FFmpeg reads for a camera's MJPEG web stream, or
+     * null when no TLS proxy is active for it (livestream not enabled).
+     *
+     * @param camId camera cloud-ID
+     */
+    private _resolveWebStreamUrl;
     /**
      * v0.5.4: handle sendTo messages from Admin UI.
      *
