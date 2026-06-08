@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@v4.36.0
         with:
           languages: javascript-typescript
           build-mode: none
@@ -37,6 +37,6 @@ jobs:
               - coverage
               - backups
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@v4.36.0
         with:
           category: "/language:javascript-typescript"
