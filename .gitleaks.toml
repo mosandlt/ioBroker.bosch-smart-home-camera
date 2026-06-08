@@ -30,4 +30,10 @@ paths = [
   '''test/.*''',
   '''backups/.*''',
   '''coverage/.*''',
+  # generated vis-2 widget bundle (Vite/Module-Federation vendor chunks:
+  # react/mui/@iobroker/adapter-react-v5). Source lives in src-widgets/ (scanned).
+  # The adapter-react-v5 chunk embeds ioBroker's PUBLIC default system secret as a
+  # fallback constant → gitleaks generic-api-key false positive.
+  '''widgets/.*''',
+  '''src-widgets/build/.*''',
 ]
