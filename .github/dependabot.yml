@@ -1,7 +1,9 @@
 version: 2
 updates:
 - package-ecosystem: npm
-  directory: /
+  directories:
+  - /
+  - /src-widgets
   schedule:
     interval: cron
     cronjob: 17 4 5 * *
