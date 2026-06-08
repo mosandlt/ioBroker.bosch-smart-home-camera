@@ -19,6 +19,10 @@ useDefault = true
 regexes = [
   '''QUl6YVN5Q0toaGZ4ZlRzMUc3V3Z6VERBaU8wQWlzN0VIMjVEYk9z''',
   '''BDOU99-h67HcA6JeFXHbSNMu7e2yNNu3RzoMj8TM4W88jITfq7ZmPvIM1Iv-4_l2LxQcYwhqby2xGpWwzjfAnG4''',
+  # ioBroker's PUBLIC default system secret — a hard-coded fallback constant in
+  # @iobroker/adapter-react-v5 (`systemConfig.native.secret || "Zgfr56gFe87jJOM"`),
+  # bundled into the vis-2 widget vendor chunk. Public, not a credential.
+  '''Zgfr56gFe87jJOM''',
 ]
 
 # Generated / vendored / fixture trees. `build/` is the tsc output of `src/`
