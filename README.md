@@ -29,6 +29,7 @@ ioBroker adapter for Bosch Smart Home Cameras (Eyes Outdoor, 360 Indoor, Gen2 Ey
 - [Disclaimer](#disclaimer)
 - [Setup](#setup)
 - [Architecture](#architecture)
+  - [Network Connectivity](#network-connectivity) — required ports, VLAN/subnet pitfalls
 - [Status](#status)
 - [Datapoints](#datapoints)
 - [Dashboard](#dashboard)
@@ -168,6 +169,38 @@ flowchart LR
     Proxy -.->|rtsp://...<br/>LAN-bind opt| Recorders[BlueIris / Frigate<br/>iobroker.cameras]
     Adapter -->|file-store| Snapshots[snapshot.jpg<br/>last_event_image]
 ```
+
+### Network Connectivity
+
+The ioBroker host must be able to reach each camera's IP on the LAN. The Bosch cloud auto-discovers the camera IP, but stream/snapshot/RCP traffic flows directly from the ioBroker host to the camera. If a firewall, VLAN boundary, or guest network blocks that path, the live MJPEG/RTSP stream and on-demand snapshot fall back to a (slower) cloud path.
+
+#### Required ports
+
+| Direction | Protocol / Port | Purpose | Required |
+|---|---|---|---|
+| ioBroker host → camera IP | **TCP/443** | Snapshots, camera REST API, RTSPS live stream (everything tunnels through one TLS connection) | **Yes** |
+| ioBroker host → `*.boschsecurity.com` | TCP/443 | OAuth, REMOTE/cloud fallback stream, FCM push registration | Yes |
+| ioBroker host → `fcm.googleapis.com` / `mtalk.google.com` | TCP/5228 | FCM push notifications (auto-falls-back to polling) | Optional |
+| External recorder (BlueIris/Frigate/iobroker.cameras) → ioBroker host | TCP/`stream_port` | Local RTSP relay exposed by the adapter | Only when used |
+
+The adapter itself **only needs TCP/443 from the ioBroker host to the camera**. No UDP, no inbound port-forward on your router.
+
+#### Common pitfalls
+
+- **Camera in a different subnet/VLAN than ioBroker** — e.g. cameras on `192.168.168.x` and ioBroker on `192.168.1.x`. The router/firewall must allow the ioBroker host's IP outbound to the camera's IP on TCP/443.
+- **IoT/guest network isolation** (FRITZ!Box "Gastzugang", Unifi guest network) blocks LAN-to-LAN by default.
+- **Camera reachable from the Bosch app but not from ioBroker** — the app talks via the cloud, so this proves nothing about LAN reachability.
+- **External recorder cannot reach the relay** — the adapter binds the RTSP relay on the ioBroker host. Make sure your recorder VM/container can reach `stream_host:stream_port` on the LAN.
+
+#### Quick check from the ioBroker host
+
+```bash
+nc -vz 192.168.x.y 443
+# or
+curl -k -v --connect-timeout 5 https://192.168.x.y/
+```
+
+If both time out or return "connection refused", the issue is between ioBroker and the camera (network/firewall), not the adapter.
 
 ### Maintenance RSS flow
 
