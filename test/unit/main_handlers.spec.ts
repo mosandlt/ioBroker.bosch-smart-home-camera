@@ -416,4 +416,82 @@ describe("main adapter — siren + wallwasher handlers (v0.5.1)", () => {
         expect(state?.val).to.equal(60);
         expect(state?.ack).to.equal(true);
     });
+
+    // ── handleFrontLightIntensityUpdate ──────────────────────────────────────
+
+    it("front_light_intensity: brightness update calls PUT /lighting/switch (frontLightSettings only) and acks state", async () => {
+        // Regression: front_light_intensity DP write must call PUT /lighting/switch with
+        // frontLightSettings.brightness set to the new value, leaving top+bottom groups
+        // from the cached state intact. Mirrors wallwasher_brightness pattern.
+        const updatedLighting = {
+            frontLightSettings: { brightness: 60, color: null, whiteBalance: -1.0 },
+            topLedLightSettings: { brightness: 0, color: null, whiteBalance: -1.0 },
+            bottomLedLightSettings: { brightness: 0, color: null, whiteBalance: -1.0 },
+        };
+        stubAxiosSequence([
+            { status: 200, data: CAMERAS_GEN2_ONLY },
+            { status: 200, data: updatedLighting }, // PUT /lighting/switch response
+        ]);
+        const { db, adapter } = createAdapterWithMocks(CAMERAS_GEN2_ONLY);
+        await bootWithTokens(db, adapter);
+
+        const fliId = `${adapter.namespace}.cameras.${CAM_GEN2}.front_light_intensity`;
+        await adapter.stateChangeHandler!(fliId, { val: 60, ack: false, ts: Date.now(), lc: Date.now(), from: "user" });
+
+        const state = db.getState(fliId) as ioBroker.State | null;
+        expect(state?.val).to.equal(60);
+        expect(state?.ack).to.equal(true);
+    });
+
+    it("front_light_intensity: Gen1 camera — throws (not supported), adapter stays alive", async () => {
+        // Regression: front_light_intensity is Gen2+featureLight only; Gen1 must be rejected
+        // without crashing the adapter (mirrors wallwasher_brightness Gen1 guard).
+        stubAxiosSequence([{ status: 200, data: CAMERAS_BOTH }]);
+        const { db, adapter } = createAdapterWithMocks(CAMERAS_BOTH);
+        await bootWithTokens(db, adapter);
+
+        const fliId = `${adapter.namespace}.cameras.${CAM_GEN1}.front_light_intensity`;
+        await adapter.stateChangeHandler!(fliId, { val: 50, ack: false, ts: Date.now(), lc: Date.now(), from: "user" });
+
+        expect(getStateVal(db, adapter, "info.connection")).to.equal(true);
+    });
+
+    it("front_light_intensity: Gen2 camera sets frontLightSettings.brightness while wallwasher groups stay unchanged", async () => {
+        // Regression: buildFrontLightUpdate must only change frontLightSettings.brightness;
+        // topLedLightSettings and bottomLedLightSettings must be passed through unchanged
+        // from the cache (prevents accidental wallwasher brightness reset on front-light writes).
+        const cachedState = {
+            frontLightSettings: { brightness: 0, color: null, whiteBalance: -1.0 },
+            topLedLightSettings: { brightness: 80, color: "#FF0000", whiteBalance: null },
+            bottomLedLightSettings: { brightness: 80, color: "#FF0000", whiteBalance: null },
+        };
+        const updatedLighting = {
+            frontLightSettings: { brightness: 75, color: null, whiteBalance: -1.0 },
+            topLedLightSettings: { brightness: 80, color: "#FF0000", whiteBalance: null },
+            bottomLedLightSettings: { brightness: 80, color: "#FF0000", whiteBalance: null },
+        };
+        stubAxiosSequence([
+            { status: 200, data: CAMERAS_GEN2_ONLY },
+            { status: 200, data: cachedState }, // wallwasher_brightness write seeds cache
+            { status: 200, data: updatedLighting }, // front_light_intensity PUT
+        ]);
+        const { db, adapter } = createAdapterWithMocks(CAMERAS_GEN2_ONLY);
+        await bootWithTokens(db, adapter);
+
+        // Seed the cache by issuing a wallwasher write first
+        const wbId = `${adapter.namespace}.cameras.${CAM_GEN2}.wallwasher_brightness`;
+        await adapter.stateChangeHandler!(wbId, { val: 80, ack: false, ts: Date.now(), lc: Date.now(), from: "user" });
+
+        // Now set front light intensity — wallwasher groups must not be zeroed out
+        const fliId = `${adapter.namespace}.cameras.${CAM_GEN2}.front_light_intensity`;
+        await adapter.stateChangeHandler!(fliId, { val: 75, ack: false, ts: Date.now(), lc: Date.now(), from: "user" });
+
+        const fliState = db.getState(fliId) as ioBroker.State | null;
+        expect(fliState?.val).to.equal(75);
+        expect(fliState?.ack).to.equal(true);
+
+        // wallwasher_brightness must still reflect its value (80 from cachedState)
+        const wbState = db.getState(wbId) as ioBroker.State | null;
+        expect(wbState?.val).to.equal(80);
+    });
 });

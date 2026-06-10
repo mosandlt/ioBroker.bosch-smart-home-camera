@@ -1,288 +1,289 @@
 {
-  "common": {
-    "name": "bosch-smart-home-camera",
-    "version": "1.3.0",
-    "news": {
-      "1.3.0": {
-        "en": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
-        "de": "Neues vis-2-Kamera-Widget (React): Live-Video über den lokalen Proxy (MJPEG), Near-Live-Snapshot und go2rtc-WebRTC-Modus, Steuerung im iOS/Android-Stil (Privatsphäre, Livestream, Licht, Snapshot, Schwenken, Sirene) mit Privatsphäre-Gating, Vollbild und klarer Offline-Anzeige. Fix: RTSP-Proxy bleibt aktiv, wenn der Livestream während eines Snapshots startet.",
-        "ru": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
-        "pt": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
-        "nl": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
-        "fr": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
-        "it": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
-        "es": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
-        "pl": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
-        "uk": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
-        "zh-cn": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot."
-      },
-      "1.2.7": {
-        "en": "New read-only datapoints stream_host, stream_port and stream_path per camera split the live-stream URL into separate fields, so the generic RTSP camera type in the ioBroker.cameras adapter can be filled in field by field without splitting the URL by hand.",
-        "de": "Neue schreibgeschützte Datenpunkte stream_host, stream_port und stream_path je Kamera teilen die Livestream-URL in einzelne Felder auf, sodass der generische RTSP-Kameratyp im Adapter ioBroker.cameras Feld für Feld befüllt werden kann, ohne die URL von Hand zu zerlegen.",
-        "ru": "Новые точки данных только для чтения stream_host, stream_port и stream_path для каждой камеры разделяют URL-адрес прямой трансляции на отдельные поля, поэтому универсальную RTSP-камеру в адаптере ioBroker.cameras можно заполнять поле за полем, не разбивая URL-адрес вручную.",
-        "pt": "Novos pontos de dados somente leitura stream_host, stream_port e stream_path por câmera dividem o URL da transmissão ao vivo em campos separados, para que a câmera RTSP genérica do adaptador ioBroker.cameras possa ser preenchida campo a campo, sem dividir o URL manualmente.",
-        "nl": "Nieuwe alleen-lezen datapunten stream_host, stream_port en stream_path per camera splitsen de livestream-URL in afzonderlijke velden, zodat het generieke RTSP-cameratype in de ioBroker.cameras-adapter veld voor veld kan worden ingevuld zonder de URL handmatig te splitsen.",
-        "fr": "De nouveaux points de données en lecture seule stream_host, stream_port et stream_path par caméra divisent l'URL du flux en direct en champs distincts, afin que la caméra RTSP générique de l'adaptateur ioBroker.cameras puisse être remplie champ par champ sans découper l'URL à la main.",
-        "it": "Nuovi datapoint di sola lettura stream_host, stream_port e stream_path per ogni telecamera dividono l'URL del live streaming in campi separati, così la telecamera RTSP generica nell'adattatore ioBroker.cameras può essere compilata campo per campo senza dividere l'URL a mano.",
-        "es": "Nuevos puntos de datos de solo lectura stream_host, stream_port y stream_path por cámara dividen la URL de la transmisión en directo en campos separados, de modo que la cámara RTSP genérica del adaptador ioBroker.cameras se puede rellenar campo por campo sin dividir la URL a mano.",
-        "pl": "Nowe punkty danych tylko do odczytu stream_host, stream_port i stream_path dla każdej kamery dzielą adres URL transmisji na żywo na osobne pola, dzięki czemu ogólny typ kamery RTSP w adapterze ioBroker.cameras można wypełniać pole po polu, bez ręcznego dzielenia adresu URL.",
-        "uk": "Нові точки даних лише для читання stream_host, stream_port і stream_path для кожної камери розділяють URL-адресу прямої трансляції на окремі поля, тож загальний тип RTSP-камери в адаптері ioBroker.cameras можна заповнювати поле за полем, не розбиваючи URL-адресу вручну.",
-        "zh-cn": "每个摄像头新增只读数据点 stream_host、stream_port 和 stream_path，将实时流 URL 拆分为独立字段，因此 ioBroker.cameras 适配器中的通用 RTSP 摄像头类型可以逐个字段填写，无需手动拆分 URL。"
-      },
-      "1.2.6": {
-        "en": "Fixed invalid object roles flagged by the repository object-structure check (E1008/E1009). Affected status, timestamp, select, JSON, signal and pan states now use catalogue-valid roles; a one-time automatic migration corrects existing installations.",
-        "de": "Ungültige Objekt-Rollen behoben, die der Objektstruktur-Check des Repositorys meldete (E1008/E1009). Betroffene Status-, Zeitstempel-, Auswahl-, JSON-, Signal- und Schwenk-States nutzen jetzt katalog-gültige Rollen; eine einmalige Migration korrigiert bestehende Installationen.",
-        "ru": "Исправлены недопустимые роли объектов, отмеченные проверкой структуры объектов репозитория (E1008/E1009). Затронутые состояния, метка времени, выбор, JSON, сигналы и состояния панорамирования теперь используют роли, действительные в каталоге; однократная автоматическая миграция исправляет существующие установки.",
-        "pt": "Foram corrigidas funções de objeto inválidas sinalizadas pela verificação da estrutura do objeto do repositório (E1008/E1009). Status afetados, carimbo de data/hora, seleção, JSON, sinal e estados panorâmicos agora usam funções válidas de catálogo; uma migração automática única corrige as instalações existentes.",
-        "nl": "Probleem opgelost met ongeldige objectrollen die werden gemarkeerd door de objectstructuurcontrole in de repository (E1008/E1009). Beïnvloede status-, tijdstempel-, selectie-, JSON-, signaal- en pan-statussen gebruiken nu catalogusgeldige rollen; een eenmalige automatische migratie corrigeert bestaande installaties.",
-        "fr": "Correction des rôles d'objet non valides signalés par la vérification de la structure des objets du référentiel (E1008/E1009). Les états d'état, d'horodatage, de sélection, JSON, de signal et de panoramique concernés utilisent désormais des rôles valides dans le catalogue ; une migration automatique unique corrige les installations existantes.",
-        "it": "Risolti i ruoli degli oggetti non validi contrassegnati dal controllo della struttura degli oggetti del repository (E1008/E1009). Gli stati interessati, timestamp, selezione, JSON, segnale e panoramica ora utilizzano ruoli validi nel catalogo; una migrazione automatica una tantum corregge le installazioni esistenti.",
-        "es": "Se corrigieron roles de objetos no válidos marcados por la verificación de la estructura de objetos del repositorio (E1008/E1009). Los estados afectados de estado, marca de tiempo, selección, JSON, señal y panorámica ahora usan roles válidos para el catálogo; una migración automática única corrige las instalaciones existentes.",
-        "pl": "Naprawiono nieprawidłowe role obiektów oznaczone przez kontrolę struktury obiektu repozytorium (E1008/E1009). Stany statusu, sygnatury czasowej, wyboru, JSON, sygnału i panoramy, których to dotyczy, korzystają teraz z ról ważnych w katalogu; jednorazowa automatyczna migracja koryguje istniejące instalacje.",
-        "uk": "Виправлено недійсні ролі об’єктів, позначені перевіркою об’єктної структури сховища (E1008/E1009). Уражені стани статусу, мітки часу, вибору, JSON, стану сигналу та панорами тепер використовують дійсні ролі каталогу; одноразова автоматична міграція виправляє наявні установки.",
-        "zh-cn": "修复了存储库对象结构检查标记的无效对象角色 (E1008/E1009)。受影响的状态、时间戳、选择、JSON、信号和平移状态现在使用目录有效角色；一次性自动迁移可纠正现有安装。"
-      },
-      "1.2.5": {
-        "en": "Streaming setup is easier to discover. The livestream is opt-in (off by default), so stream_url stays empty and go2rtc reports \"connection refused\" until you set livestream_enabled=true. A startup hint, a clearer stream_url name and a new README section now explain this.",
-        "de": "Streaming-Einrichtung ist leichter auffindbar. Der Livestream ist opt-in (standardmäßig aus), daher bleibt stream_url leer und go2rtc meldet \"connection refused\" bis livestream_enabled=true gesetzt ist. Ein Start-Hinweis, ein klarerer stream_url-Name und ein neuer README-Abschnitt erklären das.",
-        "ru": "Настройку потоковой передачи легче обнаружить. Прямая трансляция включена (по умолчанию отключена), поэтомуstream_url остается пустым, а go2rtc сообщает «отказано в соединении», пока вы не установите livestream_enabled=true. Теперь это объясняется подсказкой при запуске, более понятным именемstream_url и новым разделом README.",
-        "pt": "A configuração de streaming é mais fácil de descobrir. A transmissão ao vivo é opcional (desativada por padrão), então stream_url permanece vazio e go2rtc informa \"conexão recusada\" até que você defina livestream_enabled=true. Uma dica de inicialização, um nome stream_url mais claro e uma nova seção README agora explicam isso.",
-        "nl": "Streaming-instellingen zijn gemakkelijker te ontdekken. De livestream is opt-in (standaard uitgeschakeld), dus stream_url blijft leeg en go2rtc rapporteert \"verbinding geweigerd\" totdat je livestream_enabled=true instelt. Een opstarthint, een duidelijkere stream_url-naam en een nieuwe README-sectie leggen dit nu uit.",
-        "fr": "La configuration du streaming est plus facile à découvrir. Le livestream est opt-in (désactivé par défaut), donc stream_url reste vide et go2rtc signale \"connexion refusée\" jusqu'à ce que vous définissiez livestream_enabled=true. Un indice de démarrage, un nom stream_url plus clair et une nouvelle section README expliquent désormais cela.",
-        "it": "La configurazione dello streaming è più facile da scoprire. Il livestream è attivabile (disattivato per impostazione predefinita), quindi stream_url rimane vuoto e go2rtc segnala \"connessione rifiutata\" finché non imposti livestream_enabled=true. Un suggerimento di avvio, un nome stream_url più chiaro e una nuova sezione README ora lo spiegano.",
-        "es": "La configuración de transmisión es más fácil de descubrir. La transmisión en vivo está habilitada (desactivada de forma predeterminada), por lo que stream_url permanece vacío y go2rtc informa \"conexión rechazada\" hasta que establezca livestream_enabled=true. Una pista de inicio, un nombre stream_url más claro y una nueva sección README ahora explican esto.",
-        "pl": "Konfiguracja przesyłania strumieniowego jest łatwiejsza do odkrycia. Transmisja na żywo jest opcjonalna (domyślnie wyłączona), więc stream_url pozostaje pusty, a go2rtc zgłasza „odmowę połączenia”, dopóki nie ustawisz livestream_enabled=true. Wyjaśniają to teraz wskazówka dotycząca uruchamiania, wyraźniejsza nazwa adresu URL strumienia i nowa sekcja README.",
-        "uk": "Простіше виявити налаштування потокового передавання. Прямий ефір доступний (за замовчуванням вимкнено), тому stream_url залишається порожнім, а go2rtc повідомляє про «підключення відмовлено», доки ви не встановите livestream_enabled=true. Підказка щодо запуску, зрозуміліша назва stream_url і новий розділ README тепер пояснюють це.",
-        "zh-cn": "流媒体设置更容易发现。直播是选择加入的（默认情况下关闭），因此在您设置 livestream_enabled=true 之前，stream_url 保持为空并且 go2rtc 报告“连接被拒绝”。现在，启动提示、更清晰的stream_url 名称和新的自述文件部分对此进行了解释。"
-      },
-      "1.2.4": {
-        "en": "Adapter icon: the blue placeholder is replaced with the real red Bosch camera logo. It had shown as a plain blue tile in the ioBroker admin and in the adapter catalogue.",
-        "de": "Adapter-Icon: Der blaue Platzhalter wurde durch das echte rote Bosch-Kameralogo ersetzt. Es erschien im ioBroker-Admin und im Adapter-Katalog als einfarbig blaue Kachel.",
-        "ru": "Значок адаптера: синий заполнитель заменен настоящим красным логотипом камеры Bosch. В админке ioBroker и в каталоге адаптеров он отображался как простая синяя плитка.",
-        "pt": "Ícone do adaptador: o espaço reservado azul é substituído pelo logotipo vermelho real da câmera Bosch. Ele apareceu como um bloco azul simples no administrador do ioBroker e no catálogo do adaptador.",
-        "nl": "Adapterpictogram: de blauwe tijdelijke aanduiding is vervangen door het echte rode Bosch-cameralogo. Het werd als een effen blauwe tegel weergegeven in de ioBroker-beheerder en in de adaptercatalogus.",
-        "fr": "Icône de l'adaptateur : l'espace réservé bleu est remplacé par le véritable logo rouge de la caméra Bosch. Il était affiché sous la forme d'une vignette bleue unie dans l'administrateur ioBroker et dans le catalogue de l'adaptateur.",
-        "it": "Icona dell'adattatore: il segnaposto blu viene sostituito dal vero logo rosso della fotocamera Bosch. Era mostrato come un semplice riquadro blu nell'amministratore di ioBroker e nel catalogo dell'adattatore.",
-        "es": "Icono del adaptador: el marcador de posición azul se reemplaza por el logotipo rojo real de la cámara Bosch. Se mostraba como un mosaico azul en el administrador de ioBroker y en el catálogo de adaptadores.",
-        "pl": "Ikona adaptera: niebieski symbol zastępczy zostaje zastąpiony prawdziwym czerwonym logo aparatu Bosch. Pokazywał się jako zwykły niebieski kafelek w panelu administracyjnym ioBroker oraz w katalogu adapterów.",
-        "uk": "Піктограма адаптера: синій заповнювач замінено справжнім червоним логотипом камери Bosch. Він відображався як проста синя плитка в адміністраторі ioBroker і в каталозі адаптера.",
-        "zh-cn": "适配器图标：蓝色占位符替换为真正的红色博世相机徽标。它在 ioBroker 管理和适配器目录中显示为纯蓝色磁贴。"
-      },
-      "1.2.3": {
-        "en": "Less session-quota log noise: a camera sharing Bosch's 3-session limit now warns once per 5-min window (not every 60s) for HTTP 444 and pauses retries after 5 attempts. Snapshots right after motion get an extra retry.",
-        "de": "Weniger Session-Quota-Log-Rauschen: eine Kamera am Boschs 3-Session-Limit warnt bei HTTP 444 nur noch einmal pro 5-Minuten-Fenster (statt alle 60s) und pausiert Retries nach 5 Versuchen. Snapshots direkt nach Bewegung bekommen einen zusätzlichen Retry.",
-        "ru": "Меньше шума в журнале квоты сеансов: камера, использующая ограничение Bosch на три сеанса, теперь предупреждает один раз за 5-минутное окно (а не каждые 60 секунд) для HTTP 444 и приостанавливает повторные попытки после 5 попыток. Снимки сразу после движения получают дополнительную повторную попытку.",
-        "pt": "Menos ruído de registro de cota de sessão: uma câmera que compartilha o limite de 3 sessões da Bosch agora avisa uma vez a cada janela de 5 minutos (não a cada 60 segundos) para HTTP 444 e pausa novas tentativas após 5 tentativas. Os instantâneos logo após o movimento recebem uma nova tentativa.",
-        "nl": "Minder logboekruis bij sessiequota: een camera die de limiet van drie sessies van Bosch deelt, waarschuwt nu eenmaal per periode van 5 minuten (niet elke 60 seconden) voor HTTP 444 en pauzeert nieuwe pogingen na vijf pogingen. Snapshots direct na beweging krijgen een extra poging.",
-        "fr": "Moins de bruit de journalisation du quota de session : une caméra partageant la limite de 3 sessions de Bosch avertit désormais une fois toutes les 5 minutes (et non toutes les 60 s) pour HTTP 444 et met en pause les tentatives après 5 tentatives. Les instantanés juste après le mouvement font l'objet d'une nouvelle tentative.",
-        "it": "Meno rumore nel registro delle quote di sessione: una fotocamera che condivide il limite di 3 sessioni di Bosch ora avvisa una volta ogni 5 minuti (non ogni 60 secondi) per HTTP 444 e mette in pausa i tentativi dopo 5 tentativi. Le istantanee subito dopo il movimento ricevono un ulteriore tentativo.",
-        "es": "Menos ruido de registro de cuota de sesión: una cámara que comparte el límite de 3 sesiones de Bosch ahora advierte una vez cada ventana de 5 minutos (no cada 60 segundos) para HTTP 444 y detiene los reintentos después de 5 intentos. Las instantáneas inmediatamente después del movimiento obtienen un reintento adicional.",
-        "pl": "Mniej szumów w dziennikach przydziałów sesji: kamera korzystająca z limitu 3 sesji firmy Bosch ostrzega teraz raz na 5 minut (nie co 60 s) w przypadku protokołu HTTP 444 i wstrzymuje ponowne próby po 5 próbach. Migawki zaraz po wykryciu ruchu podlegają dodatkowej próbie.",
-        "uk": "Менше шуму в журналі квоти сеансу: камера, яка використовує обмеження Bosch на 3 сеанси, тепер попереджає один раз за 5-хвилинне вікно (а не кожні 60 секунд) для HTTP 444 і призупиняє повторні спроби після 5 спроб. Миттєві знімки одразу після руху отримують додаткову повторну спробу.",
-        "zh-cn": "减少会话配额日志噪音：共享博世 3 会话限制的摄像机现在每 5 分钟窗口（不是每 60 秒）针对 HTTP 444 发出警告，并在 5 次尝试后暂停重试。运动后立即拍摄的快照会获得额外的重试次数。"
-      },
-      "1.2.2": {
-        "en": "Quieter logs + HA parity: privacy-mode HTTP 442 is no longer logged as a failure, MJPEG and first-snapshot soft-failures moved to debug, an empty snapshot right after motion now retries, no more setTimeout-during-shutdown warnings, and the poll interval matches Home Assistant (60s).",
-        "de": "Ruhigere Logs + HA-Parität: Privacy-HTTP-442 wird nicht mehr als Fehler geloggt, MJPEG- und Erst-Snapshot-Soft-Fehler als debug, ein leerer Snapshot direkt nach Bewegung wird wiederholt, keine setTimeout-Shutdown-Warnungen mehr, und das Poll-Intervall entspricht Home Assistant (60s).",
-        "ru": "Более тихие журналы + четность высокой доступности: HTTP 442 в режиме конфиденциальности больше не регистрируется как сбой, программные сбои MJPEG и первого снимка перенесены в отладку, пустой снимок сразу после движения теперь повторяется, больше нет предупреждений setTimeout-во время выключения, а интервал опроса соответствует Home Assistant (60 с).",
-        "pt": "Logs mais silenciosos + paridade HA: o modo de privacidade HTTP 442 não é mais registrado como uma falha, as falhas suaves do MJPEG e do primeiro instantâneo foram movidas para depuração, um instantâneo vazio logo após o movimento agora é repetido, não há mais avisos de setTimeout durante o desligamento e o intervalo de pesquisa corresponde ao Home Assistant (60s).",
-        "nl": "Stillere logs + HA-pariteit: HTTP 442 in de privacymodus wordt niet langer geregistreerd als een fout, MJPEG en zachte fouten bij de eerste momentopname zijn verplaatst naar debuggen, een lege momentopname direct na beweging wordt nu opnieuw geprobeerd, geen setTimeout-tijdens-afsluiten-waarschuwingen meer en het poll-interval komt overeen met Home Assistant (60s).",
-        "fr": "Journaux plus silencieux + parité HA : le HTTP 442 en mode confidentialité n'est plus enregistré comme un échec, les échecs logiciels MJPEG et du premier instantané ont été déplacés vers le débogage, un instantané vide juste après le mouvement réessaye maintenant, plus d'avertissements setTimeout-during-shutdown et l'intervalle d'interrogation correspond à Home Assistant (60 s).",
-        "it": "Registri più silenziosi + parità HA: HTTP 442 in modalità privacy non viene più registrato come errore, MJPEG e gli errori soft del primo snapshot sono stati spostati nel debug, uno snapshot vuoto subito dopo il movimento ora riprova, non sono più presenti avvisi setTimeout durante lo spegnimento e l'intervallo di poll corrisponde a Home Assistant (60 secondi).",
-        "es": "Registros más silenciosos + paridad HA: el modo de privacidad HTTP 442 ya no se registra como una falla, MJPEG y las fallas suaves de la primera instantánea se movieron a depuración, ahora se reintenta una instantánea vacía justo después del movimiento, no más advertencias de setTimeout-during-shutdown y el intervalo de sondeo coincide con Home Assistant (60 s).",
-        "pl": "Cichsze dzienniki + parzystość HA: tryb prywatności HTTP 442 nie jest już rejestrowany jako awaria, błędy programowe MJPEG i pierwszej migawki zostały przeniesione do debugowania, pusta migawka zaraz po ponownym uruchomieniu ruchu, koniec z ostrzeżeniami setTimeout-podczas zamykania, a interwał sondowania jest zgodny z Home Assistant (60s).",
-        "uk": "Тихіше журнали + паритет високої доступності: HTTP 442 у режимі конфіденційності більше не реєструється як збій, MJPEG і програмні помилки першого знімка переміщено до налагодження, порожній знімок відразу після руху тепер повторюється, більше немає попереджень setTimeout-during-shutdown, а інтервал опитування відповідає Home Assistant (60 с).",
-        "zh-cn": "更安静的日志 + HA 奇偶校验：隐私模式 HTTP 442 不再记录为故障，MJPEG 和第一个快照软故障移至调试，运动后立即重试的空快照，不再出现 setTimeout-during-shutdown 警告，并且轮询间隔与 Home Assistant 匹配（60 秒）。"
-      }
+    "common": {
+        "name": "bosch-smart-home-camera",
+        "version": "1.4.0",
+        "news": {
+            "1.4.0": {
+                "en": "New 'Bosch Camera Overview' grid widget. The camera card now matches the Home Assistant card: go2rtc video, audio, zoom, full controls. Privacy cameras show online correctly, no broken-image flash leaving privacy, and indoor tiles auto-refresh their snapshot.",
+                "de": "Neues Widget 'Bosch Kamera-Übersicht' (Raster aller Kameras). Die Kamera-Karte entspricht jetzt der Home-Assistant-Karte: go2rtc-Video, Ton, Zoom, volle Steuerung. Privatsphäre-Kameras werden korrekt als online angezeigt, kein Fehlerbild beim Verlassen des Privatmodus, Innenkameras aktualisieren ihr Bild automatisch.",
+                "ru": "Новый виджет сетки «Обзор камеры Bosch». Карта камеры теперь соответствует карте Home Assistant: видео go2rtc, звук, масштабирование, полный контроль. Камеры конфиденциальности отображают онлайн правильно, вспышка не нарушает конфиденциальность изображения, а внутренние плитки автоматически обновляют свои снимки.",
+                "pt": "Novo widget de grade 'Visão geral da câmera Bosch'. O cartão da câmera agora corresponde ao cartão do Home Assistant: vídeo go2rtc, áudio, zoom, controles completos. As câmeras de privacidade são exibidas on-line corretamente, nenhum flash de imagem quebrada deixa a privacidade e os blocos internos atualizam automaticamente seu instantâneo.",
+                "nl": "Nieuwe rasterwidget 'Bosch Camera Overzicht'. De camerakaart komt nu overeen met de Home Assistant-kaart: go2rtc video, audio, zoom, volledige bediening. Privacycamera's geven online correct weer, er is geen flits van gebroken beelden die de privacy verlaten, en binnentegels vernieuwen hun momentopname automatisch.",
+                "fr": "Nouveau widget de grille « Présentation de la caméra Bosch ». La carte caméra correspond désormais à la carte Home Assistant : vidéo go2rtc, audio, zoom, commandes complètes. Les caméras de confidentialité s'affichent correctement en ligne, aucun flash d'image brisé ne laisse la vie privée et les tuiles intérieures actualisent automatiquement leur instantané.",
+                "it": "Nuovo widget griglia \"Panoramica fotocamera Bosch\". La scheda della fotocamera ora corrisponde alla scheda Home Assistant: video go2rtc, audio, zoom, controlli completi. Le telecamere per la privacy vengono visualizzate online correttamente, nessun flash di immagini interrotte lascia la privacy e i riquadri interni aggiornano automaticamente l'istantanea.",
+                "es": "Nuevo widget de cuadrícula 'Descripción general de la cámara Bosch'. La tarjeta de la cámara ahora coincide con la tarjeta Home Assistant: video go2rtc, audio, zoom, controles completos. Las cámaras de privacidad se muestran en línea correctamente, ningún flash de imagen rota deja privacidad y los mosaicos interiores actualizan automáticamente su instantánea.",
+                "pl": "Nowy widżet siatki „Przegląd kamer Bosch”. Karta kamery jest teraz zgodna z kartą Home Assistant: wideo, audio, zoom, pełne sterowanie go2rtc. Kamery chroniące prywatność wyświetlają się prawidłowo w Internecie, żadna lampa błyskowa nie zakłóca prywatności, a płytki wewnętrzne automatycznie odświeżają migawkę.",
+                "uk": "Новий віджет «Огляд камери Bosch». Картка камери тепер відповідає картці Home Assistant: відео go2rtc, аудіо, масштабування, повне керування. Камери конфіденційності показують онлайн правильно, спалах зіпсованого зображення не залишає конфіденційності, а внутрішні плитки автоматично оновлюють свій знімок.",
+                "zh-cn": "新的“博世相机概述”网格小部件。相机卡现在与家庭助理卡匹配：go2rtc 视频、音频、缩放、完全控制。隐私摄像头可以正确在线显示，没有损坏图像的闪光灯会留下隐私，并且室内瓷砖会自动刷新其快照。"
+            },
+            "1.3.0": {
+                "en": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+                "de": "Neues vis-2-Kamera-Widget (React): Live-Video über den lokalen Proxy (MJPEG), Near-Live-Snapshot und go2rtc-WebRTC-Modus, Steuerung im iOS/Android-Stil (Privatsphäre, Livestream, Licht, Snapshot, Schwenken, Sirene) mit Privatsphäre-Gating, Vollbild und klarer Offline-Anzeige. Fix: RTSP-Proxy bleibt aktiv, wenn der Livestream während eines Snapshots startet.",
+                "ru": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+                "pt": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+                "nl": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+                "fr": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+                "it": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+                "es": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+                "pl": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+                "uk": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot.",
+                "zh-cn": "New vis-2 camera widget (React): live video via the local proxy (MJPEG), near-live snapshot and go2rtc WebRTC modes, iOS/Android-style controls (privacy, livestream, light, snapshot, pan, siren) with privacy gating, fullscreen and a clear offline state. Fix: RTSP proxy stays alive when the livestream starts during a snapshot."
+            },
+            "1.2.7": {
+                "en": "New read-only datapoints stream_host, stream_port and stream_path per camera split the live-stream URL into separate fields, so the generic RTSP camera type in the ioBroker.cameras adapter can be filled in field by field without splitting the URL by hand.",
+                "de": "Neue schreibgeschützte Datenpunkte stream_host, stream_port und stream_path je Kamera teilen die Livestream-URL in einzelne Felder auf, sodass der generische RTSP-Kameratyp im Adapter ioBroker.cameras Feld für Feld befüllt werden kann, ohne die URL von Hand zu zerlegen.",
+                "ru": "Новые точки данных только для чтения stream_host, stream_port и stream_path для каждой камеры разделяют URL-адрес прямой трансляции на отдельные поля, поэтому универсальную RTSP-камеру в адаптере ioBroker.cameras можно заполнять поле за полем, не разбивая URL-адрес вручную.",
+                "pt": "Novos pontos de dados somente leitura stream_host, stream_port e stream_path por câmera dividem o URL da transmissão ao vivo em campos separados, para que a câmera RTSP genérica do adaptador ioBroker.cameras possa ser preenchida campo a campo, sem dividir o URL manualmente.",
+                "nl": "Nieuwe alleen-lezen datapunten stream_host, stream_port en stream_path per camera splitsen de livestream-URL in afzonderlijke velden, zodat het generieke RTSP-cameratype in de ioBroker.cameras-adapter veld voor veld kan worden ingevuld zonder de URL handmatig te splitsen.",
+                "fr": "De nouveaux points de données en lecture seule stream_host, stream_port et stream_path par caméra divisent l'URL du flux en direct en champs distincts, afin que la caméra RTSP générique de l'adaptateur ioBroker.cameras puisse être remplie champ par champ sans découper l'URL à la main.",
+                "it": "Nuovi datapoint di sola lettura stream_host, stream_port e stream_path per ogni telecamera dividono l'URL del live streaming in campi separati, così la telecamera RTSP generica nell'adattatore ioBroker.cameras può essere compilata campo per campo senza dividere l'URL a mano.",
+                "es": "Nuevos puntos de datos de solo lectura stream_host, stream_port y stream_path por cámara dividen la URL de la transmisión en directo en campos separados, de modo que la cámara RTSP genérica del adaptador ioBroker.cameras se puede rellenar campo por campo sin dividir la URL a mano.",
+                "pl": "Nowe punkty danych tylko do odczytu stream_host, stream_port i stream_path dla każdej kamery dzielą adres URL transmisji na żywo na osobne pola, dzięki czemu ogólny typ kamery RTSP w adapterze ioBroker.cameras można wypełniać pole po polu, bez ręcznego dzielenia adresu URL.",
+                "uk": "Нові точки даних лише для читання stream_host, stream_port і stream_path для кожної камери розділяють URL-адресу прямої трансляції на окремі поля, тож загальний тип RTSP-камери в адаптері ioBroker.cameras можна заповнювати поле за полем, не розбиваючи URL-адресу вручну.",
+                "zh-cn": "每个摄像头新增只读数据点 stream_host、stream_port 和 stream_path，将实时流 URL 拆分为独立字段，因此 ioBroker.cameras 适配器中的通用 RTSP 摄像头类型可以逐个字段填写，无需手动拆分 URL。"
+            },
+            "1.2.6": {
+                "en": "Fixed invalid object roles flagged by the repository object-structure check (E1008/E1009). Affected status, timestamp, select, JSON, signal and pan states now use catalogue-valid roles; a one-time automatic migration corrects existing installations.",
+                "de": "Ungültige Objekt-Rollen behoben, die der Objektstruktur-Check des Repositorys meldete (E1008/E1009). Betroffene Status-, Zeitstempel-, Auswahl-, JSON-, Signal- und Schwenk-States nutzen jetzt katalog-gültige Rollen; eine einmalige Migration korrigiert bestehende Installationen.",
+                "ru": "Исправлены недопустимые роли объектов, отмеченные проверкой структуры объектов репозитория (E1008/E1009). Затронутые состояния, метка времени, выбор, JSON, сигналы и состояния панорамирования теперь используют роли, действительные в каталоге; однократная автоматическая миграция исправляет существующие установки.",
+                "pt": "Foram corrigidas funções de objeto inválidas sinalizadas pela verificação da estrutura do objeto do repositório (E1008/E1009). Status afetados, carimbo de data/hora, seleção, JSON, sinal e estados panorâmicos agora usam funções válidas de catálogo; uma migração automática única corrige as instalações existentes.",
+                "nl": "Probleem opgelost met ongeldige objectrollen die werden gemarkeerd door de objectstructuurcontrole in de repository (E1008/E1009). Beïnvloede status-, tijdstempel-, selectie-, JSON-, signaal- en pan-statussen gebruiken nu catalogusgeldige rollen; een eenmalige automatische migratie corrigeert bestaande installaties.",
+                "fr": "Correction des rôles d'objet non valides signalés par la vérification de la structure des objets du référentiel (E1008/E1009). Les états d'état, d'horodatage, de sélection, JSON, de signal et de panoramique concernés utilisent désormais des rôles valides dans le catalogue ; une migration automatique unique corrige les installations existantes.",
+                "it": "Risolti i ruoli degli oggetti non validi contrassegnati dal controllo della struttura degli oggetti del repository (E1008/E1009). Gli stati interessati, timestamp, selezione, JSON, segnale e panoramica ora utilizzano ruoli validi nel catalogo; una migrazione automatica una tantum corregge le installazioni esistenti.",
+                "es": "Se corrigieron roles de objetos no válidos marcados por la verificación de la estructura de objetos del repositorio (E1008/E1009). Los estados afectados de estado, marca de tiempo, selección, JSON, señal y panorámica ahora usan roles válidos para el catálogo; una migración automática única corrige las instalaciones existentes.",
+                "pl": "Naprawiono nieprawidłowe role obiektów oznaczone przez kontrolę struktury obiektu repozytorium (E1008/E1009). Stany statusu, sygnatury czasowej, wyboru, JSON, sygnału i panoramy, których to dotyczy, korzystają teraz z ról ważnych w katalogu; jednorazowa automatyczna migracja koryguje istniejące instalacje.",
+                "uk": "Виправлено недійсні ролі об’єктів, позначені перевіркою об’єктної структури сховища (E1008/E1009). Уражені стани статусу, мітки часу, вибору, JSON, стану сигналу та панорами тепер використовують дійсні ролі каталогу; одноразова автоматична міграція виправляє наявні установки.",
+                "zh-cn": "修复了存储库对象结构检查标记的无效对象角色 (E1008/E1009)。受影响的状态、时间戳、选择、JSON、信号和平移状态现在使用目录有效角色；一次性自动迁移可纠正现有安装。"
+            },
+            "1.2.5": {
+                "en": "Streaming setup is easier to discover. The livestream is opt-in (off by default), so stream_url stays empty and go2rtc reports \"connection refused\" until you set livestream_enabled=true. A startup hint, a clearer stream_url name and a new README section now explain this.",
+                "de": "Streaming-Einrichtung ist leichter auffindbar. Der Livestream ist opt-in (standardmäßig aus), daher bleibt stream_url leer und go2rtc meldet \"connection refused\" bis livestream_enabled=true gesetzt ist. Ein Start-Hinweis, ein klarerer stream_url-Name und ein neuer README-Abschnitt erklären das.",
+                "ru": "Настройку потоковой передачи легче обнаружить. Прямая трансляция включена (по умолчанию отключена), поэтомуstream_url остается пустым, а go2rtc сообщает «отказано в соединении», пока вы не установите livestream_enabled=true. Теперь это объясняется подсказкой при запуске, более понятным именемstream_url и новым разделом README.",
+                "pt": "A configuração de streaming é mais fácil de descobrir. A transmissão ao vivo é opcional (desativada por padrão), então stream_url permanece vazio e go2rtc informa \"conexão recusada\" até que você defina livestream_enabled=true. Uma dica de inicialização, um nome stream_url mais claro e uma nova seção README agora explicam isso.",
+                "nl": "Streaming-instellingen zijn gemakkelijker te ontdekken. De livestream is opt-in (standaard uitgeschakeld), dus stream_url blijft leeg en go2rtc rapporteert \"verbinding geweigerd\" totdat je livestream_enabled=true instelt. Een opstarthint, een duidelijkere stream_url-naam en een nieuwe README-sectie leggen dit nu uit.",
+                "fr": "La configuration du streaming est plus facile à découvrir. Le livestream est opt-in (désactivé par défaut), donc stream_url reste vide et go2rtc signale \"connexion refusée\" jusqu'à ce que vous définissiez livestream_enabled=true. Un indice de démarrage, un nom stream_url plus clair et une nouvelle section README expliquent désormais cela.",
+                "it": "La configurazione dello streaming è più facile da scoprire. Il livestream è attivabile (disattivato per impostazione predefinita), quindi stream_url rimane vuoto e go2rtc segnala \"connessione rifiutata\" finché non imposti livestream_enabled=true. Un suggerimento di avvio, un nome stream_url più chiaro e una nuova sezione README ora lo spiegano.",
+                "es": "La configuración de transmisión es más fácil de descubrir. La transmisión en vivo está habilitada (desactivada de forma predeterminada), por lo que stream_url permanece vacío y go2rtc informa \"conexión rechazada\" hasta que establezca livestream_enabled=true. Una pista de inicio, un nombre stream_url más claro y una nueva sección README ahora explican esto.",
+                "pl": "Konfiguracja przesyłania strumieniowego jest łatwiejsza do odkrycia. Transmisja na żywo jest opcjonalna (domyślnie wyłączona), więc stream_url pozostaje pusty, a go2rtc zgłasza „odmowę połączenia”, dopóki nie ustawisz livestream_enabled=true. Wyjaśniają to teraz wskazówka dotycząca uruchamiania, wyraźniejsza nazwa adresu URL strumienia i nowa sekcja README.",
+                "uk": "Простіше виявити налаштування потокового передавання. Прямий ефір доступний (за замовчуванням вимкнено), тому stream_url залишається порожнім, а go2rtc повідомляє про «підключення відмовлено», доки ви не встановите livestream_enabled=true. Підказка щодо запуску, зрозуміліша назва stream_url і новий розділ README тепер пояснюють це.",
+                "zh-cn": "流媒体设置更容易发现。直播是选择加入的（默认情况下关闭），因此在您设置 livestream_enabled=true 之前，stream_url 保持为空并且 go2rtc 报告“连接被拒绝”。现在，启动提示、更清晰的stream_url 名称和新的自述文件部分对此进行了解释。"
+            },
+            "1.2.4": {
+                "en": "Adapter icon: the blue placeholder is replaced with the real red Bosch camera logo. It had shown as a plain blue tile in the ioBroker admin and in the adapter catalogue.",
+                "de": "Adapter-Icon: Der blaue Platzhalter wurde durch das echte rote Bosch-Kameralogo ersetzt. Es erschien im ioBroker-Admin und im Adapter-Katalog als einfarbig blaue Kachel.",
+                "ru": "Значок адаптера: синий заполнитель заменен настоящим красным логотипом камеры Bosch. В админке ioBroker и в каталоге адаптеров он отображался как простая синяя плитка.",
+                "pt": "Ícone do adaptador: o espaço reservado azul é substituído pelo logotipo vermelho real da câmera Bosch. Ele apareceu como um bloco azul simples no administrador do ioBroker e no catálogo do adaptador.",
+                "nl": "Adapterpictogram: de blauwe tijdelijke aanduiding is vervangen door het echte rode Bosch-cameralogo. Het werd als een effen blauwe tegel weergegeven in de ioBroker-beheerder en in de adaptercatalogus.",
+                "fr": "Icône de l'adaptateur : l'espace réservé bleu est remplacé par le véritable logo rouge de la caméra Bosch. Il était affiché sous la forme d'une vignette bleue unie dans l'administrateur ioBroker et dans le catalogue de l'adaptateur.",
+                "it": "Icona dell'adattatore: il segnaposto blu viene sostituito dal vero logo rosso della fotocamera Bosch. Era mostrato come un semplice riquadro blu nell'amministratore di ioBroker e nel catalogo dell'adattatore.",
+                "es": "Icono del adaptador: el marcador de posición azul se reemplaza por el logotipo rojo real de la cámara Bosch. Se mostraba como un mosaico azul en el administrador de ioBroker y en el catálogo de adaptadores.",
+                "pl": "Ikona adaptera: niebieski symbol zastępczy zostaje zastąpiony prawdziwym czerwonym logo aparatu Bosch. Pokazywał się jako zwykły niebieski kafelek w panelu administracyjnym ioBroker oraz w katalogu adapterów.",
+                "uk": "Піктограма адаптера: синій заповнювач замінено справжнім червоним логотипом камери Bosch. Він відображався як проста синя плитка в адміністраторі ioBroker і в каталозі адаптера.",
+                "zh-cn": "适配器图标：蓝色占位符替换为真正的红色博世相机徽标。它在 ioBroker 管理和适配器目录中显示为纯蓝色磁贴。"
+            },
+            "1.2.3": {
+                "en": "Less session-quota log noise: a camera sharing Bosch's 3-session limit now warns once per 5-min window (not every 60s) for HTTP 444 and pauses retries after 5 attempts. Snapshots right after motion get an extra retry.",
+                "de": "Weniger Session-Quota-Log-Rauschen: eine Kamera am Boschs 3-Session-Limit warnt bei HTTP 444 nur noch einmal pro 5-Minuten-Fenster (statt alle 60s) und pausiert Retries nach 5 Versuchen. Snapshots direkt nach Bewegung bekommen einen zusätzlichen Retry.",
+                "ru": "Меньше шума в журнале квоты сеансов: камера, использующая ограничение Bosch на три сеанса, теперь предупреждает один раз за 5-минутное окно (а не каждые 60 секунд) для HTTP 444 и приостанавливает повторные попытки после 5 попыток. Снимки сразу после движения получают дополнительную повторную попытку.",
+                "pt": "Menos ruído de registro de cota de sessão: uma câmera que compartilha o limite de 3 sessões da Bosch agora avisa uma vez a cada janela de 5 minutos (não a cada 60 segundos) para HTTP 444 e pausa novas tentativas após 5 tentativas. Os instantâneos logo após o movimento recebem uma nova tentativa.",
+                "nl": "Minder logboekruis bij sessiequota: een camera die de limiet van drie sessies van Bosch deelt, waarschuwt nu eenmaal per periode van 5 minuten (niet elke 60 seconden) voor HTTP 444 en pauzeert nieuwe pogingen na vijf pogingen. Snapshots direct na beweging krijgen een extra poging.",
+                "fr": "Moins de bruit de journalisation du quota de session : une caméra partageant la limite de 3 sessions de Bosch avertit désormais une fois toutes les 5 minutes (et non toutes les 60 s) pour HTTP 444 et met en pause les tentatives après 5 tentatives. Les instantanés juste après le mouvement font l'objet d'une nouvelle tentative.",
+                "it": "Meno rumore nel registro delle quote di sessione: una fotocamera che condivide il limite di 3 sessioni di Bosch ora avvisa una volta ogni 5 minuti (non ogni 60 secondi) per HTTP 444 e mette in pausa i tentativi dopo 5 tentativi. Le istantanee subito dopo il movimento ricevono un ulteriore tentativo.",
+                "es": "Menos ruido de registro de cuota de sesión: una cámara que comparte el límite de 3 sesiones de Bosch ahora advierte una vez cada ventana de 5 minutos (no cada 60 segundos) para HTTP 444 y detiene los reintentos después de 5 intentos. Las instantáneas inmediatamente después del movimiento obtienen un reintento adicional.",
+                "pl": "Mniej szumów w dziennikach przydziałów sesji: kamera korzystająca z limitu 3 sesji firmy Bosch ostrzega teraz raz na 5 minut (nie co 60 s) w przypadku protokołu HTTP 444 i wstrzymuje ponowne próby po 5 próbach. Migawki zaraz po wykryciu ruchu podlegają dodatkowej próbie.",
+                "uk": "Менше шуму в журналі квоти сеансу: камера, яка використовує обмеження Bosch на 3 сеанси, тепер попереджає один раз за 5-хвилинне вікно (а не кожні 60 секунд) для HTTP 444 і призупиняє повторні спроби після 5 спроб. Миттєві знімки одразу після руху отримують додаткову повторну спробу.",
+                "zh-cn": "减少会话配额日志噪音：共享博世 3 会话限制的摄像机现在每 5 分钟窗口（不是每 60 秒）针对 HTTP 444 发出警告，并在 5 次尝试后暂停重试。运动后立即拍摄的快照会获得额外的重试次数。"
+            }
+        },
+        "titleLang": {
+            "en": "Bosch Smart Home Camera",
+            "de": "Bosch Smart Home Kamera",
+            "ru": "Камера Bosch Smart Home",
+            "pt": "Câmera Bosch Smart Home",
+            "nl": "Bosch Smart Home Camera",
+            "fr": "Caméra Bosch Smart Home",
+            "it": "Telecamera Bosch Smart Home",
+            "es": "Cámara Bosch Smart Home",
+            "pl": "Kamera Bosch Smart Home",
+            "uk": "Камера Bosch Smart Home",
+            "zh-cn": "博世智能家居摄像头"
+        },
+        "desc": {
+            "en": "Bosch Smart Home Camera (Eyes/360/Gen2) cloud-API integration",
+            "de": "Bosch Smart Home Kamera (Eyes/360/Gen2) Cloud-API-Integration",
+            "ru": "Интеграция облачного API камеры Bosch Smart Home (Eyes/360/Gen2)",
+            "pt": "Integração de API em nuvem da câmera Bosch Smart Home (Eyes/360/Gen2)",
+            "nl": "Bosch Smart Home Camera (Eyes/360/Gen2) cloud-API integratie",
+            "fr": "Intégration API cloud de la caméra Bosch Smart Home (Eyes/360/Gen2)",
+            "it": "Integrazione API cloud della telecamera Bosch Smart Home (Eyes/360/Gen2)",
+            "es": "Integración de API en la nube de la cámara Bosch Smart Home (Eyes/360/Gen2)",
+            "pl": "Integracja API chmury kamery Bosch Smart Home (Eyes/360/Gen2)",
+            "uk": "Інтеграція хмарного API камери Bosch Smart Home (Eyes/360/Gen2)",
+            "zh-cn": "博世智能家居摄像头（Eyes/360/Gen2）云API集成"
+        },
+        "authors": [
+            "mosandlt <10558666+mosandlt@users.noreply.github.com>"
+        ],
+        "keywords": [
+            "bosch",
+            "camera",
+            "eyes",
+            "smart-home",
+            "rtsp",
+            "fcm",
+            "cloud"
+        ],
+        "licenseInformation": {
+            "type": "free",
+            "license": "MIT"
+        },
+        "platform": "Javascript/Node.js",
+        "icon": "bosch-camera.png",
+        "enabled": true,
+        "extIcon": "https://raw.githubusercontent.com/mosandlt/ioBroker.bosch-smart-home-camera/main/admin/bosch-camera.png",
+        "readme": "https://github.com/mosandlt/ioBroker.bosch-smart-home-camera#readme",
+        "loglevel": "info",
+        "mode": "daemon",
+        "type": "multimedia",
+        "connectionType": "cloud",
+        "dataSource": "push",
+        "tier": 3,
+        "compact": true,
+        "messagebox": true,
+        "adminUI": {
+            "config": "json"
+        },
+        "dependencies": [
+            {
+                "js-controller": ">=6.0.11"
+            }
+        ],
+        "globalDependencies": [
+            {
+                "admin": ">=7.6.20"
+            }
+        ],
+        "visWidgets": {
+            "vis2BoschCameraWidgets": {
+                "name": "vis2BoschCameraWidgets",
+                "url": "bosch-smart-home-camera/customWidgets.js",
+                "bundlerType": "module",
+                "i18n": "component",
+                "version": "0.2.0",
+                "components": [
+                    "BoschCamera",
+                    "BoschOverview"
+                ]
+            }
+        }
     },
-    "titleLang": {
-      "en": "Bosch Smart Home Camera",
-      "de": "Bosch Smart Home Kamera",
-      "ru": "Камера Bosch Smart Home",
-      "pt": "Câmera Bosch Smart Home",
-      "nl": "Bosch Smart Home Camera",
-      "fr": "Caméra Bosch Smart Home",
-      "it": "Telecamera Bosch Smart Home",
-      "es": "Cámara Bosch Smart Home",
-      "pl": "Kamera Bosch Smart Home",
-      "uk": "Камера Bosch Smart Home",
-      "zh-cn": "博世智能家居摄像头"
-    },
-    "desc": {
-      "en": "Bosch Smart Home Camera (Eyes/360/Gen2) cloud-API integration",
-      "de": "Bosch Smart Home Kamera (Eyes/360/Gen2) Cloud-API-Integration",
-      "ru": "Интеграция облачного API камеры Bosch Smart Home (Eyes/360/Gen2)",
-      "pt": "Integração de API em nuvem da câmera Bosch Smart Home (Eyes/360/Gen2)",
-      "nl": "Bosch Smart Home Camera (Eyes/360/Gen2) cloud-API integratie",
-      "fr": "Intégration API cloud de la caméra Bosch Smart Home (Eyes/360/Gen2)",
-      "it": "Integrazione API cloud della telecamera Bosch Smart Home (Eyes/360/Gen2)",
-      "es": "Integración de API en la nube de la cámara Bosch Smart Home (Eyes/360/Gen2)",
-      "pl": "Integracja API chmury kamery Bosch Smart Home (Eyes/360/Gen2)",
-      "uk": "Інтеграція хмарного API камери Bosch Smart Home (Eyes/360/Gen2)",
-      "zh-cn": "博世智能家居摄像头（Eyes/360/Gen2）云API集成"
-    },
-    "authors": [
-      "mosandlt <10558666+mosandlt@users.noreply.github.com>"
+    "encryptedNative": [
+        "mqtt_password"
     ],
-    "keywords": [
-      "bosch",
-      "camera",
-      "eyes",
-      "smart-home",
-      "rtsp",
-      "fcm",
-      "cloud"
+    "protectedNative": [
+        "mqtt_password"
     ],
-    "licenseInformation": {
-      "type": "free",
-      "license": "MIT"
+    "native": {
+        "redirect_url": "",
+        "region": "EU",
+        "use_mjpeg_snapshot": true,
+        "mqtt_password": ""
     },
-    "platform": "Javascript/Node.js",
-    "icon": "bosch-camera.png",
-    "enabled": true,
-    "extIcon": "https://raw.githubusercontent.com/mosandlt/ioBroker.bosch-smart-home-camera/main/admin/bosch-camera.png",
-    "readme": "https://github.com/mosandlt/ioBroker.bosch-smart-home-camera#readme",
-    "loglevel": "info",
-    "mode": "daemon",
-    "type": "multimedia",
-    "connectionType": "cloud",
-    "dataSource": "push",
-    "tier": 3,
-    "compact": true,
-    "messagebox": true,
-    "adminUI": {
-      "config": "json"
-    },
-    "dependencies": [
-      {
-        "js-controller": ">=6.0.11"
-      }
+    "instanceObjects": [
+        {
+            "_id": "info",
+            "type": "channel",
+            "common": {
+                "name": "Information"
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.connection",
+            "type": "state",
+            "common": {
+                "role": "indicator.connected",
+                "name": "Device or service connected",
+                "type": "boolean",
+                "read": true,
+                "write": false,
+                "def": false
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.access_token",
+            "type": "state",
+            "common": {
+                "role": "text",
+                "name": "Encrypted Bosch SingleKey ID access token (AES via ioBroker system secret — never plaintext from v0.6.0)",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": ""
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.refresh_token",
+            "type": "state",
+            "common": {
+                "role": "text",
+                "name": "Encrypted Bosch SingleKey ID refresh token (AES via ioBroker system secret — never plaintext from v0.6.0)",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": ""
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.token_expires_at",
+            "type": "state",
+            "common": {
+                "role": "value.time",
+                "name": "Access token expiration timestamp (epoch ms)",
+                "type": "number",
+                "read": true,
+                "write": false,
+                "def": 0
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.fcm_creds",
+            "type": "state",
+            "common": {
+                "role": "json",
+                "name": "Persisted FCM credentials (ECDH key + ACG creds) so a restart does not re-register against Bosch CBS / Google FCM",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": ""
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.fcm_active",
+            "type": "state",
+            "common": {
+                "role": "text",
+                "name": "FCM push listener status: healthy / stub / error / stopped",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": "stub"
+            },
+            "native": {}
+        },
+        {
+            "_id": "cameras",
+            "type": "device",
+            "common": {
+                "name": "Bosch cameras"
+            },
+            "native": {}
+        }
     ],
-    "globalDependencies": [
-      {
-        "admin": ">=7.6.20"
-      }
-    ],
-    "visWidgets": {
-      "vis2BoschCameraWidgets": {
-        "name": "vis2BoschCameraWidgets",
-        "url": "bosch-smart-home-camera/customWidgets.js",
-        "bundlerType": "module",
-        "i18n": "component",
-        "version": "0.2.0",
-        "components": [
-          "BoschCamera"
-        ]
-      }
-    }
-  },
-  "encryptedNative": [
-    "mqtt_password"
-  ],
-  "protectedNative": [
-    "mqtt_password"
-  ],
-  "native": {
-    "redirect_url": "",
-    "region": "EU",
-    "use_mjpeg_snapshot": true,
-    "mqtt_password": ""
-  },
-  "instanceObjects": [
-    {
-      "_id": "info",
-      "type": "channel",
-      "common": {
-        "name": "Information"
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.connection",
-      "type": "state",
-      "common": {
-        "role": "indicator.connected",
-        "name": "Device or service connected",
-        "type": "boolean",
-        "read": true,
-        "write": false,
-        "def": false
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.access_token",
-      "type": "state",
-      "common": {
-        "role": "text",
-        "name": "Encrypted Bosch SingleKey ID access token (AES via ioBroker system secret — never plaintext from v0.6.0)",
-        "type": "string",
-        "read": true,
-        "write": false,
-        "def": ""
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.refresh_token",
-      "type": "state",
-      "common": {
-        "role": "text",
-        "name": "Encrypted Bosch SingleKey ID refresh token (AES via ioBroker system secret — never plaintext from v0.6.0)",
-        "type": "string",
-        "read": true,
-        "write": false,
-        "def": ""
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.token_expires_at",
-      "type": "state",
-      "common": {
-        "role": "value.time",
-        "name": "Access token expiration timestamp (epoch ms)",
-        "type": "number",
-        "read": true,
-        "write": false,
-        "def": 0
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.fcm_creds",
-      "type": "state",
-      "common": {
-        "role": "json",
-        "name": "Persisted FCM credentials (ECDH key + ACG creds) so a restart does not re-register against Bosch CBS / Google FCM",
-        "type": "string",
-        "read": true,
-        "write": false,
-        "def": ""
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.fcm_active",
-      "type": "state",
-      "common": {
-        "role": "text",
-        "name": "FCM push listener status: healthy / stub / error / stopped",
-        "type": "string",
-        "read": true,
-        "write": false,
-        "def": "stub"
-      },
-      "native": {}
-    },
-    {
-      "_id": "cameras",
-      "type": "device",
-      "common": {
-        "name": "Bosch cameras"
-      },
-      "native": {}
-    }
-  ],
-  "objects": []
+    "objects": []
 }

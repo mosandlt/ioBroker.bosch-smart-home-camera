@@ -196,8 +196,7 @@ The adapter itself **only needs TCP/443 from the ioBroker host to the camera**. 
 
 ```bash
 nc -vz 192.168.x.y 443
-# or
-curl -k -v --connect-timeout 5 https://192.168.x.y/
+curl -k -v --connect-timeout 5 https://192.168.x.y/   # alternative
 ```
 
 If both time out or return "connection refused", the issue is between ioBroker and the camera (network/firewall), not the adapter.
@@ -352,11 +351,13 @@ HLS for low-latency live video instead of the default snapshot refresh.
 
 ### VIS-2 Camera widget
 
-The adapter ships a built-in **VIS-2 widget** (proper React / Module-Federation
-widget, built from `src-widgets/`) that can be dropped onto any VIS-2 view
-without importing a JSON file.
+The adapter ships two built-in **VIS-2 widgets** (React / Module-Federation, built from `src-widgets/`) that can be dropped onto any VIS-2 view without importing a JSON file.
 
-**Requirements:** VIS-2 adapter installed and running.
+**Requirements:** VIS-2 adapter ≥ 2.13 installed and running.
+
+---
+
+#### Bosch Camera (Einzelkamera)
 
 **How to use:**
 
@@ -373,20 +374,46 @@ without importing a JSON file.
 | Mode | What it shows | Needs | Audio |
 |---|---|---|---|
 | **Snapshot (near-live)** *(default)* | `<img>` polled from the adapter's snapshot HTTP server (`snapshot_url`) at a configurable interval (default 1 s) | `snapshot_http_port` set in the adapter | no |
-| **MJPEG (frames)** | continuous ~2 fps JPEG frames streamed from the local RTSP proxy via FFmpeg, drawn on a canvas | `livestream_enabled = true` for the camera + `ffmpeg` on the host | no |
-| **go2rtc WebRTC** | low-latency live via an embedded go2rtc player (`stream.html?src=…&mode=webrtc`) | a running go2rtc with the camera's `stream_url` configured | **yes** |
+| **MJPEG (frames)** | continuous JPEG frames from the local RTSP proxy via FFmpeg, drawn on a canvas; play button starts the stream | `livestream_enabled = true` + `ffmpeg` on the host | no |
+| **go2rtc WebRTC** | low-latency live video via a native `<video>` element + WebRTC; automatic HLS fallback if ICE fails | go2rtc running with the camera's `stream_url` as source | **yes** — audio toggle + volume slider + pause-guard |
 
-**Overlay controls:** camera name, Online/Offline + Motion + Privacy badges,
-privacy toggle, light toggle (auto-hidden for cameras without LEDs such as the
-Indoor II), and a fullscreen button.
+**Feature set:**
+- Status badges: Online/Offline, Motion, Privacy, Connecting (pulsing), stream uptime, HLS-fallback banner, last event, maintenance banner
+- Privacy state and Offline clearly separated; cloud-reconciled online status
+- Tap-to-play gate (no auto-start); stream and privacy cooldown guards
+- Optimistic UI: toggle buttons flip instantly, auto-revert on error
+- Digital zoom (pinch/wheel) in fullscreen
+- Page Visibility API: snapshot rate throttled in the background
+- Motion-zone and privacy-mask SVG overlays
+- Pan buttons ◀◀ ◀ ▶ ▶▶ with a position readout; only for the Gen1 360° indoor (`hardware_version==="INDOOR"`)
+- Frosted-glass control bar (iOS/Android/auto theme; normal/minimal/compact layout)
+- Fullscreen via a React portal (covers the whole screen)
+- Collapsible bottom-sheet accordions for all advanced settings: notifications, advanced, Gen2 automation/security, light & camera (incl. `front_light_intensity` slider), diagnostics, zones, services
+- 11 UI languages (de/en/es/fr/it/nl/pl/pt/ru/uk/zh-cn)
 
-**Building the widget** (for contributors): `npm run build:widget` installs
-`src-widgets/`, runs the craco/Module-Federation build and copies the bundle
-into `widgets/bosch-smart-home-camera/`.
+**Building the widget** (for contributors): `npm run build:widget` installs `src-widgets/`, runs the Vite/Module-Federation build and copies the bundle into `widgets/bosch-smart-home-camera/`.
 
-> The MJPEG and WebRTC modes need a live setup to verify end-to-end (an active
-> Bosch session, and go2rtc for WebRTC). Snapshot mode works with just the
-> built-in snapshot HTTP server. Feedback welcome via GitHub Issues.
+---
+
+#### Bosch Camera Overview (multi-camera grid)
+
+The **Bosch Camera Overview** widget shows every camera of an adapter instance in a responsive grid — no manual per-camera configuration.
+
+**Configuration fields:**
+
+| Field | Description |
+|---|---|
+| **Adapter instance** | e.g. `bosch-smart-home-camera.0` |
+| **Columns** | Fixed column count (0 = automatic) |
+| **Min. tile width** | Minimum width per tile in pixels |
+| **Hide offline** | Do not show offline cameras |
+| **Per-tile controls** | Privacy and light toggle directly on each tile |
+
+**Feature set:**
+- Auto-discovery of all cameras of the selected instance
+- Sorting: online first, then privacy, then offline
+- Click-to-expand: clicking a tile opens the camera as a BoschCamera widget in the fullscreen portal
+- Same status badges as BoschCamera (Online/Offline/Motion/Privacy)
 
 ---
 
@@ -675,6 +702,15 @@ HA stays the **reference implementation** — features land there first; the Pyt
 ---
 
 ## Changelog
+
+### 1.4.0 (2026-06-10)
+A second multi-camera widget, the single-camera card brought to Home Assistant parity, and two tile fixes.
+
+- **New "Bosch Camera Overview" VIS-2 widget:** a multi-camera grid that discovers every camera automatically, sorts them into online / privacy / offline tiers, shows a snapshot and per-tile quick controls, and expands a tile to the full card on click.
+- **Single-camera card brought to Home Assistant parity:** the WebRTC iframe is replaced by a native `<video>` element (go2rtc `RTCPeerConnection` with an HLS fallback), which adds an audio toggle, a volume slider, a pause-guard and digital zoom. The full control set is now reachable through a catalog-driven bottom-sheet (gear button) instead of a fixed list, with model-gated pan, motion-zone/privacy-mask overlays and status badges.
+- **Privacy cameras now report `online` correctly:** a reachable camera in privacy mode no longer shows as offline. The state is reconciled from the cloud (LAN-TCP → ping → commissioned) so the tile shows "Online" / a privacy placeholder instead of a false "Offline".
+- **Fix — no broken-image flash when leaving privacy mode:** turning privacy off briefly showed the browser's broken-image glyph before the first frame loaded. A loading veil now covers the snapshot until a real frame arrives, and the image is refetched immediately on the privacy reveal.
+- **Fix — indoor tiles auto-refresh their snapshot:** the cached snapshot only updated on motion, so a panning or busy indoor camera looked frozen. Indoor tiles now pull a fresh snapshot while visible (Gen1 360° every 5 s, the indoor model every 10 s); outdoor cameras are unchanged.
 
 ### 1.3.0 (2026-06-08)
 New VIS-2 camera widget (React) with live video, plus a livestream-stability fix.

@@ -1,31 +1,35 @@
 {
+  "_Generic-CGMprFqt.js": {
+    "file": "assets/Generic-CGMprFqt.js",
+    "name": "Generic"
+  },
   "___virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react__loadShare__.mjs_commonjs-proxy-BCWc1WpG.js": {
     "file": "assets/__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react__loadShare__.mjs_commonjs-proxy-BCWc1WpG.js",
     "name": "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react__loadShare__.mjs_commonjs-proxy"
   },
-  "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_iobroker_mf_1_adapter_mf_2_react_mf_2_v5__loadShare__.mjs-f2wNeJlU.js": {
-    "file": "assets/_virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_iobroker_mf_1_adapter_mf_2_react_mf_2_v5__loadShare__.mjs-f2wNeJlU.js",
+  "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_iobroker_mf_1_adapter_mf_2_react_mf_2_v5__loadShare__.mjs-BtQYE-vk.js": {
+    "file": "assets/_virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_iobroker_mf_1_adapter_mf_2_react_mf_2_v5__loadShare__.mjs-BtQYE-vk.js",
     "name": "_virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_iobroker_mf_1_adapter_mf_2_react_mf_2_v5__loadShare__.mjs",
     "isDynamicEntry": true,
     "imports": [
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react__loadShare__.mjs-C_9F7m4p.js",
-      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-KZEb_EfN.js",
-      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_icons_mf_2_material__loadShare__.mjs-ijUGsvMQ.js",
+      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-BGlmKQUy.js",
+      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_icons_mf_2_material__loadShare__.mjs-CVMJzKAO.js",
       "___virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react__loadShare__.mjs_commonjs-proxy-BCWc1WpG.js"
     ]
   },
-  "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_icons_mf_2_material__loadShare__.mjs-ijUGsvMQ.js": {
-    "file": "assets/_virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_icons_mf_2_material__loadShare__.mjs-ijUGsvMQ.js",
+  "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_icons_mf_2_material__loadShare__.mjs-CVMJzKAO.js": {
+    "file": "assets/_virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_icons_mf_2_material__loadShare__.mjs-CVMJzKAO.js",
     "name": "_virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_icons_mf_2_material__loadShare__.mjs",
     "isDynamicEntry": true,
     "imports": [
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react_mf_1_jsx_mf_2_runtime__loadShare__.mjs-Bo6YQoL-.js",
-      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-KZEb_EfN.js",
+      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-BGlmKQUy.js",
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react__loadShare__.mjs-C_9F7m4p.js"
     ]
   },
-  "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-KZEb_EfN.js": {
-    "file": "assets/_virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-KZEb_EfN.js",
+  "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-BGlmKQUy.js": {
+    "file": "assets/_virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-BGlmKQUy.js",
     "name": "_virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs",
     "isDynamicEntry": true,
     "imports": [
@@ -64,7 +68,7 @@
     "name": "preload-helper"
   },
   "src/BoschCamera.jsx": {
-    "file": "assets/BoschCamera-DgzHhCdT.js",
+    "file": "assets/BoschCamera-DGVoUWw2.js",
     "name": "BoschCamera",
     "src": "src/BoschCamera.jsx",
     "isEntry": true,
@@ -73,13 +77,30 @@
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react_mf_1_jsx_mf_2_runtime__loadShare__.mjs-Bo6YQoL-.js",
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react__loadShare__.mjs-C_9F7m4p.js",
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react_mf_2_dom__loadShare__.mjs-y9UHucvy.js",
-      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-KZEb_EfN.js",
-      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_icons_mf_2_material__loadShare__.mjs-ijUGsvMQ.js",
+      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-BGlmKQUy.js",
+      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_icons_mf_2_material__loadShare__.mjs-CVMJzKAO.js",
+      "_Generic-CGMprFqt.js",
+      "___virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react__loadShare__.mjs_commonjs-proxy-BCWc1WpG.js"
+    ]
+  },
+  "src/BoschOverview.jsx": {
+    "file": "assets/BoschOverview-BwZ5o78O.js",
+    "name": "BoschOverview",
+    "src": "src/BoschOverview.jsx",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react_mf_1_jsx_mf_2_runtime__loadShare__.mjs-Bo6YQoL-.js",
+      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react__loadShare__.mjs-C_9F7m4p.js",
+      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react_mf_2_dom__loadShare__.mjs-y9UHucvy.js",
+      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-BGlmKQUy.js",
+      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_icons_mf_2_material__loadShare__.mjs-CVMJzKAO.js",
+      "_Generic-CGMprFqt.js",
       "___virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react__loadShare__.mjs_commonjs-proxy-BCWc1WpG.js"
     ]
   },
   "src/translations.js": {
-    "file": "assets/translations-B_Me2NNE.js",
+    "file": "assets/translations-CItC3uV4.js",
     "name": "translations",
     "src": "src/translations.js",
     "isEntry": true,
@@ -98,13 +119,13 @@
       "virtual:mf-exposes:__mfe_internal__vis2BoschCameraWidgets__customWidgets_js",
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react__loadShare__.mjs-C_9F7m4p.js",
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react_mf_2_dom__loadShare__.mjs-y9UHucvy.js",
-      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_iobroker_mf_1_adapter_mf_2_react_mf_2_v5__loadShare__.mjs-f2wNeJlU.js",
-      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_icons_mf_2_material__loadShare__.mjs-ijUGsvMQ.js",
-      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-KZEb_EfN.js"
+      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_iobroker_mf_1_adapter_mf_2_react_mf_2_v5__loadShare__.mjs-BtQYE-vk.js",
+      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_icons_mf_2_material__loadShare__.mjs-CVMJzKAO.js",
+      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-BGlmKQUy.js"
     ]
   },
   "virtual:mf-exposes:__mfe_internal__vis2BoschCameraWidgets__customWidgets_js": {
-    "file": "assets/virtualExposes-CqAbA91U.js",
+    "file": "assets/virtualExposes-l5TD8CC1.js",
     "name": "virtualExposes",
     "src": "virtual:mf-exposes:__mfe_internal__vis2BoschCameraWidgets__customWidgets_js",
     "isDynamicEntry": true,
@@ -113,11 +134,12 @@
     ],
     "dynamicImports": [
       "src/BoschCamera.jsx",
+      "src/BoschOverview.jsx",
       "src/translations.js"
     ]
   },
   "virtual:mf-localSharedImportMap:__mfe_internal__vis2BoschCameraWidgets": {
-    "file": "assets/_virtual_mf-localSharedImportMap___mfe_internal__vis2BoschCameraWidgets-Byp0zsBl.js",
+    "file": "assets/_virtual_mf-localSharedImportMap___mfe_internal__vis2BoschCameraWidgets-BL3MWeOB.js",
     "name": "_virtual_mf-localSharedImportMap___mfe_internal__vis2BoschCameraWidgets",
     "src": "virtual:mf-localSharedImportMap:__mfe_internal__vis2BoschCameraWidgets",
     "isDynamicEntry": true,
@@ -126,9 +148,9 @@
       "virtual:mf-REMOTE_ENTRY_ID:__mfe_internal__vis2BoschCameraWidgets__customWidgets_js"
     ],
     "dynamicImports": [
-      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_iobroker_mf_1_adapter_mf_2_react_mf_2_v5__loadShare__.mjs-f2wNeJlU.js",
-      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_icons_mf_2_material__loadShare__.mjs-ijUGsvMQ.js",
-      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-KZEb_EfN.js",
+      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_iobroker_mf_1_adapter_mf_2_react_mf_2_v5__loadShare__.mjs-BtQYE-vk.js",
+      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_icons_mf_2_material__loadShare__.mjs-CVMJzKAO.js",
+      "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-BGlmKQUy.js",
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react__loadShare__.mjs-C_9F7m4p.js",
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react_mf_2_dom__loadShare__.mjs-y9UHucvy.js",
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react_mf_1_jsx_mf_2_runtime__loadShare__.mjs-Bo6YQoL-.js"

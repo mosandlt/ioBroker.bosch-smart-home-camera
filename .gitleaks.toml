@@ -1,43 +1,47 @@
 # gitleaks config — extends the built-in default ruleset with narrow allowlists
 # for this adapter's known, intentionally-present values, so CI secret-scanning
 # stays green while still catching real, accidentally-committed credentials.
+#
+# NOTE: use the SINGULAR [allowlist] table, not the plural [[allowlists]] array.
+# gitleaks 8.24.x (pinned in gitleaks-action@v2) does not apply top-level
+# [[allowlists]] blocks globally, so the path/regex allowlists below were ignored
+# and the generated widget vendor chunk tripped generic-api-key. The singular
+# [allowlist] form is honoured by both 8.24.x and 8.30.x (verified locally).
 
 title = "iobroker.bosch-smart-home-camera gitleaks config"
 
 [extend]
 useDefault = true
 
-# Public Bosch Smart Camera app credentials shipped in every copy of the APK —
-# NOT secrets:
-#   1. the Firebase API key, base64-encoded in src/build fcm (`Buffer.from("QUl6…")`).
-#      gitleaks base64-decode is opt-in (off in CI), so the encoded form only
-#      trips a local decode-on scan; we still allowlist it by the encoded string
+[allowlist]
+# Public, intentionally-present constants — NOT credentials:
+#   1. QUl6… — the Bosch Smart Camera app Firebase API key, base64-encoded in
+#      src/build fcm (`Buffer.from("QUl6…")`); allowlisted by its encoded form
 #      (contains no `AIza…` trigger).
-#   2. the public FCM server key (`BDOU99…`) — a well-known Google FCM client
-#      constant, plaintext, so it IS flagged and must be allowlisted by value.
-[[allowlists]]
+#   2. BDOU99… — the public FCM server key, a well-known Google FCM client
+#      constant (plaintext → flagged → allowlisted by value).
+#   3. Zgfr56gFe87jJOM — ioBroker's PUBLIC default system secret, a hard-coded
+#      fallback constant in @iobroker/adapter-react-v5
+#      (`systemConfig.native.secret || "Zgfr56gFe87jJOM"`), bundled into the
+#      vis-2 widget vendor chunk. Public, not a credential.
 regexes = [
   '''QUl6YVN5Q0toaGZ4ZlRzMUc3V3Z6VERBaU8wQWlzN0VIMjVEYk9z''',
   '''BDOU99-h67HcA6JeFXHbSNMu7e2yNNu3RzoMj8TM4W88jITfq7ZmPvIM1Iv-4_l2LxQcYwhqby2xGpWwzjfAnG4''',
-  # ioBroker's PUBLIC default system secret — a hard-coded fallback constant in
-  # @iobroker/adapter-react-v5 (`systemConfig.native.secret || "Zgfr56gFe87jJOM"`),
-  # bundled into the vis-2 widget vendor chunk. Public, not a credential.
   '''Zgfr56gFe87jJOM''',
 ]
 
 # Generated / vendored / fixture trees. `build/` is the tsc output of `src/`
 # (src is still scanned); `test/` holds only throwaway tokens + RSA keys
-# generated for unit tests; backups/ + coverage/ are gitignored anyway.
-[[allowlists]]
+# generated for unit tests; backups/ + coverage/ are gitignored anyway. The
+# `widgets/` tree is the generated vis-2 widget bundle (Vite/Module-Federation
+# vendor chunks: react/mui/@iobroker/adapter-react-v5); the adapter-react-v5
+# chunk embeds ioBroker's public default secret → generic-api-key false
+# positive. Source lives in src-widgets/ (scanned).
 paths = [
   '''build/.*''',
   '''test/.*''',
   '''backups/.*''',
   '''coverage/.*''',
-  # generated vis-2 widget bundle (Vite/Module-Federation vendor chunks:
-  # react/mui/@iobroker/adapter-react-v5). Source lives in src-widgets/ (scanned).
-  # The adapter-react-v5 chunk embeds ioBroker's PUBLIC default system secret as a
-  # fallback constant → gitleaks generic-api-key false positive.
   '''widgets/.*''',
   '''src-widgets/build/.*''',
 ]

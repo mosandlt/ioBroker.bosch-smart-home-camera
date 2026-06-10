@@ -58,4 +58,30 @@ export default [
             },
         },
     },
+    {
+        // VIS-2 React widget sources (src-widgets) are browser-side ES modules
+        // compiled by Vite — they use the DOM, WebRTC and timer globals. The base
+        // class is injected at runtime (window.visRxWidget) and i18n via Generic.t.
+        files: ["src-widgets/**/*.js", "src-widgets/**/*.jsx"],
+        languageOptions: {
+            globals: {
+                window: "readonly",
+                document: "readonly",
+                navigator: "readonly",
+                localStorage: "readonly",
+                setInterval: "readonly",
+                clearInterval: "readonly",
+                setTimeout: "readonly",
+                clearTimeout: "readonly",
+                requestAnimationFrame: "readonly",
+                cancelAnimationFrame: "readonly",
+                Image: "readonly",
+                Node: "readonly",
+                AudioContext: "readonly",
+                RTCPeerConnection: "readonly",
+                RTCSessionDescription: "readonly",
+                fetch: "readonly",
+            },
+        },
+    },
 ];

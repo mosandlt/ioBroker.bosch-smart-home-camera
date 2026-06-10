@@ -75,6 +75,7 @@ import {
     fetchLightingState,
     putLightingState,
     buildWallwasherUpdate,
+    buildFrontLightUpdate,
     DEFAULT_LIGHTING_STATE,
     type LightingState,
 } from "./lib/alarm_light";
@@ -182,6 +183,17 @@ class BoschSmartHomeCamera extends utils.Adapter {
 
     /** Consecutive snapshot failures before a camera is marked offline. */
     private static readonly OFFLINE_THRESHOLD = 3;
+
+    /**
+     * v1.3.x: last cloud-reachability reconcile per camera (Date.now() ms).
+     * A privacy-mode camera refuses snapshots, so the snapshot path can never
+     * confirm its `online` state — when the adapter host is not on the camera
+     * LAN that left `online` stuck at its last value (a live privacy camera
+     * looked "offline"). We reconcile via the cloud (_resolveCameraStatus) in
+     * the privacy branch, throttled to avoid a cloud round-trip every poll.
+     */
+    private _lastCloudReconcile: Map<string, number> = new Map();
+    private static readonly CLOUD_RECONCILE_MIN_MS = 45000;
 
     /**
      * Timestamps (Date.now() ms) of recent HTTP 444 session-quota hits per camera.
@@ -1559,7 +1571,14 @@ class BoschSmartHomeCamera extends utils.Adapter {
     }
 
     private async _migrateLightDps(cameras: BoschCamera[]): Promise<void> {
-        const LIGHT_DPS = ["light_enabled", "front_light_enabled", "wallwasher_enabled"];
+        const LIGHT_DPS = [
+            "light_enabled",
+            "front_light_enabled",
+            "wallwasher_enabled",
+            "wallwasher_brightness",
+            "wallwasher_color",
+            "front_light_intensity",
+        ];
         let removed = 0;
         for (const cam of cameras) {
             if (cam.generation !== 2 || cam.featureLight === true) {
@@ -2051,6 +2070,25 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     type: "state",
                     common: {
                         name: "Wallwasher brightness (Gen2 top+bottom LEDs) 0..100",
+                        role: "level.brightness",
+                        type: "number",
+                        min: 0,
+                        max: 100,
+                        unit: "%",
+                        read: true,
+                        write: true,
+                        def: 0,
+                    },
+                    native: {},
+                });
+                // v1.3.x: front spotlight brightness — maps to frontLightSettings.brightness
+                // in PUT /lighting/switch (same endpoint as wallwasher). Gen2+featureLight only
+                // (Gen1 exposes frontLightIntensity 0.0..1.0 via lighting_override, but ioBroker
+                // adapter uses Cloud+Gen2 path; Gen1 on/off is handled by front_light_enabled).
+                await this.setObjectNotExistsAsync(`${prefix}.front_light_intensity`, {
+                    type: "state",
+                    common: {
+                        name: "Front spotlight brightness (Gen2 front LED) 0..100",
                         role: "level.brightness",
                         type: "number",
                         min: 0,
@@ -5037,15 +5075,17 @@ class BoschSmartHomeCamera extends utils.Adapter {
         const bot = ls.bottomLedLightSettings;
         const brightness = Math.max(top.brightness, bot.brightness);
         const color = top.color ?? bot.color ?? "";
-        const frontOn = ls.frontLightSettings.brightness > 0;
+        const frontBrightness = ls.frontLightSettings.brightness;
+        const frontOn = frontBrightness > 0;
         const wallOn = brightness > 0;
 
-        // Batch the 4 getStateAsync reads instead of serialising them.
-        const [curBr, curCol, curFront, curWall] = await Promise.all([
+        // Batch the 5 getStateAsync reads instead of serialising them.
+        const [curBr, curCol, curFront, curWall, curFrontIntensity] = await Promise.all([
             this.getStateAsync(`cameras.${cam.id}.wallwasher_brightness`),
             this.getStateAsync(`cameras.${cam.id}.wallwasher_color`),
             this.getStateAsync(`cameras.${cam.id}.front_light_enabled`),
             this.getStateAsync(`cameras.${cam.id}.wallwasher_enabled`),
+            this.getStateAsync(`cameras.${cam.id}.front_light_intensity`),
         ]);
 
         const writes: Promise<void>[] = [];
@@ -5064,6 +5104,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
         }
         if (curWall?.val !== wallOn) {
             writes.push(this.upsertState(`cameras.${cam.id}.wallwasher_enabled`, wallOn));
+        }
+        // v1.3.x: mirror front spotlight brightness (frontLightSettings.brightness → 0..100).
+        if (curFrontIntensity?.val !== frontBrightness) {
+            writes.push(
+                this.upsertState(`cameras.${cam.id}.front_light_intensity`, frontBrightness),
+            );
         }
         await Promise.all(writes);
     }
@@ -6256,6 +6302,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
                                 ? state.val
                                 : parseInt(String(state.val), 10),
                     });
+                    break;
+                case "front_light_intensity":
+                    await this.handleFrontLightIntensityUpdate(
+                        camId,
+                        typeof state.val === "number" ? state.val : parseInt(String(state.val), 10),
+                    );
                     break;
                 case "microphone_level": {
                     // v0.7.7: audio level — PUT /v11/video_inputs/{id}/audio (Gen2)
@@ -7838,6 +7890,59 @@ class BoschSmartHomeCamera extends utils.Adapter {
     }
 
     /**
+     * v1.3.x: Set the front spotlight brightness (0..100) for a Gen2 camera.
+     *
+     * Uses PUT /v11/video_inputs/{id}/lighting/switch with only
+     * frontLightSettings.brightness changed; the wallwasher (top+bottom) LED
+     * groups stay at their current cached values. Mirrors HA's
+     * `number.<cam>_front_light_intensity` entity.
+     *
+     * Gen2 + featureLight=true only — same gating as wallwasher_brightness.
+     *
+     * @param camId     Camera UUID
+     * @param brightness  0..100
+     */
+    private async handleFrontLightIntensityUpdate(
+        camId: string,
+        brightness: number,
+    ): Promise<void> {
+        const cam = this._cameras.get(camId);
+        if (!cam || cam.generation < 2 || cam.featureLight !== true) {
+            this.log.warn(
+                `front_light_intensity write for ${camId.slice(0, 8)} ignored — Gen2 lighting not supported`,
+            );
+            throw new Error("front light intensity not supported on this camera");
+        }
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const current = this._lightingCache.get(camId) ?? DEFAULT_LIGHTING_STATE;
+        const safeVal = Number.isFinite(brightness) ? brightness : 0;
+        const next = buildFrontLightUpdate(current, safeVal);
+        const result = await putLightingState(
+            this._httpClient,
+            this._currentAccessToken,
+            camId,
+            next,
+        );
+        if (!result) {
+            throw new Error(`PUT /lighting/switch returned non-success for ${camId.slice(0, 8)}`);
+        }
+        this._lightingCache.set(camId, result);
+        // Ack the DP and sync front_light_enabled boolean from the new brightness.
+        await this.upsertState(
+            `cameras.${camId}.front_light_intensity`,
+            result.frontLightSettings.brightness,
+        );
+        const frontOn = result.frontLightSettings.brightness > 0;
+        await this.setStateAsync(`cameras.${camId}.front_light_enabled`, frontOn, true);
+        this.log.info(
+            `Front light intensity for camera ${camId.slice(0, 8)}: ` +
+                `brightness=${result.frontLightSettings.brightness}`,
+        );
+    }
+
+    /**
      * Switch the stream-quality preference for a camera and force a session
      * re-open so the new highQualityVideo flag takes effect immediately.
      *
@@ -9089,6 +9194,20 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 this.log.debug(
                     `Skipping reachability decrement for ${camId.slice(0, 8)} — privacy mode is ON`,
                 );
+                // The snapshot can't tell us reachability in privacy mode, so the
+                // `online` DP would stay stuck at its last value off-LAN. Resolve
+                // it from the cloud instead (throttled) so a live privacy camera
+                // reads online=true and a genuinely offline one reads false.
+                // Must never throw — callers rely on markCameraReachability being
+                // non-fatal inside their snapshot error handlers.
+                try {
+                    await this._reconcileOnlineViaCloud(camId);
+                } catch (err: unknown) {
+                    this.log.debug(
+                        `[status] cloud reconcile for ${camId.slice(0, 8)} failed (non-fatal): ` +
+                            `${err instanceof Error ? err.message : String(err)}`,
+                    );
+                }
                 return;
             }
         } catch {
@@ -9102,6 +9221,41 @@ class BoschSmartHomeCamera extends utils.Adapter {
             // v0.7.2: notify on offline threshold reached
             await this._maybeannounceCameraStatus(camId, "offline");
         }
+    }
+
+    /**
+     * Reconcile `cameras.<id>.online` from the cloud (LAN-TCP → /ping →
+     * /commissioned) for cameras the snapshot path can't probe (privacy mode).
+     * Only acts on definitive ONLINE/OFFLINE; UNKNOWN/UPDATING/SESSION_LIMIT
+     * leave the DP unchanged. Throttled per camera to {@link CLOUD_RECONCILE_MIN_MS}
+     * so it does not add a cloud round-trip on every poll.
+     *
+     * @param camId Camera UUID
+     */
+    private async _reconcileOnlineViaCloud(camId: string): Promise<void> {
+        const now = Date.now();
+        const last = this._lastCloudReconcile.get(camId) ?? 0;
+        if (now - last < BoschSmartHomeCamera.CLOUD_RECONCILE_MIN_MS) {
+            return;
+        }
+        this._lastCloudReconcile.set(camId, now);
+
+        const status = await this._resolveCameraStatus(camId);
+        if (status === "ONLINE") {
+            this._snapshotFailCount.delete(camId);
+            const cur = await this.getStateAsync(`cameras.${camId}.online`);
+            if (cur?.val !== true) {
+                await this.setStateAsync(`cameras.${camId}.online`, true, true);
+                await this._maybeannounceCameraStatus(camId, "online");
+            }
+        } else if (status === "OFFLINE") {
+            const cur = await this.getStateAsync(`cameras.${camId}.online`);
+            if (cur?.val !== false) {
+                await this.setStateAsync(`cameras.${camId}.online`, false, true);
+                await this._maybeannounceCameraStatus(camId, "offline");
+            }
+        }
+        // UNKNOWN / UPDATING / SESSION_LIMIT → leave `online` unchanged.
     }
 
     /**

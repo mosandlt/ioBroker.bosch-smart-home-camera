@@ -73,6 +73,16 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     /** Consecutive snapshot failures before a camera is marked offline. */
     private static readonly OFFLINE_THRESHOLD;
     /**
+     * v1.3.x: last cloud-reachability reconcile per camera (Date.now() ms).
+     * A privacy-mode camera refuses snapshots, so the snapshot path can never
+     * confirm its `online` state — when the adapter host is not on the camera
+     * LAN that left `online` stuck at its last value (a live privacy camera
+     * looked "offline"). We reconcile via the cloud (_resolveCameraStatus) in
+     * the privacy branch, throttled to avoid a cloud round-trip every poll.
+     */
+    private _lastCloudReconcile;
+    private static readonly CLOUD_RECONCILE_MIN_MS;
+    /**
      * Timestamps (Date.now() ms) of recent HTTP 444 session-quota hits per camera.
      * Pruned to _SESSION_QUOTA_WINDOW_MS on each new hit.
      * When ≥ _SESSION_QUOTA_NOTIFY_THRESHOLD hits occur within the window,
@@ -1309,6 +1319,20 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private handleWallwasherUpdate;
     /**
+     * v1.3.x: Set the front spotlight brightness (0..100) for a Gen2 camera.
+     *
+     * Uses PUT /v11/video_inputs/{id}/lighting/switch with only
+     * frontLightSettings.brightness changed; the wallwasher (top+bottom) LED
+     * groups stay at their current cached values. Mirrors HA's
+     * `number.<cam>_front_light_intensity` entity.
+     *
+     * Gen2 + featureLight=true only — same gating as wallwasher_brightness.
+     *
+     * @param camId     Camera UUID
+     * @param brightness  0..100
+     */
+    private handleFrontLightIntensityUpdate;
+    /**
      * Switch the stream-quality preference for a camera and force a session
      * re-open so the new highQualityVideo flag takes effect immediately.
      *
@@ -1577,6 +1601,16 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _handleSessionLimitError;
     private markCameraReachability;
+    /**
+     * Reconcile `cameras.<id>.online` from the cloud (LAN-TCP → /ping →
+     * /commissioned) for cameras the snapshot path can't probe (privacy mode).
+     * Only acts on definitive ONLINE/OFFLINE; UNKNOWN/UPDATING/SESSION_LIMIT
+     * leave the DP unchanged. Throttled per camera to {@link CLOUD_RECONCILE_MIN_MS}
+     * so it does not add a cloud round-trip on every poll.
+     *
+     * @param camId Camera UUID
+     */
+    private _reconcileOnlineViaCloud;
     /**
      * Fire a user notification when a camera flips between online and offline.
      *

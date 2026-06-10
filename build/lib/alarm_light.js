@@ -29,6 +29,7 @@ exports.setPanicAlarm = setPanicAlarm;
 exports.fetchLightingState = fetchLightingState;
 exports.putLightingState = putLightingState;
 exports.normaliseLightingState = normaliseLightingState;
+exports.buildFrontLightUpdate = buildFrontLightUpdate;
 exports.buildWallwasherUpdate = buildWallwasherUpdate;
 const auth_1 = require("./auth");
 /** Default group settings used when the cache is empty (mirrors HA's defaults). */
@@ -186,6 +187,30 @@ function clamp(v, lo, hi) {
  * @param hexColor     New color "#RRGGBB"; pass undefined to keep current,
  *                     pass null to switch to white-balance mode (warm white)
  * @returns updated LightingState with top + bottom LED groups changed in lockstep
+ */
+/**
+ * Build the next PUT body for a front-spotlight brightness update.
+ *
+ * Only the frontLightSettings.brightness is changed; the wallwasher (top +
+ * bottom LED groups) stay exactly as they are in the cached state. This
+ * mirrors HA's `number.<cam>_front_light_intensity` entity behaviour.
+ *
+ * @param current    Cached current lighting state (or DEFAULT_LIGHTING_STATE on first run)
+ * @param brightness New brightness 0..100 for the front spotlight
+ * @returns updated LightingState with only frontLightSettings.brightness changed
+ */
+function buildFrontLightUpdate(current, brightness) {
+    return {
+        frontLightSettings: {
+            ...current.frontLightSettings,
+            brightness: clamp(Math.round(brightness), 0, 100),
+        },
+        topLedLightSettings: { ...current.topLedLightSettings },
+        bottomLedLightSettings: { ...current.bottomLedLightSettings },
+    };
+}
+/**
+ *
  */
 function buildWallwasherUpdate(current, brightness, hexColor) {
     const next = {

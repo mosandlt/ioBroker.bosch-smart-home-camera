@@ -263,6 +263,12 @@ describe("main adapter — state sync + reachability (v0.5.1 / v0.5.4)", () => {
         // Set privacy_enabled = true in state DB
         db.publishState(`${adapter.namespace}.cameras.${CAM_ID}.privacy_enabled`, { val: true, ack: true });
 
+        // v1.3.x: the privacy branch now reconciles `online` via the cloud. Stub
+        // the cloud status to UNKNOWN so it's a no-op here (no real TCP/HTTP) —
+        // this test only asserts the snapshot-failure counter is NOT decremented.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        sinon.stub(adapter as any, "_resolveCameraStatus").resolves("UNKNOWN");
+
         // Snapshot fails (simulates privacy-mode 403-like rejection)
         snapshotStub.rejects(new Error("EHOSTUNREACH host unreachable"));
 

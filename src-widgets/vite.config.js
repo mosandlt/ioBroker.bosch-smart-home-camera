@@ -14,6 +14,7 @@ export default {
             filename: "customWidgets.js",
             exposes: {
                 "./BoschCamera": "./src/BoschCamera",
+                "./BoschOverview": "./src/BoschOverview",
                 "./translations": "./src/translations",
             },
             remotes: {},
