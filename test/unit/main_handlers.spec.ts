@@ -153,7 +153,10 @@ function createAdapterWithMocks(
     delete require.cache[MAIN_JS_PATH];
     // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
     const factory = require(MAIN_JS_PATH) as (opts: Record<string, unknown>) => MockAdapter;
-    factory({ config: { redirect_url: "", region: "EU", ...configOverrides } });
+    // startup_snapshot:true keeps the original boot sequence (one snapshot per
+    // camera) these handler fixtures' stubAxiosSequence expectations assume; the
+    // request-saving default (off → cloud reconcile) is covered separately.
+    factory({ config: { redirect_url: "", region: "EU", startup_snapshot: true, ...configOverrides } });
 
     if (!capturedAdapter) throw new Error("adapter not captured");
     const adapter = capturedAdapter as TestAdapter;

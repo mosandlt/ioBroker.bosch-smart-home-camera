@@ -703,6 +703,15 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.4.1 (2026-06-10)
+Options to reduce load on the shared Bosch session limit, plus dependency updates.
+
+- **New "API requests / Power saving" settings tab.** Your cameras share a hard limit of only 3 simultaneous Bosch sessions across the Bosch app, Home Assistant, this adapter and any recorder, and the cloud is polled per camera — the new options let you cut that load. Request-heavy options are off by default on a fresh install; motion, manual snapshots and on-demand live streams keep working regardless.
+- **`startup_snapshot` (default off):** the adapter no longer opens a Bosch session per camera at start just to learn the online state. Online/offline is now resolved the cheap, session-less way (a LAN TCP ping, falling back to the cloud `/ping` and `/commissioned` checks). Turn it on to fetch a real boot image per camera.
+- **`poll_interval` (default 60 s, range 30–3600 s):** configurable cloud poll cadence. Each tick is several cloud requests per camera, so raising it reduces request volume roughly proportionally; motion push (FCM) stays near-instant.
+- **Widget "Auto-refresh indoor snapshot" (default off):** the indoor snapshot pulse (360° every 5 s, Gen2 indoor every 10 s) is now opt-in per widget, so a dashboard tile no longer repeatedly opens a Bosch session unless you ask it to.
+- **Dependencies:** `axios` 1.16.1 → 1.17.0 (security hardening) and `@aracna/core` 1.4.4 → 1.5.0 (matches the `@aracna/fcm` peer requirement).
+
 ### 1.4.0 (2026-06-10)
 A second multi-camera widget, the single-camera card brought to Home Assistant parity, and two tile fixes.
 

@@ -247,7 +247,7 @@ function makeAdapter(opts: MakeAdapterOpts = {}): { db: MockDatabase; adapter: T
     delete require.cache[MAIN_JS_PATH];
     // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
     const factory = require(MAIN_JS_PATH) as (opts: Record<string, unknown>) => MockAdapter;
-    factory({ config: { redirect_url: "", region: "EU" } });
+    factory({ config: { redirect_url: "", region: "EU", startup_snapshot: true } });
 
     if (!capturedAdapter) throw new Error("adapter not captured");
     const adapter = capturedAdapter as TestAdapter;
@@ -695,7 +695,7 @@ describe("coverage: Indoor II no-light gate (L6004-6009)", function () {
         delete require.cache[MAIN_JS_PATH];
         // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
         const factory = require(MAIN_JS_PATH) as (opts: Record<string, unknown>) => MockAdapter;
-        factory({ config: { redirect_url: "", region: "EU" } });
+        factory({ config: { redirect_url: "", region: "EU", startup_snapshot: true } });
 
         if (!capturedAdapter) throw new Error("adapter not captured");
         const adapter = capturedAdapter as TestAdapter;
@@ -1093,7 +1093,7 @@ describe("coverage: _handleSessionLimitError via real adapter (L6413-6468)", fun
         delete require.cache[MAIN_JS_PATH];
         // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
         const factory = require(MAIN_JS_PATH) as (opts: Record<string, unknown>) => MockAdapter;
-        factory({ config: { redirect_url: "", region: "EU" } });
+        factory({ config: { redirect_url: "", region: "EU", startup_snapshot: true } });
 
         if (!capturedAdapter) throw new Error("adapter not captured");
         const adapter = capturedAdapter as TestAdapter;
@@ -1199,7 +1199,7 @@ describe("coverage: _handleSessionLimitError via real adapter (L6413-6468)", fun
         delete require.cache[MAIN_JS_PATH];
         // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
         const factory = require(MAIN_JS_PATH) as (opts: Record<string, unknown>) => MockAdapter;
-        factory({ config: { redirect_url: "", region: "EU" } });
+        factory({ config: { redirect_url: "", region: "EU", startup_snapshot: true } });
 
         if (!capturedAdapter) throw new Error("adapter not captured");
         const adapter = capturedAdapter as TestAdapter;

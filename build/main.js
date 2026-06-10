@@ -4097,11 +4097,26 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // _handleSessionLimitError, which confirms the camera is offline via a
         // session-less status check and STOPS instead of looping retries that
         // keep burning the shared 3-session budget. Forum #84538.
-        for (const cam of cameras) {
-            void this.handleSnapshotTrigger(cam.id).catch((err) => {
-                const msg = err instanceof Error ? err.message : String(err);
-                this.log.debug(`Startup snapshot for ${cam.id.slice(0, 8)} failed: ${msg}`);
-            });
+        // Request-saving default (`startup_snapshot` off): do NOT open a Bosch
+        // stream session per camera at boot. `online` is resolved the cheap,
+        // session-less way (LAN-TCP → cloud /ping → /commissioned) via
+        // _reconcileOnlineViaCloud. Opt in to `startup_snapshot` to fetch a real
+        // boot image per camera (costs one of the 3 shared Bosch sessions each).
+        if (this.config.startup_snapshot === true) {
+            for (const cam of cameras) {
+                void this.handleSnapshotTrigger(cam.id).catch((err) => {
+                    const msg = err instanceof Error ? err.message : String(err);
+                    this.log.debug(`Startup snapshot for ${cam.id.slice(0, 8)} failed: ${msg}`);
+                });
+            }
+        }
+        else {
+            for (const cam of cameras) {
+                void this._reconcileOnlineViaCloud(cam.id).catch((err) => {
+                    const msg = err instanceof Error ? err.message : String(err);
+                    this.log.debug(`Startup online probe for ${cam.id.slice(0, 8)} failed: ${msg}`);
+                });
+            }
         }
         // ── Step 5: FCM push listener (real implementation v0.3.0) ──────────
         // v0.6.0: load previously persisted FCM credentials so the listener
@@ -4276,7 +4291,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 const msg = err instanceof Error ? err.message : String(err);
                 this.log.debug(`Camera state poll tick failed: ${msg}`);
             });
-        }, BoschSmartHomeCamera.STATE_POLL_INTERVAL_MS);
+        }, this._pollIntervalMs);
         this._statePollTimer = timer;
     }
     /**
@@ -7723,6 +7738,21 @@ class BoschSmartHomeCamera extends utils.Adapter {
      *
      * Idempotent: re-calling while a timer is already armed is a no-op.
      */
+    /**
+     * Configurable base poll interval (ms) for camera state + event polling.
+     * `poll_interval` (seconds, default 60) lets users trade update latency for
+     * fewer Bosch cloud requests — each state tick polls several cloud endpoints
+     * per camera, so e.g. doubling the interval roughly halves that request
+     * volume. Clamped to 30-3600 s; an invalid/missing value keeps the 60 s
+     * default (existing behaviour).
+     */
+    get _pollIntervalMs() {
+        const sec = Number(this.config.poll_interval);
+        if (!Number.isFinite(sec) || sec < 30) {
+            return BoschSmartHomeCamera.STATE_POLL_INTERVAL_MS;
+        }
+        return Math.min(sec, 3600) * 1000;
+    }
     _startEventPolling() {
         if (this._eventPollTimer) {
             return;
@@ -7732,7 +7762,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 const msg = err instanceof Error ? err.message : String(err);
                 this.log.debug(`Event polling tick failed: ${msg}`);
             });
-        }, BoschSmartHomeCamera.EVENT_POLL_INTERVAL_MS);
+        }, this._pollIntervalMs);
         this._eventPollTimer = timer;
     }
     /**

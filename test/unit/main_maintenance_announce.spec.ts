@@ -71,7 +71,7 @@ function loadMethod(): AnyMethod {
 
     // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
     const factory = require(MAIN_JS_PATH) as (opts: Record<string, unknown>) => MockAdapter;
-    factory({ config: { redirect_url: "", region: "EU" } });
+    factory({ config: { redirect_url: "", region: "EU", startup_snapshot: true } });
 
     if (!capturedAdapter) {
         throw new Error("adapter not captured");

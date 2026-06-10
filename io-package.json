@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "1.4.0",
+        "version": "1.4.1",
         "news": {
+            "1.4.1": {
+                "en": "New Power-saving options that ease the shared 3-session Bosch limit: no per-camera snapshot at adapter start (online is resolved without a session), a configurable cloud poll interval, and an opt-in indoor-tile auto-refresh (off by default). Plus dependency updates.",
+                "de": "Neue Energiespar-Optionen, die das geteilte 3-Sitzungen-Limit von Bosch entlasten: kein Snapshot je Kamera beim Start (Online ohne Sitzung ermittelt), konfigurierbares Abfrageintervall und optionale Auto-Aktualisierung der Innenkamera-Kacheln (standardmäßig aus). Dazu Abhängigkeits-Updates.",
+                "ru": "Новые параметры энергосбережения, которые облегчают общее ограничение Bosch на 3 сеанса: отсутствие снимков для каждой камеры при запуске адаптера (онлайн разрешается без сеанса), настраиваемый интервал опроса облака и автоматическое обновление плиток в помещении (отключено по умолчанию). Плюс обновления зависимостей.",
+                "pt": "Novas opções de economia de energia que facilitam o limite compartilhado de 3 sessões da Bosch: nenhum instantâneo por câmera na inicialização do adaptador (on-line é resolvido sem uma sessão), um intervalo de pesquisa na nuvem configurável e uma atualização automática opcional de blocos internos (desativada por padrão). Além de atualizações de dependências.",
+                "nl": "Nieuwe energiebesparende opties die de gedeelde Bosch-limiet van drie sessies verlichten: geen momentopname per camera bij het starten van de adapter (online wordt opgelost zonder een sessie), een configureerbaar poll-interval in de cloud en een automatische vernieuwing van binnentegels (standaard uitgeschakeld). Plus afhankelijkheidsupdates.",
+                "fr": "Nouvelles options d'économie d'énergie qui atténuent la limite Bosch partagée de 3 sessions : pas d'instantané par caméra au démarrage de l'adaptateur (la connexion en ligne est résolue sans session), un intervalle d'interrogation cloud configurable et une actualisation automatique optionnelle des tuiles intérieures (désactivée par défaut). Plus les mises à jour des dépendances.",
+                "it": "Nuove opzioni di risparmio energetico che riducono il limite Bosch condiviso di 3 sessioni: nessuna istantanea per telecamera all'avvio dell'adattatore (online viene risolto senza una sessione), un intervallo di poll cloud configurabile e un aggiornamento automatico del riquadro interno (disattivato per impostazione predefinita). Inoltre aggiornamenti sulle dipendenze.",
+                "es": "Nuevas opciones de ahorro de energía que alivian el límite compartido de 3 sesiones de Bosch: sin instantáneas por cámara al iniciar el adaptador (en línea se resuelve sin una sesión), un intervalo de sondeo en la nube configurable y una actualización automática de mosaicos interiores opcional (desactivada de forma predeterminada). Además de actualizaciones de dependencia.",
+                "pl": "Nowe opcje oszczędzania energii, które ułatwiają współdzielony limit 3 sesji Bosch: brak migawki dla każdej kamery przy uruchomieniu adaptera (tryb online jest rozwiązywany bez sesji), konfigurowalny interwał odpytywania w chmurze oraz możliwość automatycznego odświeżania kafelków w pomieszczeniach (domyślnie wyłączona). Plus aktualizacje zależności.",
+                "uk": "Нові параметри енергозбереження, які зменшують обмеження Bosch на 3 сеанси спільного використання: відсутність знімка для кожної камери під час запуску адаптера (онлайн вирішується без сеансу), настроюваний інтервал опитування в хмарі та автоматичне оновлення плитки в приміщенні (вимкнено за замовчуванням). Плюс оновлення залежностей.",
+                "zh-cn": "新的节能选项可缓解共享 3 个会话博世的限制：适配器启动时无每个摄像机快照（无需会话即可解析在线）、可配置的云轮询间隔以及选择加入室内图块自动刷新（默认情况下关闭）。加上依赖项更新。"
+            },
             "1.4.0": {
                 "en": "New 'Bosch Camera Overview' grid widget. The camera card now matches the Home Assistant card: go2rtc video, audio, zoom, full controls. Privacy cameras show online correctly, no broken-image flash leaving privacy, and indoor tiles auto-refresh their snapshot.",
                 "de": "Neues Widget 'Bosch Kamera-Übersicht' (Raster aller Kameras). Die Kamera-Karte entspricht jetzt der Home-Assistant-Karte: go2rtc-Video, Ton, Zoom, volle Steuerung. Privatsphäre-Kameras werden korrekt als online angezeigt, kein Fehlerbild beim Verlassen des Privatmodus, Innenkameras aktualisieren ihr Bild automatisch.",
@@ -80,19 +93,6 @@
                 "pl": "Ikona adaptera: niebieski symbol zastępczy zostaje zastąpiony prawdziwym czerwonym logo aparatu Bosch. Pokazywał się jako zwykły niebieski kafelek w panelu administracyjnym ioBroker oraz w katalogu adapterów.",
                 "uk": "Піктограма адаптера: синій заповнювач замінено справжнім червоним логотипом камери Bosch. Він відображався як проста синя плитка в адміністраторі ioBroker і в каталозі адаптера.",
                 "zh-cn": "适配器图标：蓝色占位符替换为真正的红色博世相机徽标。它在 ioBroker 管理和适配器目录中显示为纯蓝色磁贴。"
-            },
-            "1.2.3": {
-                "en": "Less session-quota log noise: a camera sharing Bosch's 3-session limit now warns once per 5-min window (not every 60s) for HTTP 444 and pauses retries after 5 attempts. Snapshots right after motion get an extra retry.",
-                "de": "Weniger Session-Quota-Log-Rauschen: eine Kamera am Boschs 3-Session-Limit warnt bei HTTP 444 nur noch einmal pro 5-Minuten-Fenster (statt alle 60s) und pausiert Retries nach 5 Versuchen. Snapshots direkt nach Bewegung bekommen einen zusätzlichen Retry.",
-                "ru": "Меньше шума в журнале квоты сеансов: камера, использующая ограничение Bosch на три сеанса, теперь предупреждает один раз за 5-минутное окно (а не каждые 60 секунд) для HTTP 444 и приостанавливает повторные попытки после 5 попыток. Снимки сразу после движения получают дополнительную повторную попытку.",
-                "pt": "Menos ruído de registro de cota de sessão: uma câmera que compartilha o limite de 3 sessões da Bosch agora avisa uma vez a cada janela de 5 minutos (não a cada 60 segundos) para HTTP 444 e pausa novas tentativas após 5 tentativas. Os instantâneos logo após o movimento recebem uma nova tentativa.",
-                "nl": "Minder logboekruis bij sessiequota: een camera die de limiet van drie sessies van Bosch deelt, waarschuwt nu eenmaal per periode van 5 minuten (niet elke 60 seconden) voor HTTP 444 en pauzeert nieuwe pogingen na vijf pogingen. Snapshots direct na beweging krijgen een extra poging.",
-                "fr": "Moins de bruit de journalisation du quota de session : une caméra partageant la limite de 3 sessions de Bosch avertit désormais une fois toutes les 5 minutes (et non toutes les 60 s) pour HTTP 444 et met en pause les tentatives après 5 tentatives. Les instantanés juste après le mouvement font l'objet d'une nouvelle tentative.",
-                "it": "Meno rumore nel registro delle quote di sessione: una fotocamera che condivide il limite di 3 sessioni di Bosch ora avvisa una volta ogni 5 minuti (non ogni 60 secondi) per HTTP 444 e mette in pausa i tentativi dopo 5 tentativi. Le istantanee subito dopo il movimento ricevono un ulteriore tentativo.",
-                "es": "Menos ruido de registro de cuota de sesión: una cámara que comparte el límite de 3 sesiones de Bosch ahora advierte una vez cada ventana de 5 minutos (no cada 60 segundos) para HTTP 444 y detiene los reintentos después de 5 intentos. Las instantáneas inmediatamente después del movimiento obtienen un reintento adicional.",
-                "pl": "Mniej szumów w dziennikach przydziałów sesji: kamera korzystająca z limitu 3 sesji firmy Bosch ostrzega teraz raz na 5 minut (nie co 60 s) w przypadku protokołu HTTP 444 i wstrzymuje ponowne próby po 5 próbach. Migawki zaraz po wykryciu ruchu podlegają dodatkowej próbie.",
-                "uk": "Менше шуму в журналі квоти сеансу: камера, яка використовує обмеження Bosch на 3 сеанси, тепер попереджає один раз за 5-хвилинне вікно (а не кожні 60 секунд) для HTTP 444 і призупиняє повторні спроби після 5 спроб. Миттєві знімки одразу після руху отримують додаткову повторну спробу.",
-                "zh-cn": "减少会话配额日志噪音：共享博世 3 会话限制的摄像机现在每 5 分钟窗口（不是每 60 秒）针对 HTTP 444 发出警告，并在 5 次尝试后暂停重试。运动后立即拍摄的快照会获得额外的重试次数。"
             }
         },
         "titleLang": {

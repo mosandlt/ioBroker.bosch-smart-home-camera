@@ -1,6 +1,6 @@
 {
   "name": "iobroker.bosch-smart-home-camera",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "ioBroker adapter for Bosch Smart Home Cameras (Eyes Outdoor/Indoor, 360°, Gen2 Indoor II/Outdoor II)",
   "author": {
     "name": "mosandlt",
@@ -45,10 +45,10 @@
     "fix:c8-yargs": "node -e \"const v=parseInt(process.version.slice(1));if(v>=26){try{const fs=require('fs'),p='node_modules/c8/node_modules/yargs/package.json';const pkg=JSON.parse(fs.readFileSync(p,'utf8'));if(pkg.type==='module'){delete pkg.type;fs.writeFileSync(p,JSON.stringify(pkg,null,2));console.log('fix:c8-yargs: patched c8 yargs for Node v26+ CJS compat');}}catch(e){/* c8 not installed yet */}}\""
   },
   "dependencies": {
-    "@aracna/core": "^1.4.4",
+    "@aracna/core": "^1.5.0",
     "@aracna/fcm": "^1.0.33",
     "@iobroker/adapter-core": "^3.3.2",
-    "axios": "^1.16.1",
+    "axios": "^1.17.0",
     "axios-cookiejar-support": "^7.0.0",
     "mqtt": "^5.15.1",
     "tough-cookie": "^6.0.1"

@@ -259,6 +259,55 @@
         }
       }
     },
+    "tab_saving": {
+      "type": "panel",
+      "label": "API requests / Power saving",
+      "items": {
+        "_info_saving": {
+          "type": "header",
+          "text": "Save Bosch cloud requests",
+          "size": 5,
+          "sm": 12
+        },
+        "_saving_help": {
+          "type": "staticText",
+          "text": "Your cameras share a hard limit of only 3 simultaneous Bosch sessions across the Bosch app, Home Assistant, this adapter and any recorder. Opening a live stream or fetching a fresh snapshot consumes one of those sessions, and the cloud is polled regularly per camera. The options below let you reduce that load. On a fresh install the request-heavy options are OFF by default; turn them on only if you need them. Motion detection, manual snapshots and live streams (started on demand via cameras.<id>.livestream_enabled) keep working regardless.",
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 12,
+          "lg": 12,
+          "xl": 12
+        },
+        "startup_snapshot": {
+          "type": "checkbox",
+          "label": "Fetch a snapshot for every camera on adapter start",
+          "help": "OFF (recommended): when the adapter starts, each camera's online/offline state is determined the cheap, session-less way (a LAN TCP ping, falling back to the cloud /ping and /commissioned checks) — no Bosch stream session is opened. ON: a real snapshot is fetched per camera at start, which gives an immediate boot image but opens one of the 3 shared Bosch sessions per camera every time the adapter (re)starts.",
+          "default": false,
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 6,
+          "lg": 6,
+          "xl": 6
+        },
+        "poll_interval": {
+          "type": "number",
+          "label": "Cloud poll interval (s)",
+          "help": "How often the adapter polls the Bosch cloud per camera for status, motion config, light, events and similar. Each tick is several cloud requests per camera, so raising this value reduces request volume roughly proportionally — e.g. 120 s halves it versus the 60 s default. The trade-off is that changes made in the Bosch app appear in ioBroker a bit later. Motion push (FCM) is unaffected and stays near-instant. Range 30-3600 s. Default 60 s (unchanged behaviour).",
+          "default": 60,
+          "min": 30,
+          "max": 3600,
+          "unit": "s",
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 6,
+          "lg": 6,
+          "xl": 6
+        }
+      }
+    },
     "tab_mqtt": {
       "type": "panel",
       "label": "MQTT Bridge",

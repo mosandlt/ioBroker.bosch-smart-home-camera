@@ -445,6 +445,15 @@ class BoschCamera extends Generic {
                             hidden: 'data.mode !== "snapshot"',
                         },
                         {
+                            name: "indoorAutoRefresh",
+                            type: "checkbox",
+                            label: "Auto-refresh indoor snapshot",
+                            tooltip:
+                                "OFF (default): the snapshot updates on motion only. ON: indoor cameras pull a fresh snapshot while this tile is visible (360° every 5 s, Gen2 indoor every 10 s) so a panning/busy scene stays current — but this repeatedly opens one of the 3 shared Bosch sessions. Outdoor cameras are never auto-refreshed.",
+                            default: false,
+                            hidden: 'data.mode !== "snapshot"',
+                        },
+                        {
                             name: "snapshotUrlOverride",
                             type: "text",
                             label: "Snapshot URL (override)",
@@ -844,6 +853,10 @@ class BoschCamera extends Generic {
             clearInterval(this.snapRefreshTimer);
             this.snapRefreshTimer = null;
         }
+        // Opt-in only (default off): pulsing snapshot_trigger repeatedly opens a
+        // Bosch session, so leave it to the user via the "Auto-refresh indoor
+        // snapshot" widget option. Without it the tile updates on motion only.
+        if (!this.state.rxData.indoorAutoRefresh) return;
         const mode = this.state.rxData.mode || "snapshot";
         const ms = this._snapshotRefreshMs();
         if (!ms || mode !== "snapshot") return;

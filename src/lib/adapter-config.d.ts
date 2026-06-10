@@ -70,6 +70,20 @@ declare global {
              * ioBroker type-detector + VIS camera widgets recognise it. 0 = off.
              */
             snapshot_http_port?: number;
+            /**
+             * Request-saving option: when true, fetch a real snapshot per camera at adapter
+             * start (opens one of the 3 shared Bosch sessions each). Default
+             * false (request-saving) → `online` is resolved session-lessly via
+             * `_reconcileOnlineViaCloud` (LAN-TCP → /ping → /commissioned).
+             */
+            startup_snapshot?: boolean;
+            /**
+             * Request-saving option: base cloud poll interval in seconds for camera state +
+             * event polling. Higher = fewer Bosch cloud requests at the cost of
+             * later state updates. Clamped 30–3600 s; missing/invalid → 60 s
+             * (unchanged default behaviour).
+             */
+            poll_interval?: number;
         }
     }
 }

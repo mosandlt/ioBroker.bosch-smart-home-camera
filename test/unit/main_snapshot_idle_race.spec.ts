@@ -64,7 +64,7 @@ function loadMethod(): AnyFn {
     delete require.cache[MAIN_JS_PATH];
     // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
     const factory = require(MAIN_JS_PATH) as (opts: Record<string, unknown>) => MockAdapter;
-    factory({ config: { redirect_url: "", region: "EU" } });
+    factory({ config: { redirect_url: "", region: "EU", startup_snapshot: true } });
     if (!captured) throw new Error("adapter not captured");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fn = (captured as any).handleSnapshotTrigger as AnyFn | undefined;

@@ -216,7 +216,7 @@ function createAdapterWithStreamMocks(configOverrides: Record<string, unknown> =
     // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
     const factory = require(MAIN_JS_PATH) as (opts: Record<string, unknown>) => MockAdapter;
     factory({
-        config: { redirect_url: "", region: "EU", ...configOverrides },
+        config: { redirect_url: "", region: "EU", startup_snapshot: true, ...configOverrides },
     });
 
     if (!capturedAdapter) throw new Error("adapter not captured");

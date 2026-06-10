@@ -1539,6 +1539,15 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      *
      * Idempotent: re-calling while a timer is already armed is a no-op.
      */
+    /**
+     * Configurable base poll interval (ms) for camera state + event polling.
+     * `poll_interval` (seconds, default 60) lets users trade update latency for
+     * fewer Bosch cloud requests — each state tick polls several cloud endpoints
+     * per camera, so e.g. doubling the interval roughly halves that request
+     * volume. Clamped to 30-3600 s; an invalid/missing value keeps the 60 s
+     * default (existing behaviour).
+     */
+    private get _pollIntervalMs();
     private _startEventPolling;
     /**
      * v0.6.2: arm an FCM reconnect attempt with exponential backoff.

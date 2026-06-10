@@ -166,6 +166,10 @@ function createAdapter(configOverrides: Record<string, unknown> = {}): {
         config: {
             redirect_url: "",
             region: "EU",
+            // keep the original boot sequence (snapshot per camera) these
+            // fixtures assume; request-saving default (off → cloud reconcile)
+            // is covered in main_request_saving.spec.ts.
+            startup_snapshot: true,
             ...configOverrides,
         },
     });
