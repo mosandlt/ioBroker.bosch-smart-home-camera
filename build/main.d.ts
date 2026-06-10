@@ -118,6 +118,22 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _eventPollTimer;
     /**
+     * Whether FCM push is currently believed healthy. Drives the safety-net
+     * event-poll cadence: when true we still poll occasionally (silent-death
+     * insurance), when false we poll fast. Mirrors HA's `_fcm_healthy`.
+     */
+    private _fcmHealthy;
+    /** Date.now() ms of the last event fetch (push-driven OR polled). */
+    private _lastEventFetchAt;
+    /**
+     * Safety-net event-poll cadence (ms) while FCM is healthy. @aracna/fcm does
+     * not surface a raw TCP socket death (isHealthy() stays true), so motion
+     * could silently freeze forever. Polling events every 5 min even while FCM
+     * looks healthy guarantees motion is never missed for longer than this,
+     * regardless of FCM. Mirrors HA's 300 s healthy event interval.
+     */
+    private static readonly FCM_SAFETY_POLL_MS;
+    /**
      * Event-poll interval (ms) when FCM push is unavailable.
      * v1.2.2: 60 s to match the Home Assistant integration's default
      * `scan_interval` (60 s) — was 30 s.
@@ -150,6 +166,12 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * via the app, ioBroker DP stayed `true` because we only fetched once.
      */
     private _statePollTimer;
+    /** Stream idle-reaper timer (opt-in; tears down unwatched livestreams). */
+    private _streamReaperTimer;
+    /** Per-camera timestamp (ms) when the proxy client count first hit zero. */
+    private _streamIdleSince;
+    /** How often the idle-reaper checks proxy client counts (ms). */
+    private static readonly STREAM_REAPER_CHECK_MS;
     /**
      * Camera-state poll interval (ms).
      * v1.2.2: 60 s base tick to match the Home Assistant coordinator's default
@@ -803,6 +825,27 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * Stops itself on token expiry; the token-refresh loop will re-arm.
      */
     private _startStatePolling;
+    /**
+     * Slow diagnostic tier cadence as a number of state-poll ticks. Derived from
+     * `poll_interval_slow` (seconds) / the base poll interval, so the rarely-
+     * changing diagnostics (zones, light config, alarm settings, ONVIF/RCP reads,
+     * cloud feature flags) can be polled independently of the main cadence to
+     * save Bosch requests. Default 5 (= 300 s / 60 s), unchanged behaviour.
+     */
+    private get _slowTierThreshold();
+    /** Idle-reaper timeout (ms): zero-client duration before a livestream is reaped. */
+    private get _streamIdleTimeoutMs();
+    /**
+     * Opt-in stream idle-reaper (request-saving, experimental). When enabled,
+     * periodically checks every active RTSP proxy: if no downstream client
+     * (go2rtc / recorder / VLC) has been pulling it for `stream_idle_timeout`
+     * seconds, the enabled livestream is turned off so it stops occupying one of
+     * the 3 shared Bosch sessions. Consumer presence is read from the proxy's
+     * live client-connection count, so a stream someone is watching is never
+     * reaped. Default OFF — when off, an enabled livestream stays up 24/7.
+     */
+    private _startStreamIdleReaper;
+    private _streamReaperTick;
     /**
      * Single tick of the state poll: GET /v11/video_inputs, sync per-camera
      * fields that exist in that response back to DPs (currently just
@@ -1548,6 +1591,14 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * default (existing behaviour).
      */
     private get _pollIntervalMs();
+    /**
+     * Should the safety-net event poll actually hit the cloud this tick?
+     * - FCM not healthy → yes, every tick (fast recovery while push is down).
+     * - FCM healthy → only every FCM_SAFETY_POLL_MS, since push normally carries
+     *   events; this slow poll is purely silent-death insurance, kept rare to
+     *   spare Bosch requests. A push (or a poll) updates `_lastEventFetchAt`.
+     */
+    private _eventSafetyPollDue;
     private _startEventPolling;
     /**
      * v0.6.2: arm an FCM reconnect attempt with exponential backoff.

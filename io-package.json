@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "1.4.1",
+        "version": "1.5.0",
         "news": {
+            "1.5.0": {
+                "en": "Fix: motion no longer silently freezes (last_motion_at stopped after a while) — an always-on safety-net poll keeps it flowing even if the FCM push connection silently dies. New: a configurable stream maxSessionDuration, and an opt-in option to turn off unwatched live streams to free a Bosch session.",
+                "de": "Fix: Bewegungsdaten frieren nicht mehr still ein (last_motion_at blieb nach einiger Zeit stehen) — ein dauerhaft laufendes Sicherheitsnetz-Polling hält sie aktuell, selbst wenn die FCM-Push-Verbindung still stirbt. Neu: einstellbare Stream-maxSessionDuration und eine Opt-in-Option, ungenutzte Livestreams abzuschalten (spart eine Bosch-Sitzung).",
+                "ru": "Исправлено: движение больше не зависает беззвучно (last_motion_at останавливается через некоторое время) — постоянный опрос сети безопасности поддерживает его работу, даже если push-соединение FCM молча прекращается. Новое: настраиваемый поток maxSessionDuration и возможность отключения непросматриваемых прямых трансляций для освобождения сеанса Bosch.",
+                "pt": "Correção: o movimento não congela mais silenciosamente (last_motion_at é interrompido depois de um tempo) — uma pesquisa de rede de segurança sempre ativa o mantém fluindo mesmo se a conexão push do FCM morrer silenciosamente. Novidade: uma transmissão configurável maxSessionDuration e uma opção opcional para desativar transmissões ao vivo não assistidas para liberar uma sessão da Bosch.",
+                "nl": "Oplossing: beweging loopt niet langer stilletjes vast (last_motion_at stopte na een tijdje) — een altijd ingeschakelde vangnet-poll zorgt ervoor dat de beweging blijft doorgaan, zelfs als de FCM-pushverbinding stilletjes wegvalt. Nieuw: een configureerbare stream maxSessionDuration en een opt-in-optie om niet-bekeken livestreams uit te schakelen om een ​​Bosch-sessie vrij te maken.",
+                "fr": "Correction : le mouvement ne se fige plus silencieusement (last_motion_at s'est arrêté après un certain temps) – un sondage de filet de sécurité toujours actif le maintient en mouvement même si la connexion push FCM meurt silencieusement. Nouveau : un flux maxSessionDuration configurable et une option d'inscription pour désactiver les flux en direct non regardés afin de libérer une session Bosch.",
+                "it": "Correzione: il movimento non si blocca più silenziosamente (last_motion_at si interrompe dopo un po'): un sondaggio della rete di sicurezza sempre attivo lo mantiene in esecuzione anche se la connessione push FCM muore silenziosamente. Novità: maxSessionDuration del flusso configurabile e un'opzione di attivazione per disattivare i flussi live non guardati per liberare una sessione Bosch.",
+                "es": "Solución: el movimiento ya no se congela silenciosamente (last_motion_at se detuvo después de un tiempo); una encuesta de red de seguridad siempre activa lo mantiene fluyendo incluso si la conexión push de FCM muere silenciosamente. Nuevo: una transmisión configurable maxSessionDuration y una opción de suscripción para desactivar transmisiones en vivo no vistas para liberar una sesión de Bosch.",
+                "pl": "Poprawka: ruch nie zawiesza się już po chwili (last_motion_at zostaje zatrzymany po chwili) — zawsze włączone odpytywanie sieci zabezpieczającej utrzymuje płynność nawet w przypadku cichego zerwania połączenia push FCM. Nowość: konfigurowalny strumień maxSessionDuration i opcja wyłączenia nieoglądanych transmisji na żywo w celu zwolnienia sesji Bosch.",
+                "uk": "Виправлення: рух більше не мовчки зависає (last_motion_at через деякий час зупиняється) — постійне опитування мережі безпеки підтримує його, навіть якщо з’єднання FCM push тихо вимикається. Нове: конфігурована максимальна тривалість сеансу потоку та можливість вимкнути непереглянуті прямі трансляції, щоб звільнити сеанс Bosch.",
+                "zh-cn": "修复：运动不再无提示地冻结（last_motion_at 一段时间后停止）——即使 FCM 推送连接无提示地终止，始终在线的安全网轮询也会使其保持流动。新增内容：可配置的流 maxSessionDuration，以及用于关闭未观看的直播流以释放博世会话的选择加入选项。"
+            },
             "1.4.1": {
                 "en": "New Power-saving options that ease the shared 3-session Bosch limit: no per-camera snapshot at adapter start (online is resolved without a session), a configurable cloud poll interval, and an opt-in indoor-tile auto-refresh (off by default). Plus dependency updates.",
                 "de": "Neue Energiespar-Optionen, die das geteilte 3-Sitzungen-Limit von Bosch entlasten: kein Snapshot je Kamera beim Start (Online ohne Sitzung ermittelt), konfigurierbares Abfrageintervall und optionale Auto-Aktualisierung der Innenkamera-Kacheln (standardmäßig aus). Dazu Abhängigkeits-Updates.",
@@ -80,19 +93,6 @@
                 "pl": "Konfiguracja przesyłania strumieniowego jest łatwiejsza do odkrycia. Transmisja na żywo jest opcjonalna (domyślnie wyłączona), więc stream_url pozostaje pusty, a go2rtc zgłasza „odmowę połączenia”, dopóki nie ustawisz livestream_enabled=true. Wyjaśniają to teraz wskazówka dotycząca uruchamiania, wyraźniejsza nazwa adresu URL strumienia i nowa sekcja README.",
                 "uk": "Простіше виявити налаштування потокового передавання. Прямий ефір доступний (за замовчуванням вимкнено), тому stream_url залишається порожнім, а go2rtc повідомляє про «підключення відмовлено», доки ви не встановите livestream_enabled=true. Підказка щодо запуску, зрозуміліша назва stream_url і новий розділ README тепер пояснюють це.",
                 "zh-cn": "流媒体设置更容易发现。直播是选择加入的（默认情况下关闭），因此在您设置 livestream_enabled=true 之前，stream_url 保持为空并且 go2rtc 报告“连接被拒绝”。现在，启动提示、更清晰的stream_url 名称和新的自述文件部分对此进行了解释。"
-            },
-            "1.2.4": {
-                "en": "Adapter icon: the blue placeholder is replaced with the real red Bosch camera logo. It had shown as a plain blue tile in the ioBroker admin and in the adapter catalogue.",
-                "de": "Adapter-Icon: Der blaue Platzhalter wurde durch das echte rote Bosch-Kameralogo ersetzt. Es erschien im ioBroker-Admin und im Adapter-Katalog als einfarbig blaue Kachel.",
-                "ru": "Значок адаптера: синий заполнитель заменен настоящим красным логотипом камеры Bosch. В админке ioBroker и в каталоге адаптеров он отображался как простая синяя плитка.",
-                "pt": "Ícone do adaptador: o espaço reservado azul é substituído pelo logotipo vermelho real da câmera Bosch. Ele apareceu como um bloco azul simples no administrador do ioBroker e no catálogo do adaptador.",
-                "nl": "Adapterpictogram: de blauwe tijdelijke aanduiding is vervangen door het echte rode Bosch-cameralogo. Het werd als een effen blauwe tegel weergegeven in de ioBroker-beheerder en in de adaptercatalogus.",
-                "fr": "Icône de l'adaptateur : l'espace réservé bleu est remplacé par le véritable logo rouge de la caméra Bosch. Il était affiché sous la forme d'une vignette bleue unie dans l'administrateur ioBroker et dans le catalogue de l'adaptateur.",
-                "it": "Icona dell'adattatore: il segnaposto blu viene sostituito dal vero logo rosso della fotocamera Bosch. Era mostrato come un semplice riquadro blu nell'amministratore di ioBroker e nel catalogo dell'adattatore.",
-                "es": "Icono del adaptador: el marcador de posición azul se reemplaza por el logotipo rojo real de la cámara Bosch. Se mostraba como un mosaico azul en el administrador de ioBroker y en el catálogo de adaptadores.",
-                "pl": "Ikona adaptera: niebieski symbol zastępczy zostaje zastąpiony prawdziwym czerwonym logo aparatu Bosch. Pokazywał się jako zwykły niebieski kafelek w panelu administracyjnym ioBroker oraz w katalogu adapterów.",
-                "uk": "Піктограма адаптера: синій заповнювач замінено справжнім червоним логотипом камери Bosch. Він відображався як проста синя плитка в адміністраторі ioBroker і в каталозі адаптера.",
-                "zh-cn": "适配器图标：蓝色占位符替换为真正的红色博世相机徽标。它在 ioBroker 管理和适配器目录中显示为纯蓝色磁贴。"
             }
         },
         "titleLang": {

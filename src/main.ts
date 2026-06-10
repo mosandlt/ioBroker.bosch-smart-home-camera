@@ -239,6 +239,23 @@ class BoschSmartHomeCamera extends utils.Adapter {
     private _eventPollTimer: ioBroker.Interval | undefined = undefined;
 
     /**
+     * Whether FCM push is currently believed healthy. Drives the safety-net
+     * event-poll cadence: when true we still poll occasionally (silent-death
+     * insurance), when false we poll fast. Mirrors HA's `_fcm_healthy`.
+     */
+    private _fcmHealthy = false;
+    /** Date.now() ms of the last event fetch (push-driven OR polled). */
+    private _lastEventFetchAt = 0;
+    /**
+     * Safety-net event-poll cadence (ms) while FCM is healthy. @aracna/fcm does
+     * not surface a raw TCP socket death (isHealthy() stays true), so motion
+     * could silently freeze forever. Polling events every 5 min even while FCM
+     * looks healthy guarantees motion is never missed for longer than this,
+     * regardless of FCM. Mirrors HA's 300 s healthy event interval.
+     */
+    private static readonly FCM_SAFETY_POLL_MS = 300_000;
+
+    /**
      * Event-poll interval (ms) when FCM push is unavailable.
      * v1.2.2: 60 s to match the Home Assistant integration's default
      * `scan_interval` (60 s) — was 30 s.
@@ -275,6 +292,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * via the app, ioBroker DP stayed `true` because we only fetched once.
      */
     private _statePollTimer: ioBroker.Interval | undefined = undefined;
+
+    /** Stream idle-reaper timer (opt-in; tears down unwatched livestreams). */
+    private _streamReaperTimer: ioBroker.Interval | undefined = undefined;
+    /** Per-camera timestamp (ms) when the proxy client count first hit zero. */
+    private _streamIdleSince: Map<string, number> = new Map();
+    /** How often the idle-reaper checks proxy client counts (ms). */
+    private static readonly STREAM_REAPER_CHECK_MS = 30_000;
 
     /**
      * Camera-state poll interval (ms).
@@ -3823,7 +3847,21 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // Forum #84538 posts 13–18). VLC / FFmpeg also keep working — the
         // proxy detects whether the client supplies its own Authorization
         // header and only injects when needed.
-        const dur = session.maxSessionDuration > 0 ? session.maxSessionDuration : 3600;
+        // maxSessionDuration: the camera's own value (default 3600 s) unless the
+        // user raised `stream_max_session_duration`. Forum #84538 (Reiner): a
+        // continuous go2rtc pull timed out at 3600 s because the session expired
+        // before the watchdog's renewed session took over; a higher value lets
+        // the stream run longer between renewals. Range 600–21600 s; 0/unset
+        // keeps the camera-reported value.
+        const configured = Number(this.config.stream_max_session_duration);
+        const override =
+            Number.isFinite(configured) && configured >= 600 ? Math.min(configured, 21_600) : 0;
+        const dur =
+            override > 0
+                ? override
+                : session.maxSessionDuration > 0
+                  ? session.maxSessionDuration
+                  : 3600;
         return `${proxy.localRtspUrl}?inst=${instance}&enableaudio=1&fmtp=1&maxSessionDuration=${dur}`;
     }
 
@@ -4618,6 +4656,8 @@ class BoschSmartHomeCamera extends utils.Adapter {
 
         // Silent push wake-up — Bosch sends no payload; fetch events from API
         this._fcmListener.on("push", () => {
+            // A real push proves FCM is alive — keep the safety-net poll slow.
+            this._fcmHealthy = true;
             // v1.1.0: guard the fire-and-forget promise — fetchAndProcessEvents
             // awaits network + setStateAsync and can reject; an uncaught
             // rejection here would surface as an UnhandledPromiseRejection.
@@ -4650,6 +4690,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // Registration success — log token prefix + persist creds + mark healthy
         this._fcmListener.on("registered", (creds: FcmCredentials) => {
             this.log.info(`FCM registered: ${creds.fcmToken.substring(0, 12)}...`);
+            this._fcmHealthy = true;
             void this.setStateAsync("info.fcm_active", "healthy", true);
             // v0.6.0: persist the raw credentials so the next adapter start
             // can replay them as `savedCredentials` and avoid the full
@@ -4688,6 +4729,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // Error events from FCM internals
         this._fcmListener.on("error", (err: Error) => {
             this.log.error(`FCM error: ${err.message}`);
+            this._fcmHealthy = false;
             void this.setStateAsync("info.fcm_active", "error", true);
         });
 
@@ -4698,48 +4740,57 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // 30 s event-polling fallback until the next restart.
         this._fcmListener.on("disconnect", () => {
             this.log.warn("FCM disconnected — scheduling reconnect");
+            this._fcmHealthy = false; // speed the safety-net poll back up to fast
             void this.setStateAsync("info.fcm_active", "disconnected", true);
             this._scheduleFcmReconnect();
         });
 
         try {
             await this._fcmListener.start();
+            this._fcmHealthy = true;
             await this.setStateAsync("info.fcm_active", "healthy", true);
             this.log.info("FCM push listener started");
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
+            this._fcmHealthy = false;
             if (err instanceof FcmCbsRegistrationError) {
                 // v1.1.0: a CBS auth/token failure still must fall back to event
                 // polling — otherwise the adapter has NO event mechanism (push
                 // failed, polling never started) until a manual restart. The
                 // token-refresh loop runs independently, so once the token is
-                // renewed the 30s poll recovers. Log at error level (auth issue)
+                // renewed the poll recovers. Log at error level (auth issue)
                 // but keep the adapter usable.
                 this.log.error(
                     `FCM CBS registration failed (auth/token issue): ${msg} — falling back to event polling`,
                 );
                 await this.setStateAsync("info.fcm_active", "polling", true);
-                this._startEventPolling();
             } else {
                 // FCM registration failed. Fall back to polling
                 // (mirrors HA's `fcm_push_mode=polling` default-fallback) — adapter
-                // stays usable; events arrive via the polling timer every 30 s.
-                this.log.warn(
-                    `FCM push unavailable (${msg}) — falling back to event polling every ${
-                        BoschSmartHomeCamera.EVENT_POLL_INTERVAL_MS / 1000
-                    }s`,
-                );
+                // stays usable; events arrive via the polling timer.
+                this.log.warn(`FCM push unavailable (${msg}) — falling back to event polling`);
                 await this.setStateAsync("info.fcm_active", "polling", true);
-                this._startEventPolling();
             }
             // Don't crash — adapter still usable without push (polling fallback)
         }
+
+        // ── Step 5b: Always-on event-poll safety net ────────────────────────
+        // Forum #84538 (Reiner): @aracna/fcm does NOT surface a raw TCP socket
+        // death — isHealthy() stays true, no "disconnect" fires, and the old
+        // code only ever started event polling on an FCM START failure. So a
+        // silently-dead FCM left last_motion_at / last_event_image_at frozen
+        // until a manual restart. Like HA, we now ALWAYS run the event poll: it
+        // ticks every poll_interval and actually fetches every FCM_SAFETY_POLL_MS
+        // (5 min) while FCM looks healthy, or every tick once FCM is known down —
+        // so motion is never missed for longer than the safety window.
+        this._startEventPolling();
 
         // ── Step 6: Periodic camera-state poll (privacy + future fields) ────
         // Even with FCM push healthy we need this — Bosch never pushes a
         // privacy-toggle event, so app-side privacy changes only surface via
         // the next GET /v11/video_inputs. Forum #84538.
         this._startStatePolling();
+        this._startStreamIdleReaper();
 
         // ── Step 7: Cloud maintenance / outage discovery (v0.7.0) ────────────
         // Kick off an immediate fetch so the state is populated on the first
@@ -4817,6 +4868,95 @@ class BoschSmartHomeCamera extends utils.Adapter {
     }
 
     /**
+     * Slow diagnostic tier cadence as a number of state-poll ticks. Derived from
+     * `poll_interval_slow` (seconds) / the base poll interval, so the rarely-
+     * changing diagnostics (zones, light config, alarm settings, ONVIF/RCP reads,
+     * cloud feature flags) can be polled independently of the main cadence to
+     * save Bosch requests. Default 5 (= 300 s / 60 s), unchanged behaviour.
+     */
+    private get _slowTierThreshold(): number {
+        const slowSec = Number(this.config.poll_interval_slow);
+        if (!Number.isFinite(slowSec) || slowSec < 60) {
+            return BoschSmartHomeCamera.SLOW_TIER_THRESHOLD;
+        }
+        const baseSec = this._pollIntervalMs / 1000;
+        return Math.max(1, Math.round(Math.min(slowSec, 7200) / baseSec));
+    }
+
+    /** Idle-reaper timeout (ms): zero-client duration before a livestream is reaped. */
+    private get _streamIdleTimeoutMs(): number {
+        const sec = Number(this.config.stream_idle_timeout);
+        if (!Number.isFinite(sec) || sec < 30) {
+            return 180_000;
+        }
+        return Math.min(sec, 3600) * 1000;
+    }
+
+    /**
+     * Opt-in stream idle-reaper (request-saving, experimental). When enabled,
+     * periodically checks every active RTSP proxy: if no downstream client
+     * (go2rtc / recorder / VLC) has been pulling it for `stream_idle_timeout`
+     * seconds, the enabled livestream is turned off so it stops occupying one of
+     * the 3 shared Bosch sessions. Consumer presence is read from the proxy's
+     * live client-connection count, so a stream someone is watching is never
+     * reaped. Default OFF — when off, an enabled livestream stays up 24/7.
+     */
+    private _startStreamIdleReaper(): void {
+        if (this._streamReaperTimer || this.config.stream_idle_reaper !== true) {
+            return;
+        }
+        this.log.info(
+            `Stream idle-reaper enabled (experimental): livestreams with no client for ` +
+                `${Math.round(this._streamIdleTimeoutMs / 1000)} s will be turned off to free the Bosch session.`,
+        );
+        this._streamReaperTimer = this.setInterval(() => {
+            void this._streamReaperTick().catch((err: unknown) => {
+                const msg = err instanceof Error ? err.message : String(err);
+                this.log.debug(`Stream idle-reaper tick failed: ${msg}`);
+            });
+        }, BoschSmartHomeCamera.STREAM_REAPER_CHECK_MS);
+    }
+
+    private async _streamReaperTick(): Promise<void> {
+        const timeoutMs = this._streamIdleTimeoutMs;
+        const now = Date.now();
+        for (const [camId, proxy] of this._tlsProxies) {
+            let clients: number;
+            try {
+                clients = proxy.activeClientCount();
+            } catch {
+                continue;
+            }
+            if (clients > 0) {
+                // Someone is watching — reset the idle clock.
+                this._streamIdleSince.delete(camId);
+                continue;
+            }
+            // Only reap a stream the user actually enabled.
+            const enabled = await this.getStateAsync(`cameras.${camId}.livestream_enabled`);
+            if (enabled?.val !== true) {
+                this._streamIdleSince.delete(camId);
+                continue;
+            }
+            const since = this._streamIdleSince.get(camId);
+            if (since === undefined) {
+                this._streamIdleSince.set(camId, now);
+                continue;
+            }
+            if (now - since >= timeoutMs) {
+                this._streamIdleSince.delete(camId);
+                this.log.info(
+                    `Stream idle-reaper: no client for ${camId.slice(0, 8)} in ` +
+                        `${Math.round((now - since) / 1000)} s — turning livestream off to free the Bosch session.`,
+                );
+                // ack:false → onStateChange runs the normal livestream-off
+                // teardown path (closes the session + proxy, clears stream_url).
+                await this.setStateAsync(`cameras.${camId}.livestream_enabled`, false, false);
+            }
+        }
+    }
+
+    /**
      * Single tick of the state poll: GET /v11/video_inputs, sync per-camera
      * fields that exist in that response back to DPs (currently just
      * privacy_enabled; light fields live on /lighting and aren't polled).
@@ -4844,14 +4984,19 @@ class BoschSmartHomeCamera extends utils.Adapter {
             void this._pingAllCamsDuringOutage().catch(() => undefined);
             throw err;
         }
-        // Slow-tier diagnostics: every SLOW_TIER_THRESHOLD ticks (5 × 60s = 300s).
+        // Slow-tier diagnostics: every `_slowTierThreshold` ticks (default 5 =
+        // 300 s). `enable_diagnostics_polling` (default on) gates it entirely —
+        // turning it off stops the rarely-changing diagnostic cloud reads (zones,
+        // light config, alarm settings, ONVIF/RCP, feature flags) to save
+        // requests for users who don't need those datapoints.
         // F4/F6 run per-camera inside _pollSingleCameraState (slow-tier gate passed via arg).
         // F13 runs at account level here.
         this._diagPollTick++;
-        const doSlowTier = this._diagPollTick >= BoschSmartHomeCamera.SLOW_TIER_THRESHOLD;
+        const diagEnabled = this.config.enable_diagnostics_polling !== false;
+        const doSlowTier = diagEnabled && this._diagPollTick >= this._slowTierThreshold;
         if (doSlowTier) {
             this._diagPollTick = 0;
-            // F13: cloud feature flags — account-level, fetch once per 300s
+            // F13: cloud feature flags — account-level, fetch once per slow tier
             void this._pollFeatureFlags(token).catch(() => undefined);
         }
 
@@ -8212,6 +8357,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (!this._currentAccessToken) {
             return;
         }
+        // Mark that events were just fetched (push- OR poll-driven) so the
+        // safety-net poll stays slow while FCM is actively delivering.
+        this._lastEventFetchAt = Date.now();
         const token = this._currentAccessToken;
         const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
 
@@ -8888,11 +9036,28 @@ class BoschSmartHomeCamera extends utils.Adapter {
         return Math.min(sec, 3600) * 1000;
     }
 
+    /**
+     * Should the safety-net event poll actually hit the cloud this tick?
+     * - FCM not healthy → yes, every tick (fast recovery while push is down).
+     * - FCM healthy → only every FCM_SAFETY_POLL_MS, since push normally carries
+     *   events; this slow poll is purely silent-death insurance, kept rare to
+     *   spare Bosch requests. A push (or a poll) updates `_lastEventFetchAt`.
+     */
+    private _eventSafetyPollDue(now: number): boolean {
+        if (!this._fcmHealthy) {
+            return true;
+        }
+        return now - this._lastEventFetchAt >= BoschSmartHomeCamera.FCM_SAFETY_POLL_MS;
+    }
+
     private _startEventPolling(): void {
         if (this._eventPollTimer) {
             return;
         }
         const timer = this.setInterval(() => {
+            if (!this._eventSafetyPollDue(Date.now())) {
+                return; // FCM healthy + a recent push already fetched — skip
+            }
             void this.fetchAndProcessEvents().catch((err: unknown) => {
                 const msg = err instanceof Error ? err.message : String(err);
                 this.log.debug(`Event polling tick failed: ${msg}`);
@@ -9386,6 +9551,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     this.clearInterval(this._statePollTimer);
                     this._statePollTimer = undefined;
                 }
+
+                // Stop the optional stream idle-reaper timer
+                if (this._streamReaperTimer) {
+                    this.clearInterval(this._streamReaperTimer);
+                    this._streamReaperTimer = undefined;
+                }
+                this._streamIdleSince.clear();
 
                 // v0.7.0: stop maintenance poll timer
                 if (this._maintenanceTimer) {

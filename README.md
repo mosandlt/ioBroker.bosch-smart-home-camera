@@ -703,6 +703,15 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.5.0 (2026-06-10)
+Fixes motion silently freezing, plus a configurable stream session length and an opt-in idle-stream reaper.
+
+- **Fix — motion / snapshots no longer silently freeze after a while** (forum #84538): the cameras kept detecting motion in the Bosch app, but `last_motion_at` / `last_event_image_at` stopped updating and only an adapter restart brought them back. Root cause: the FCM push library does not surface a raw TCP socket death (its health check stays "connected"), and event polling was only ever started when FCM *failed at startup* — so a silently-dead push connection left motion frozen indefinitely. Like Home Assistant, the adapter now runs an always-on safety-net event poll: it fetches events roughly every 5 minutes while FCM looks healthy, and every poll interval once FCM is known to be down, so motion is never missed for longer than the safety window regardless of FCM.
+- **New setting — stream `maxSessionDuration`** (RTSP / Stream tab, `0` = camera default, range 600–21600 s): a continuous go2rtc / recorder pull could drop with a timeout at the camera's 3600 s session boundary before the adapter's renewed session took over. Raise this (e.g. 5000) to keep the stream running longer between renewals, without editing the URL by hand.
+- **New setting — turn off unwatched live streams** (API requests / Power saving tab, opt-in, default off, experimental): an enabled live stream keeps occupying one of the 3 shared Bosch sessions even when nobody is watching. When enabled, the adapter reads how many clients are actually pulling the local RTSP proxy and, after the configured idle timeout with none, turns the live stream off to free the session. A stream that something is really watching is never stopped.
+- **New settings — diagnostic polling** (API requests / Power saving tab): a *Poll diagnostic datapoints* switch (default on) and a separate *Diagnostic poll interval* (default 300 s, range 60–7200 s). The rarely-changing diagnostics — motion zones, light/ambient config, alarm settings, ONVIF/RCP info and cloud feature flags — can now be slowed down or turned off entirely to cut cloud requests, independently of the main poll interval. The core states (online, privacy, motion, snapshots, light, livestream) are unaffected.
+- **Quieter log:** the RTSP Digest-rotation `401` (expected, self-healing churn when Bosch rotates the stream credentials and the client reconnects) is now logged at debug instead of warn.
+
 ### 1.4.1 (2026-06-10)
 Options to reduce load on the shared Bosch session limit, plus dependency updates.
 

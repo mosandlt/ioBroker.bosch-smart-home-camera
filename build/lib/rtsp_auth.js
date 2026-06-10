@@ -191,7 +191,11 @@ function attachRtspAuthHandler(opts) {
                 //     trigger) has refreshed the proxy's Digest creds via
                 //     updateDigestAuth(). Forum #1341076.
                 if (status === 401) {
-                    log("warn", `RTSP auth ${camLabel}: camera rejected our Digest creds (status 401) — ` +
+                    // Expected, self-healing churn: Bosch rotates the Digest creds
+                    // server-side (privacy toggle / session renewal), the client
+                    // reconnects and the refreshed creds are injected. Log at debug
+                    // so it doesn't look like an error to the user. Forum #84538.
+                    log("debug", `RTSP auth ${camLabel}: camera rotated Digest creds (status 401) — ` +
                         `forwarding 401 + closing client so it reconnects with refreshed creds`);
                     pendingFirstRequest = null;
                     challenge = null;

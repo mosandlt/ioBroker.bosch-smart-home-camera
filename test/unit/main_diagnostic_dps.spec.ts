@@ -152,6 +152,7 @@ function createAdapterWithMocks(
                 localRtspUrl: "rtsp://127.0.0.1:18010/rtsp_tunnel",
                 stop: sinon.stub().resolves(),
                 updateDigestAuth: sinon.stub(),
+                activeClientCount: sinon.stub().returns(0),
             }),
         },
     };

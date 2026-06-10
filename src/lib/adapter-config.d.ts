@@ -84,6 +84,43 @@ declare global {
              * (unchanged default behaviour).
              */
             poll_interval?: number;
+            /**
+             * Request-saving option (opt-in, experimental, default off): tear
+             * down an enabled livestream once no downstream client (go2rtc /
+             * recorder / VLC) has been pulling the RTSP proxy for
+             * {@link stream_idle_timeout} seconds, freeing the Bosch session.
+             * Consumer presence is read from the proxy's live client-connection
+             * count, so it never reaps a stream someone is actually watching.
+             */
+            stream_idle_reaper?: boolean;
+            /**
+             * Seconds with zero proxy clients before the idle reaper tears a
+             * livestream down. Clamped 30–3600 s; default 180 s. Only used when
+             * {@link stream_idle_reaper} is on.
+             */
+            stream_idle_timeout?: number;
+            /**
+             * Override the RTSP `maxSessionDuration` (seconds) written into the
+             * published stream URL. The camera defaults to 3600 s; a continuous
+             * go2rtc/recorder pull can time out at that boundary before the
+             * watchdog's renewed session takes over. Raise it (e.g. 5000) to run
+             * longer between renewals. Clamped 600–21600 s; 0/unset keeps the
+             * camera-reported value. Forum #84538.
+             */
+            stream_max_session_duration?: number;
+            /**
+             * Request-saving option (default on): poll the rarely-changing
+             * diagnostic cloud reads (zones, light config, alarm settings,
+             * ONVIF/RCP, feature flags). Turn off to stop them entirely.
+             */
+            enable_diagnostics_polling?: boolean;
+            /**
+             * Request-saving option: slow diagnostic tier cadence in seconds
+             * (how often the diagnostics above are polled). Clamped 60–7200 s;
+             * default 300 s. The effective tick count is poll_interval_slow /
+             * poll_interval.
+             */
+            poll_interval_slow?: number;
         }
     }
 }

@@ -135,9 +135,9 @@ describe("rtsp_auth — AUTH_RESPONDING trailing-data paths", () => {
         expect(allClientText, "trailing bytes forwarded").to.include("EXTRA_TRAILING_BYTES");
         // Client socket ended
         expect(client.ended, "client.end() called on stale creds").to.equal(true);
-        // Warn log emitted
-        const warnLog = logs.find((l) => l.startsWith("[warn]") && /Digest/i.test(l));
-        expect(warnLog, "warn log for stale creds").to.exist;
+        // Debug log emitted (expected creds rotation, not a warning)
+        const debugLog = logs.find((l) => l.startsWith("[debug]") && /rotated.*Digest/i.test(l));
+        expect(debugLog, "debug log for rotated creds").to.exist;
     });
 
     it("200 success with trailing bytes → trailing piped to client (lines 269-270)", () => {

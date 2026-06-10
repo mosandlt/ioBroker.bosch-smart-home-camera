@@ -131,3 +131,58 @@ describe("request-saving — _pollIntervalMs clamping", () => {
         expect(ms("120")).to.equal(120_000);
     });
 });
+
+describe("request-saving — _slowTierThreshold (diagnostic poll cadence)", () => {
+    let getter: (this: unknown) => number;
+    before(() => {
+        const proto = Object.getPrototypeOf(loadAdapter());
+        const desc = Object.getOwnPropertyDescriptor(proto, "_slowTierThreshold");
+        if (!desc || typeof desc.get !== "function") throw new Error("_slowTierThreshold getter not found");
+        getter = desc.get as (this: unknown) => number;
+    });
+    // base poll interval fixed at 60 s unless noted
+    const th = (poll_interval_slow: unknown, baseMs = 60_000): number =>
+        getter.call({ config: { poll_interval_slow }, _pollIntervalMs: baseMs });
+
+    it("undefined → default 5 ticks (300 s / 60 s)", () => expect(th(undefined)).to.equal(5));
+    it("below 60 s → default 5", () => expect(th(30)).to.equal(5));
+    it("300 s (default) → 5 ticks", () => expect(th(300)).to.equal(5));
+    it("600 s → 10 ticks", () => expect(th(600)).to.equal(10));
+    it("60 s → 1 tick (minimum)", () => expect(th(60)).to.equal(1));
+    it("clamped at 7200 s → 120 ticks", () => expect(th(99999)).to.equal(120));
+    it("scales with a raised base interval (base 120 s, slow 600 s → 5)", () =>
+        expect(th(600, 120_000)).to.equal(5));
+});
+
+describe("stream URL — stream_max_session_duration override (forum #84538)", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let build: (...a: any[]) => string;
+    before(() => {
+        build = loadAdapter()._buildStreamUrl;
+    });
+    const PROXY = { localRtspUrl: "rtsp://127.0.0.1:9000/rtsp_tunnel" };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function url(cfgDur: unknown, sessionDur: number): string {
+        return build.call({ config: { stream_max_session_duration: cfgDur } }, PROXY, { maxSessionDuration: sessionDur }, 1);
+    }
+
+    it("no override → uses the camera-reported value (3600)", () => {
+        expect(url(0, 3600)).to.contain("maxSessionDuration=3600");
+    });
+
+    it("no override + camera reports 0 → falls back to 3600", () => {
+        expect(url(undefined, 0)).to.contain("maxSessionDuration=3600");
+    });
+
+    it("override 5000 wins over the camera value", () => {
+        expect(url(5000, 3600)).to.contain("maxSessionDuration=5000");
+    });
+
+    it("override below 600 is ignored (uses camera value)", () => {
+        expect(url(120, 3600)).to.contain("maxSessionDuration=3600");
+    });
+
+    it("override above 21600 is clamped to 21600", () => {
+        expect(url(99999, 3600)).to.contain("maxSessionDuration=21600");
+    });
+});

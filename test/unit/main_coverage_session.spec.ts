@@ -144,6 +144,7 @@ interface AdapterRig {
         localRtspUrl: string;
         stop: sinon.SinonStub;
         updateDigestAuth: sinon.SinonStub;
+        activeClientCount: sinon.SinonStub;
     };
     setTimeoutCalls: Array<{ fn: () => void; ms: number }>;
 }
@@ -193,6 +194,7 @@ function createRig(configOverrides: Record<string, unknown> = {}): AdapterRig {
         localRtspUrl: "rtsp://127.0.0.1:18030/rtsp_tunnel",
         stop: sinon.stub().resolves(),
         updateDigestAuth: sinon.stub(),
+        activeClientCount: sinon.stub().returns(0),
     };
     const startTlsProxyStub = sinon.stub().resolves(fakeProxy);
     const tlsProxyPath = resolveBuildModule("tls_proxy");

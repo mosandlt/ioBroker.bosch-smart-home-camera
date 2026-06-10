@@ -41,6 +41,13 @@ export interface TlsProxyHandle {
      * in a failed state — restarting them mid-stream would be worse).
      */
     updateDigestAuth(user: string, password: string): void;
+    /**
+     * Number of currently-connected downstream clients (FFmpeg / go2rtc / VLC /
+     * a recorder pulling the RTSP stream). 0 means nobody is watching — the
+     * optional stream idle-reaper uses this to tear down a livestream session
+     * that no consumer is using, so it stops occupying a Bosch session slot.
+     */
+    activeClientCount(): number;
 }
 /** Options for startTlsProxy() */
 export interface TlsProxyOptions {

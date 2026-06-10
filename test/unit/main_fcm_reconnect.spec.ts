@@ -303,6 +303,23 @@ describe("main adapter — FCM auto-reconnect on disconnect (v0.6.2)", () => {
         expect(pending[0].ms, "first backoff is 5 s").to.equal(5_000);
     });
 
+    it("event-poll safety net is armed even when FCM starts healthy (forum #84538)", async () => {
+        // Regression for Reiner's report: @aracna/fcm hides a raw TCP socket
+        // death, so a healthy-looking-but-dead FCM used to freeze motion forever
+        // because event polling was only ever started on an FCM START failure.
+        const fcmStart = sinon.stub().resolves(undefined);
+        const f = await createFixture(fcmStart);
+
+        expect(getStateVal(f.db, f.adapter, "info.fcm_active")).to.equal("healthy");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        expect((f.adapter as any)._fcmHealthy, "FCM marked healthy").to.equal(true);
+        // The always-on safety-net event poll must be armed despite a healthy FCM.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        expect((f.adapter as any)._eventPollTimer, "event poll armed on healthy FCM").to.not.equal(
+            undefined,
+        );
+    });
+
     it("on backoff fire: calls _fcmListener.start() and flips state to healthy on success", async () => {
         const fcmStart = sinon.stub().resolves(undefined);
         const f = await createFixture(fcmStart);

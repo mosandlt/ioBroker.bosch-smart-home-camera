@@ -311,9 +311,10 @@ describe("rtsp_auth — state machine", () => {
         );
         // Client socket gracefully ended so it reconnects fresh
         expect(client.ended, "client socket end() called").to.equal(true);
-        // A warn-level log line was emitted explaining the abort
-        const warnLog = logs.find((l) => l.startsWith("[warn]"));
-        expect(warnLog, "warn log emitted").to.match(/camera rejected.*Digest/i);
+        // A debug-level log line was emitted explaining the abort (the creds
+        // rotation is expected, self-healing churn — not a warning).
+        const debugLog = logs.find((l) => l.startsWith("[debug]") && /rotated.*Digest/i.test(l));
+        expect(debugLog, "debug log emitted").to.match(/camera rotated.*Digest/i);
 
         // 4) Critical: subsequent client requests must NOT be silently
         //    forwarded with the bad Digest header (i.e. we did NOT enter

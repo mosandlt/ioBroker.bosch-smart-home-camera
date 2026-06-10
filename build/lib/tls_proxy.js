@@ -82,6 +82,9 @@ function startTlsProxy(options) {
             : null;
         // Track all live sockets so stop() can destroy them
         const activeSockets = new Set();
+        // Count of currently-connected downstream clients (consumers pulling the
+        // stream). Incremented per client connection, decremented on its teardown.
+        let clientConnCount = 0;
         // Circuit-breaker state (mirrors Python fail_count / first_fail_at)
         let failCount = 0;
         let firstFailAt = 0; // Date.now() ms
@@ -89,6 +92,7 @@ function startTlsProxy(options) {
             // Keep-alive on the client (FFmpeg) side
             clientSocket.setKeepAlive(true, 30_000);
             activeSockets.add(clientSocket);
+            clientConnCount++;
             log("debug", `TLS proxy ${camLabel}: client connected`);
             // Open TLS connection to remote (camera / relay)
             const remoteSocket = tls.connect({
@@ -113,6 +117,9 @@ function startTlsProxy(options) {
                 }
                 activeSockets.delete(clientSocket);
                 activeSockets.delete(remoteSocket);
+                if (clientConnCount > 0) {
+                    clientConnCount--;
+                }
             }
             // ── Remote socket event handlers ────────────────────────────────
             remoteSocket.on("secureConnect", () => {
@@ -167,6 +174,7 @@ function startTlsProxy(options) {
                         ` Coordinator will rebuild the session when the camera is back.`);
                     server.close();
                     activeSockets.clear();
+                    clientConnCount = 0;
                 }
             });
             remoteSocket.on("end", () => teardown("remote end"));
@@ -210,6 +218,7 @@ function startTlsProxy(options) {
                         }
                     }
                     activeSockets.clear();
+                    clientConnCount = 0;
                     server.close(() => {
                         log("debug", `TLS proxy ${camLabel}: server socket closed`);
                         res();
@@ -234,7 +243,10 @@ function startTlsProxy(options) {
                         `— next client connection will use rotated creds`);
                 }
             }
-            resolve({ port, bindHost, localRtspUrl, stop, updateDigestAuth });
+            function activeClientCount() {
+                return clientConnCount;
+            }
+            resolve({ port, bindHost, localRtspUrl, stop, updateDigestAuth, activeClientCount });
         });
     });
 }

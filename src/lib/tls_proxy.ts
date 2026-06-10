@@ -49,6 +49,13 @@ export interface TlsProxyHandle {
      * in a failed state — restarting them mid-stream would be worse).
      */
     updateDigestAuth(user: string, password: string): void;
+    /**
+     * Number of currently-connected downstream clients (FFmpeg / go2rtc / VLC /
+     * a recorder pulling the RTSP stream). 0 means nobody is watching — the
+     * optional stream idle-reaper uses this to tear down a livestream session
+     * that no consumer is using, so it stops occupying a Bosch session slot.
+     */
+    activeClientCount(): number;
 }
 
 /** Options for startTlsProxy() */
@@ -144,6 +151,9 @@ export function startTlsProxy(options: TlsProxyOptions): Promise<TlsProxyHandle>
 
         // Track all live sockets so stop() can destroy them
         const activeSockets = new Set<net.Socket | tls.TLSSocket>();
+        // Count of currently-connected downstream clients (consumers pulling the
+        // stream). Incremented per client connection, decremented on its teardown.
+        let clientConnCount = 0;
 
         // Circuit-breaker state (mirrors Python fail_count / first_fail_at)
         let failCount = 0;
@@ -153,6 +163,7 @@ export function startTlsProxy(options: TlsProxyOptions): Promise<TlsProxyHandle>
             // Keep-alive on the client (FFmpeg) side
             clientSocket.setKeepAlive(true, 30_000);
             activeSockets.add(clientSocket);
+            clientConnCount++;
 
             log("debug", `TLS proxy ${camLabel}: client connected`);
 
@@ -180,6 +191,9 @@ export function startTlsProxy(options: TlsProxyOptions): Promise<TlsProxyHandle>
                 }
                 activeSockets.delete(clientSocket);
                 activeSockets.delete(remoteSocket);
+                if (clientConnCount > 0) {
+                    clientConnCount--;
+                }
             }
 
             // ── Remote socket event handlers ────────────────────────────────
@@ -249,6 +263,7 @@ export function startTlsProxy(options: TlsProxyOptions): Promise<TlsProxyHandle>
                     );
                     server.close();
                     activeSockets.clear();
+                    clientConnCount = 0;
                 }
             });
 
@@ -304,6 +319,7 @@ export function startTlsProxy(options: TlsProxyOptions): Promise<TlsProxyHandle>
                         }
                     }
                     activeSockets.clear();
+                    clientConnCount = 0;
 
                     server.close(() => {
                         log("debug", `TLS proxy ${camLabel}: server socket closed`);
@@ -336,7 +352,11 @@ export function startTlsProxy(options: TlsProxyOptions): Promise<TlsProxyHandle>
                 }
             }
 
-            resolve({ port, bindHost, localRtspUrl, stop, updateDigestAuth });
+            function activeClientCount(): number {
+                return clientConnCount;
+            }
+
+            resolve({ port, bindHost, localRtspUrl, stop, updateDigestAuth, activeClientCount });
         });
     });
 }

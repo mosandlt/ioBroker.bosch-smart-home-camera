@@ -164,6 +164,21 @@
           "lg": 6,
           "xl": 6,
           "hidden": "!data.rtsp_expose_to_lan"
+        },
+        "stream_max_session_duration": {
+          "type": "number",
+          "label": "Max session duration (s, 0 = camera default)",
+          "help": "The RTSP maxSessionDuration written into the published stream URL. The camera defaults to 3600 s (60 min). A continuous go2rtc / recorder pull can drop with a timeout at that boundary if the session expires before the adapter's renewed session takes over. Raise this (e.g. 5000) to keep the stream running longer between renewals. Range 600-21600 s; 0 keeps the camera-reported value.",
+          "default": 0,
+          "min": 0,
+          "max": 21600,
+          "unit": "s",
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 6,
+          "lg": 6,
+          "xl": 6
         }
       }
     },
@@ -305,6 +320,69 @@
           "md": 6,
           "lg": 6,
           "xl": 6
+        },
+        "enable_diagnostics_polling": {
+          "type": "checkbox",
+          "label": "Poll diagnostic datapoints",
+          "help": "ON (default): periodically refresh the rarely-changing diagnostic datapoints — motion zones, light/ambient config, alarm settings, ONVIF/RCP info and cloud feature flags. Turn OFF to stop these cloud reads entirely if you don't use those datapoints; the core states (online, privacy, motion, snapshots, light, livestream) keep working.",
+          "default": true,
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 6,
+          "lg": 6,
+          "xl": 6
+        },
+        "poll_interval_slow": {
+          "type": "number",
+          "label": "Diagnostic poll interval (s)",
+          "help": "How often the diagnostic datapoints above are refreshed (separately from the main poll interval). Higher = fewer cloud requests for data that barely changes. Range 60-7200 s. Default 300 s.",
+          "default": 300,
+          "min": 60,
+          "max": 7200,
+          "unit": "s",
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 6,
+          "lg": 6,
+          "xl": 6,
+          "hidden": "!data.enable_diagnostics_polling"
+        },
+        "_reaper_header": {
+          "type": "header",
+          "text": "Stop unwatched live streams (experimental)",
+          "size": 5,
+          "newLine": true,
+          "sm": 12
+        },
+        "stream_idle_reaper": {
+          "type": "checkbox",
+          "label": "Turn off a live stream when nobody is watching",
+          "help": "OFF (default): once you enable a live stream (cameras.<id>.livestream_enabled = true) it stays connected and keeps occupying one of the 3 shared Bosch sessions until you turn it off. ON (experimental): the adapter watches how many clients (go2rtc, a recorder, VLC) are actually pulling the local RTSP proxy; if none have been pulling for the timeout below, it turns the live stream off automatically to free the session. A stream that something is really watching is never stopped. It does not auto-restart — the next consumer or a manual toggle starts it again.",
+          "default": false,
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 6,
+          "lg": 6,
+          "xl": 6
+        },
+        "stream_idle_timeout": {
+          "type": "number",
+          "label": "Idle timeout (s)",
+          "help": "How many seconds with zero clients pulling the stream before it is turned off. Range 30-3600 s. Default 180 s.",
+          "default": 180,
+          "min": 30,
+          "max": 3600,
+          "unit": "s",
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 6,
+          "lg": 6,
+          "xl": 6,
+          "hidden": "!data.stream_idle_reaper"
         }
       }
     },
