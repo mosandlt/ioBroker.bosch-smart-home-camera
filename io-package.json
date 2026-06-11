@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "1.5.1",
+        "version": "1.5.2",
         "news": {
+            "1.5.2": {
+                "en": "Maintenance: orphaned camera object subtrees left behind by removed cameras are now automatically pruned on adapter start (after a successful camera fetch; a safety guard prevents deletion during a cloud outage).",
+                "de": "Aufräumen: verwaiste cameras.<uuid>-Objektbäume entfernter Kameras werden jetzt beim Start automatisch entfernt (nach erfolgreichem Kamera-Abruf; Safety-Guard gegen Löschen bei Cloud-Ausfall).",
+                "ru": "Обслуживание: осиротевшие поддеревья объектов камер, оставшиеся после удалённых камер, теперь автоматически удаляются при запуске адаптера (после успешного получения списка камер; защитный механизм предотвращает удаление при недоступности облака).",
+                "pt": "Manutenção: as subárvores de objetos de câmeras órfãs deixadas por câmeras removidas agora são eliminadas automaticamente na inicialização do adaptador (após uma busca bem-sucedida; um guarda de segurança impede a exclusão durante uma falha na nuvem).",
+                "nl": "Onderhoud: verweesde camera-objectsubstructuren die zijn achtergebleven door verwijderde camera's, worden nu automatisch opgeschoond bij het starten van de adapter (na een succesvolle cameraquery; een veiligheidsbeveiliging voorkomt verwijdering bij een cloudstoring).",
+                "fr": "Maintenance : les sous-arbres d'objets de caméras orphelines laissés par des caméras supprimées sont maintenant nettoyés automatiquement au démarrage de l'adaptateur (après une récupération réussie ; un garde de sécurité empêche la suppression en cas de panne du cloud).",
+                "it": "Manutenzione: i sottoalberi di oggetti delle telecamere orfane lasciati da telecamere rimosse vengono ora eliminati automaticamente all'avvio dell'adattatore (dopo un recupero riuscito; una guardia di sicurezza impedisce l'eliminazione durante un'interruzione del cloud).",
+                "es": "Mantenimiento: los subárboles de objetos de cámaras huérfanas que dejaron las cámaras eliminadas ahora se limpian automáticamente al iniciar el adaptador (tras una obtención exitosa; un guardia de seguridad evita la eliminación durante una interrupción de la nube).",
+                "pl": "Konserwacja: osierocone poddrzewa obiektów kamer pozostawione przez usunięte kamery są teraz automatycznie usuwane przy starcie adaptera (po pomyślnym pobraniu danych kamery; zabezpieczenie chroni przed usunięciem podczas awarii chmury).",
+                "uk": "Обслуговування: осиротілі піддерева об'єктів камер, залишені видаленими камерами, тепер автоматично видаляються під час запуску адаптера (після успішного отримання даних камери; захисний механізм запобігає видаленню під час збою хмари).",
+                "zh-cn": "维护：适配器启动时（成功获取摄像头列表后）现在会自动清理已删除摄像头遗留的孤立 cameras.<uuid> 对象子树；安全保护机制可防止在云端不可用时误删数据。"
+            },
             "1.5.1": {
                 "en": "Security: TLS certificate verification for Bosch cloud/proxy calls (CWE-295). The cloud API and video proxy now validate the private Bosch CA instead of accepting any certificate, closing a MITM gap on OAuth tokens on the local network. Local camera endpoints are unchanged.",
                 "de": "Sicherheit: TLS-Zertifikatsprüfung für Bosch-Cloud/Proxy-Aufrufe (CWE-295). Cloud-API und Video-Proxy validieren jetzt die private Bosch-CA statt jedes Zertifikat zu akzeptieren; schließt eine MITM-Lücke auf OAuth-Tokens im lokalen Netz. Lokale Kamera-Endpunkte unverändert.",
@@ -80,19 +93,6 @@
                 "pl": "Nowe punkty danych tylko do odczytu stream_host, stream_port i stream_path dla każdej kamery dzielą adres URL transmisji na żywo na osobne pola, dzięki czemu ogólny typ kamery RTSP w adapterze ioBroker.cameras można wypełniać pole po polu, bez ręcznego dzielenia adresu URL.",
                 "uk": "Нові точки даних лише для читання stream_host, stream_port і stream_path для кожної камери розділяють URL-адресу прямої трансляції на окремі поля, тож загальний тип RTSP-камери в адаптері ioBroker.cameras можна заповнювати поле за полем, не розбиваючи URL-адресу вручну.",
                 "zh-cn": "每个摄像头新增只读数据点 stream_host、stream_port 和 stream_path，将实时流 URL 拆分为独立字段，因此 ioBroker.cameras 适配器中的通用 RTSP 摄像头类型可以逐个字段填写，无需手动拆分 URL。"
-            },
-            "1.2.6": {
-                "en": "Fixed invalid object roles flagged by the repository object-structure check (E1008/E1009). Affected status, timestamp, select, JSON, signal and pan states now use catalogue-valid roles; a one-time automatic migration corrects existing installations.",
-                "de": "Ungültige Objekt-Rollen behoben, die der Objektstruktur-Check des Repositorys meldete (E1008/E1009). Betroffene Status-, Zeitstempel-, Auswahl-, JSON-, Signal- und Schwenk-States nutzen jetzt katalog-gültige Rollen; eine einmalige Migration korrigiert bestehende Installationen.",
-                "ru": "Исправлены недопустимые роли объектов, отмеченные проверкой структуры объектов репозитория (E1008/E1009). Затронутые состояния, метка времени, выбор, JSON, сигналы и состояния панорамирования теперь используют роли, действительные в каталоге; однократная автоматическая миграция исправляет существующие установки.",
-                "pt": "Foram corrigidas funções de objeto inválidas sinalizadas pela verificação da estrutura do objeto do repositório (E1008/E1009). Status afetados, carimbo de data/hora, seleção, JSON, sinal e estados panorâmicos agora usam funções válidas de catálogo; uma migração automática única corrige as instalações existentes.",
-                "nl": "Probleem opgelost met ongeldige objectrollen die werden gemarkeerd door de objectstructuurcontrole in de repository (E1008/E1009). Beïnvloede status-, tijdstempel-, selectie-, JSON-, signaal- en pan-statussen gebruiken nu catalogusgeldige rollen; een eenmalige automatische migratie corrigeert bestaande installaties.",
-                "fr": "Correction des rôles d'objet non valides signalés par la vérification de la structure des objets du référentiel (E1008/E1009). Les états d'état, d'horodatage, de sélection, JSON, de signal et de panoramique concernés utilisent désormais des rôles valides dans le catalogue ; une migration automatique unique corrige les installations existantes.",
-                "it": "Risolti i ruoli degli oggetti non validi contrassegnati dal controllo della struttura degli oggetti del repository (E1008/E1009). Gli stati interessati, timestamp, selezione, JSON, segnale e panoramica ora utilizzano ruoli validi nel catalogo; una migrazione automatica una tantum corregge le installazioni esistenti.",
-                "es": "Se corrigieron roles de objetos no válidos marcados por la verificación de la estructura de objetos del repositorio (E1008/E1009). Los estados afectados de estado, marca de tiempo, selección, JSON, señal y panorámica ahora usan roles válidos para el catálogo; una migración automática única corrige las instalaciones existentes.",
-                "pl": "Naprawiono nieprawidłowe role obiektów oznaczone przez kontrolę struktury obiektu repozytorium (E1008/E1009). Stany statusu, sygnatury czasowej, wyboru, JSON, sygnału i panoramy, których to dotyczy, korzystają teraz z ról ważnych w katalogu; jednorazowa automatyczna migracja koryguje istniejące instalacje.",
-                "uk": "Виправлено недійсні ролі об’єктів, позначені перевіркою об’єктної структури сховища (E1008/E1009). Уражені стани статусу, мітки часу, вибору, JSON, стану сигналу та панорами тепер використовують дійсні ролі каталогу; одноразова автоматична міграція виправляє наявні установки.",
-                "zh-cn": "修复了存储库对象结构检查标记的无效对象角色 (E1008/E1009)。受影响的状态、时间戳、选择、JSON、信号和平移状态现在使用目录有效角色；一次性自动迁移可纠正现有安装。"
             }
         },
         "titleLang": {

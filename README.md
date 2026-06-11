@@ -703,6 +703,16 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.5.2 (2026-06-11)
+Automatic cleanup of orphaned camera object subtrees.
+
+- **Orphaned camera objects pruned on start:** removing a camera from the Bosch account previously left behind a `cameras.<uuid>` object subtree in ioBroker with no way to clean it up without manual object deletion. The adapter now detects these orphaned subtrees on each successful camera fetch and removes them automatically. A safety guard prevents any deletion when the cloud fetch returns an empty list (e.g. during a cloud outage), so no active camera data is lost.
+
+### 1.5.1 (2026-06-11)
+Security: TLS certificate verification for Bosch cloud and proxy connections.
+
+- **TLS certificate verification (CWE-295):** the cloud API calls and the video proxy tunnel now validate the private Bosch CA instead of accepting any certificate, closing a potential MITM gap for OAuth tokens on the local network. Local camera endpoints are not affected.
+
 ### 1.5.0 (2026-06-10)
 Fixes motion silently freezing, plus a configurable stream session length and an opt-in idle-stream reaper.
 

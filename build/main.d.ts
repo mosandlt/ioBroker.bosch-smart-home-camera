@@ -542,6 +542,23 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _migrateStateRoles;
     private _migrateLightDps;
     /**
+     * Prune orphaned `cameras.<uuid>` subtrees after a successful camera
+     * discovery.  A camera removed from the Bosch account leaves its channel
+     * and all child states behind in ioBroker because the adapter only creates
+     * / updates objects — it never deletes them on removal.
+     *
+     * Safety guard: `liveIds` MUST be the set returned by a successful
+     * fetchCameras() call.  Never call this with an empty set that resulted
+     * from a failed/empty discovery — that would wipe every camera during a
+     * cloud outage.  The caller is responsible for supplying the guard;
+     * `onReady` only invokes this after `cameras` is populated from a
+     * successful fetch.
+     *
+     * Idempotent: calling it repeatedly with the same live-IDs is a no-op
+     * (all objects already deleted).  Logs how many subtrees were pruned.
+     */
+    private _pruneOrphanedCameraObjects;
+    /**
      * Read + decrypt + JSON-parse the persisted FCM credentials. Returns null
      * if the state is empty, the ciphertext is unusable, or the payload is
      * not the expected shape — the caller falls back to a fresh registration.

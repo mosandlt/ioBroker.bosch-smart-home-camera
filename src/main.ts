@@ -1632,6 +1632,85 @@ class BoschSmartHomeCamera extends utils.Adapter {
     }
 
     /**
+     * Prune orphaned `cameras.<uuid>` subtrees after a successful camera
+     * discovery.  A camera removed from the Bosch account leaves its channel
+     * and all child states behind in ioBroker because the adapter only creates
+     * / updates objects — it never deletes them on removal.
+     *
+     * Safety guard: `liveIds` MUST be the set returned by a successful
+     * fetchCameras() call.  Never call this with an empty set that resulted
+     * from a failed/empty discovery — that would wipe every camera during a
+     * cloud outage.  The caller is responsible for supplying the guard;
+     * `onReady` only invokes this after `cameras` is populated from a
+     * successful fetch.
+     *
+     * Idempotent: calling it repeatedly with the same live-IDs is a no-op
+     * (all objects already deleted).  Logs how many subtrees were pruned.
+     */
+    private async _pruneOrphanedCameraObjects(liveIds: Set<string>): Promise<void> {
+        // Refuse to run if the live set is empty — would wipe everything.
+        if (liveIds.size === 0) {
+            this.log.warn(
+                "_pruneOrphanedCameraObjects: live camera set is empty — skipping prune (safety guard)",
+            );
+            return;
+        }
+
+        let pruned = 0;
+        try {
+            const allObjs = await this.getAdapterObjectsAsync();
+            // Collect distinct camera UUIDs that exist in the object DB.
+            // Keys look like:  bosch-smart-home-camera.0.cameras.<uuid>
+            //              or  bosch-smart-home-camera.0.cameras.<uuid>.<dp>
+            const existingIds = new Set<string>();
+            for (const key of Object.keys(allObjs)) {
+                // Match top-level channel:  <ns>.cameras.<uuid>  (no trailing dot)
+                const m = /^[^.]+\.\d+\.cameras\.([^.]+)$/.exec(key);
+                if (m) {
+                    existingIds.add(m[1]);
+                }
+            }
+
+            for (const uuid of existingIds) {
+                if (liveIds.has(uuid)) {
+                    continue; // camera still in account — keep
+                }
+                // Delete every object under cameras.<uuid>  (states + channel)
+                const prefix = `cameras.${uuid}`;
+                let deletedInSubtree = 0;
+                for (const key of Object.keys(allObjs)) {
+                    // Match the channel itself or any child state
+                    const shortKey = key.replace(/^[^.]+\.\d+\./, "");
+                    if (shortKey === prefix || shortKey.startsWith(`${prefix}.`)) {
+                        try {
+                            await this.delObjectAsync(shortKey);
+                            deletedInSubtree++;
+                        } catch (delErr: unknown) {
+                            this.log.debug(
+                                `_pruneOrphanedCameraObjects: could not delete ${shortKey}: ${delErr instanceof Error ? delErr.message : String(delErr)}`,
+                            );
+                        }
+                    }
+                }
+                pruned++;
+                this.log.info(
+                    `Pruned orphaned camera subtree cameras.${uuid} (${deletedInSubtree} object(s) removed — camera no longer in Bosch account)`,
+                );
+            }
+        } catch (err: unknown) {
+            this.log.warn(
+                `_pruneOrphanedCameraObjects failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
+
+        if (pruned > 0) {
+            this.log.info(`Orphan cleanup: removed ${pruned} orphaned camera subtree(s)`);
+        } else {
+            this.log.debug("Orphan cleanup: no orphaned camera subtrees found");
+        }
+    }
+
+    /**
      * Read + decrypt + JSON-parse the persisted FCM credentials. Returns null
      * if the state is empty, the ciphertext is unusable, or the payload is
      * not the expected shape — the caller falls back to a fresh registration.
@@ -4539,6 +4618,10 @@ class BoschSmartHomeCamera extends utils.Adapter {
         }
 
         // ── Step 3: Create state tree ──────────────────────────────────────
+        // v1.5.1: prune orphaned cameras.<uuid> subtrees for cameras removed
+        // from the Bosch account. Guard: only runs after a SUCCESSFUL fetch
+        // (cameras is populated — never prune on a failed/empty discovery).
+        await this._pruneOrphanedCameraObjects(new Set(cameras.map((c) => c.id)));
         // v0.7.6: remove orphaned light DPs from Gen2 no-light cameras (upgrade migration)
         await this._migrateLightDps(cameras);
         // v0.7.14: remove mislabelled wifi_signal_strength DP (was "dBm" but
