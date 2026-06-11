@@ -73,10 +73,13 @@ exports.extractCode = extractCode;
 exports.exchangeCode = exchangeCode;
 exports.refreshAccessToken = refreshAccessToken;
 exports.detectTokenClientId = detectTokenClientId;
+exports.createCloudHttpClient = createCloudHttpClient;
+exports.createLocalHttpClient = createLocalHttpClient;
 exports.createHttpClient = createHttpClient;
 const crypto = __importStar(require("node:crypto"));
 exports.crypto = crypto;
 const https = __importStar(require("node:https"));
+const tls = __importStar(require("node:tls"));
 const axios_1 = __importDefault(require("axios"));
 // ── Constants (from Python config_flow.py) ────────────────────────────────────
 exports.KEYCLOAK_BASE = "https://smarthome.authz.bosch.com" + "/auth/realms/home_auth_provider/protocol/openid-connect";
@@ -307,25 +310,97 @@ function detectTokenClientId(bearerToken) {
         return null;
     }
 }
-// ── HTTP client factory ───────────────────────────────────────────────────────
+// ── Bosch private CA (Video CA 2A — Bosch ST Root CA → Video CA 2A) ─────────
+//
+// residential.cbs.boschsecurity.com and proxy-*.live.cbs.boschsecurity.com
+// are signed by Bosch's PRIVATE PKI, absent from public trust stores.
+// The PEM below is verbatim from the HA integration (cloud_ssl.py).
+// Embedded as a TS const to avoid build/packaging path issues.
+//
+// Security note: setting `ca` in https.Agent DROPS the built-in Node system
+// roots — we MUST spread `tls.rootCertificates` so that OAuth (Let's Encrypt
+// on smarthome.authz.bosch.com) and other public endpoints still validate.
+const BOSCH_CLOUD_CA_PEM = `-----BEGIN CERTIFICATE-----
+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
+nvQ8Em1LhUA=
+-----END CERTIFICATE-----
+`;
+// ── HTTP client factories ─────────────────────────────────────────────────────
 /**
- * Create a pre-configured Axios instance for Bosch API calls.
+ * Create an Axios instance for Bosch CLOUD API calls with proper TLS verification.
  *
- * TLS verification is disabled (`rejectUnauthorized: false`) for two reasons:
- *   1. Local LAN camera endpoints use self-signed certs that no public CA signs.
- *   2. The Bosch cloud CA chain is not always in Node.js's bundled CA store on
- *      macOS / containerised Linux — observed as "unable to get local issuer
- *      certificate" against `residential.cbs.boschsecurity.com`. The Python
- *      reference implementation (HA integration, CLI) passes `ssl=False` for the
- *      same reason. Domain pinning (we only ever call `*.boschsecurity.com` and
- *      `*.bosch.com`) keeps the security posture acceptable.
+ * Uses `rejectUnauthorized: true` plus both the system CA bundle and the Bosch
+ * private CA (Video CA 2A), fixing CWE-295 for all cloud endpoints:
+ *   - residential.cbs.boschsecurity.com  (CLOUD_API, /v11/*, live sessions)
+ *   - proxy-*.live.cbs.boschsecurity.com (RCP REMOTE)
+ *   - smarthome.authz.bosch.com          (KEYCLOAK_BASE, Let's Encrypt — needs system roots)
  *
- * @returns Axios instance configured for Bosch cloud + LAN endpoints (15 s timeout, TLS verification off)
+ * CRITICAL: spreading `tls.rootCertificates` restores system roots that Node
+ * drops when `ca` is set explicitly (Node 18+).
+ *
+ * @returns Axios instance with secure TLS (15 s timeout)
  */
-function createHttpClient() {
+function createCloudHttpClient() {
+    return axios_1.default.create({
+        timeout: 15_000,
+        httpsAgent: new https.Agent({
+            rejectUnauthorized: true,
+            ca: [...tls.rootCertificates, BOSCH_CLOUD_CA_PEM],
+        }),
+    });
+}
+/**
+ * Create an Axios instance for LOCAL LAN camera calls (self-signed certs).
+ *
+ * TLS verification is intentionally disabled — local cameras use self-signed
+ * certificates that no public CA or Bosch CA signs.
+ *
+ * @returns Axios instance with rejectUnauthorized:false (15 s timeout)
+ */
+function createLocalHttpClient() {
     return axios_1.default.create({
         timeout: 15_000,
         httpsAgent: new https.Agent({ rejectUnauthorized: false }),
     });
+}
+/**
+ * @deprecated Use createCloudHttpClient() for cloud calls or createLocalHttpClient()
+ * for LAN camera calls. This shim exists only for backward-compat with existing call
+ * sites that have not yet been split — it returns a SECURE cloud client.
+ */
+function createHttpClient() {
+    return createCloudHttpClient();
 }
 //# sourceMappingURL=auth.js.map

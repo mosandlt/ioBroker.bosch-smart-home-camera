@@ -159,18 +159,33 @@ export declare function refreshAccessToken(httpClient: AxiosInstance, refreshTok
  */
 export declare function detectTokenClientId(bearerToken: string): string | null;
 /**
- * Create a pre-configured Axios instance for Bosch API calls.
+ * Create an Axios instance for Bosch CLOUD API calls with proper TLS verification.
  *
- * TLS verification is disabled (`rejectUnauthorized: false`) for two reasons:
- *   1. Local LAN camera endpoints use self-signed certs that no public CA signs.
- *   2. The Bosch cloud CA chain is not always in Node.js's bundled CA store on
- *      macOS / containerised Linux — observed as "unable to get local issuer
- *      certificate" against `residential.cbs.boschsecurity.com`. The Python
- *      reference implementation (HA integration, CLI) passes `ssl=False` for the
- *      same reason. Domain pinning (we only ever call `*.boschsecurity.com` and
- *      `*.bosch.com`) keeps the security posture acceptable.
+ * Uses `rejectUnauthorized: true` plus both the system CA bundle and the Bosch
+ * private CA (Video CA 2A), fixing CWE-295 for all cloud endpoints:
+ *   - residential.cbs.boschsecurity.com  (CLOUD_API, /v11/*, live sessions)
+ *   - proxy-*.live.cbs.boschsecurity.com (RCP REMOTE)
+ *   - smarthome.authz.bosch.com          (KEYCLOAK_BASE, Let's Encrypt — needs system roots)
  *
- * @returns Axios instance configured for Bosch cloud + LAN endpoints (15 s timeout, TLS verification off)
+ * CRITICAL: spreading `tls.rootCertificates` restores system roots that Node
+ * drops when `ca` is set explicitly (Node 18+).
+ *
+ * @returns Axios instance with secure TLS (15 s timeout)
+ */
+export declare function createCloudHttpClient(): AxiosInstance;
+/**
+ * Create an Axios instance for LOCAL LAN camera calls (self-signed certs).
+ *
+ * TLS verification is intentionally disabled — local cameras use self-signed
+ * certificates that no public CA or Bosch CA signs.
+ *
+ * @returns Axios instance with rejectUnauthorized:false (15 s timeout)
+ */
+export declare function createLocalHttpClient(): AxiosInstance;
+/**
+ * @deprecated Use createCloudHttpClient() for cloud calls or createLocalHttpClient()
+ * for LAN camera calls. This shim exists only for backward-compat with existing call
+ * sites that have not yet been split — it returns a SECURE cloud client.
  */
 export declare function createHttpClient(): AxiosInstance;
 export { crypto };
