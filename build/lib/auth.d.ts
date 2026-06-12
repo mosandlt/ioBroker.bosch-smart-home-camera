@@ -29,6 +29,9 @@
  *   HTTP 5xx     → AuthServerOutageError (retry later, do NOT force re-login)
  */
 import * as crypto from "node:crypto";
+import * as https from "node:https";
+import type { Duplex } from "node:stream";
+import * as tls from "node:tls";
 import { type AxiosInstance } from "axios";
 export declare const KEYCLOAK_BASE: string;
 export declare const CLIENT_ID = "oss_residential_app";
@@ -158,17 +161,68 @@ export declare function refreshAccessToken(httpClient: AxiosInstance, refreshTok
  * @returns Client ID string (e.g. "oss_residential_app") or null if unparseable
  */
 export declare function detectTokenClientId(bearerToken: string): string | null;
+export declare const BOSCH_CLOUD_CA_PEM = "-----BEGIN CERTIFICATE-----\n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\nnvQ8Em1LhUA=\n-----END CERTIFICATE-----\n";
+/**
+ * Verify a peer leaf certificate for a Bosch CLOUD endpoint.
+ *
+ * Faithful Node emulation of the HA/Python `ssl` context — system roots ∪
+ * "Video CA 2A" intermediate, with `VERIFY_X509_PARTIAL_CHAIN`.
+ *
+ * Node's TLS stack has NO equivalent of OpenSSL's PARTIAL_CHAIN flag
+ * (nodejs/node#36453): putting only the *intermediate* "Video CA 2A" in `ca`
+ * makes every handshake fail with `UNABLE_TO_GET_ISSUER_CERT`, because Node
+ * keeps looking for the self-signed root "Bosch ST Root CA" which the server
+ * never sends and which is absent from every public store. That regression
+ * (shipped in v1.5.1) prevented the adapter from completing cloud discovery on
+ * startup — see forum #84538.
+ *
+ * We therefore connect with verification deferred (`rejectUnauthorized:false`)
+ * and validate the peer ourselves. A peer is trusted iff the hostname matches
+ * and the validity window is current AND either:
+ *   - the chain validated to a trusted system root (OAuth host
+ *     smarthome.authz.bosch.com is Let's Encrypt), OR
+ *   - the leaf was signed by the pinned Bosch intermediate (private Bosch PKI:
+ *     residential.cbs.boschsecurity.com, proxy-*.live.cbs.boschsecurity.com).
+ *
+ * This keeps the CWE-295 protection: a MITM presenting a public-CA cert it does
+ * not own, a self-signed cert, an expired cert or a hostname mismatch is
+ * rejected — only a leaf genuinely signed by Bosch's private key is accepted on
+ * the partial-chain path.
+ *
+ * @param leafDer            DER bytes of the peer leaf certificate (`undefined` → reject)
+ * @param authorized         Node's `socket.authorized` (chain valid to a system root)
+ * @param authorizationError Node's `socket.authorizationError` (for diagnostics)
+ * @param servername         hostname the request targeted (checked against the cert SAN)
+ * @param pin                pinned intermediate (injectable for tests)
+ * @param now                current epoch ms (injectable for tests)
+ * @returns `null` when trusted, otherwise an `Error` describing why it was rejected
+ */
+export declare function verifyCloudPeerCert(leafDer: Buffer | undefined, authorized: boolean, authorizationError: string | undefined, servername: string, pin?: crypto.X509Certificate, now?: number): Error | null;
+/**
+ * https.Agent for Bosch cloud calls. Defers Node's chain check and runs
+ * {@link verifyCloudPeerCert} on every new TLS socket, destroying the socket
+ * (which surfaces the reason to the caller) when the peer is not trusted.
+ */
+export declare class BoschCloudAgent extends https.Agent {
+    /**
+     * Open a TLS connection with Node's chain check deferred, then run
+     * {@link verifyCloudPeerCert} on `secureConnect`. On rejection the socket is
+     * destroyed with the reason so the failure surfaces to the HTTP caller.
+     *
+     * @param options  connection options provided by the HTTP agent
+     * @param callback node-style `(err, socket)` invoked once the peer is verified
+     * @returns the TLS socket (also yielded via `callback` on success)
+     */
+    createConnection(options: https.RequestOptions, callback?: (err: Error | null, stream: Duplex) => void): tls.TLSSocket;
+}
 /**
  * Create an Axios instance for Bosch CLOUD API calls with proper TLS verification.
  *
- * Uses `rejectUnauthorized: true` plus both the system CA bundle and the Bosch
- * private CA (Video CA 2A), fixing CWE-295 for all cloud endpoints:
+ * Fixes CWE-295 for all cloud endpoints while still working on Node (which lacks
+ * OpenSSL's PARTIAL_CHAIN). See {@link verifyCloudPeerCert} / {@link BoschCloudAgent}:
  *   - residential.cbs.boschsecurity.com  (CLOUD_API, /v11/*, live sessions)
  *   - proxy-*.live.cbs.boschsecurity.com (RCP REMOTE)
- *   - smarthome.authz.bosch.com          (KEYCLOAK_BASE, Let's Encrypt — needs system roots)
- *
- * CRITICAL: spreading `tls.rootCertificates` restores system roots that Node
- * drops when `ca` is set explicitly (Node 18+).
+ *   - smarthome.authz.bosch.com          (KEYCLOAK_BASE, Let's Encrypt — system roots)
  *
  * @returns Axios instance with secure TLS (15 s timeout)
  */

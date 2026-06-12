@@ -5,6 +5,8 @@ import { moduleFederationShared } from "@iobroker/types-vis-2/modulefederation.v
 import { readFileSync } from "node:fs";
 
 const pack = JSON.parse(readFileSync("./package.json").toString());
+// Adapter version from the root package.json (e.g. 1.5.2) — shown in the banner.
+const adapterPack = JSON.parse(readFileSync("../package.json").toString());
 
 export default {
     plugins: [
@@ -24,6 +26,10 @@ export default {
         react(),
         commonjs(),
     ],
+    define: {
+        // Replaced at build time; tracks the root adapter version (../package.json).
+        __WIDGET_VERSION__: JSON.stringify(adapterPack.version),
+    },
     base: "./",
     build: {
         target: "chrome89",
