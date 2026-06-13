@@ -61,6 +61,7 @@ import {
 } from "./lib/snapshot_server";
 
 import { startTlsProxy, type TlsProxyHandle } from "./lib/tls_proxy";
+import { startLazyFrontDoor, type LazyFrontDoorHandle } from "./lib/lazy_stream";
 import { WebStreamManager } from "./lib/web_stream";
 
 import {
@@ -299,6 +300,22 @@ class BoschSmartHomeCamera extends utils.Adapter {
     private _streamIdleSince: Map<string, number> = new Map();
     /** How often the idle-reaper checks proxy client counts (ms). */
     private static readonly STREAM_REAPER_CHECK_MS = 30_000;
+
+    /**
+     * v1.5.4: always-on RTSP front-door listener per camera (opt-in persistent
+     * endpoint, forum #84538). Stays bound on the stable sticky port regardless
+     * of livestream state so an external recorder (iobroker.cameras) never gets
+     * "Connection refused"; the Bosch session + inner TLS proxy are opened on
+     * demand on the first inbound connection. Empty unless
+     * `stream_persistent_endpoint` is on.
+     */
+    private _lazyFrontDoors = new Map<string, LazyFrontDoorHandle>();
+    /**
+     * Pending idle-teardown timer per camera for the persistent endpoint: armed
+     * when the last client disconnects, releases the lazily-opened Bosch session
+     * after `stream_persistent_idle_timeout` s (the listener stays bound).
+     */
+    private _frontDoorIdleTimers = new Map<string, ioBroker.Timeout>();
 
     /**
      * Camera-state poll interval (ms).
@@ -3741,6 +3758,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
             const remoteHost = h;
             const remotePort = parseInt(pStr ?? "443", 10);
 
+            // v1.5.4: when an always-on front-door owns the public sticky port
+            // (forum #84538), the inner TLS proxy binds an ephemeral internal
+            // port and the front-door keeps the stable published stream_url —
+            // so this method must not claim the public port nor overwrite the URL.
+            const persistent = this._lazyFrontDoors.has(camId);
+
             // ── Hot-reuse: same upstream + alive proxy → just refresh stream_url
             // with the new Digest credentials. Keeps port stable across renewals.
             const existingProxy = this._tlsProxies.get(camId);
@@ -3768,13 +3791,19 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     this._tlsProxies.delete(camId);
                 }
 
-                // Sticky-port: prefer the previously used port if known
-                let preferredPort = this._stickyProxyPort.get(camId);
-                if (preferredPort === undefined) {
-                    const persisted = await this.getStateAsync(`cameras.${camId}._proxy_port`);
-                    const v = persisted?.val;
-                    if (typeof v === "number" && v > 0 && v < 65_536) {
-                        preferredPort = v;
+                // Sticky-port: prefer the previously used port if known. When a
+                // persistent front-door owns the public port, the inner proxy
+                // instead binds an ephemeral internal port (0) — the front-door
+                // pipes to whatever port the inner proxy currently holds.
+                let preferredPort: number | undefined;
+                if (!persistent) {
+                    preferredPort = this._stickyProxyPort.get(camId);
+                    if (preferredPort === undefined) {
+                        const persisted = await this.getStateAsync(`cameras.${camId}._proxy_port`);
+                        const v = persisted?.val;
+                        if (typeof v === "number" && v > 0 && v < 65_536) {
+                            preferredPort = v;
+                        }
                     }
                 }
 
@@ -3820,7 +3849,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 }
                 this._tlsProxies.set(camId, proxyHandle);
                 this._sessionRemote.set(camId, `${remoteHost}:${remotePort}`);
-                this._stickyProxyPort.set(camId, proxyHandle.port);
+                if (!persistent) {
+                    this._stickyProxyPort.set(camId, proxyHandle.port);
+                }
 
                 // v0.7.4: persist the LAN IP so cloud-degraded startups can
                 // ping cameras without first needing a cloud round-trip.
@@ -3832,20 +3863,24 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     );
                 }
 
-                // Persist sticky port so it survives adapter restart
-                await this.setObjectNotExistsAsync(`cameras.${camId}._proxy_port`, {
-                    type: "state",
-                    common: {
-                        name: "Sticky TLS proxy port (auto-managed)",
-                        role: "value",
-                        type: "number",
-                        read: true,
-                        write: false,
-                        def: 0,
-                    },
-                    native: {},
-                });
-                await this.upsertState(`cameras.${camId}._proxy_port`, proxyHandle.port);
+                // Persist sticky port so it survives adapter restart. Skipped
+                // when a persistent front-door owns the public port — the inner
+                // ephemeral port must never overwrite the stable front-door port.
+                if (!persistent) {
+                    await this.setObjectNotExistsAsync(`cameras.${camId}._proxy_port`, {
+                        type: "state",
+                        common: {
+                            name: "Sticky TLS proxy port (auto-managed)",
+                            role: "value",
+                            type: "number",
+                            read: true,
+                            write: false,
+                            def: 0,
+                        },
+                        native: {},
+                    });
+                    await this.upsertState(`cameras.${camId}._proxy_port`, proxyHandle.port);
+                }
             }
 
             // Build the public URL with Digest credentials + RTSP query params.
@@ -3856,6 +3891,17 @@ class BoschSmartHomeCamera extends utils.Adapter {
             // v0.5.3: also publish inst=2 (sub-stream) under stream_url_sub so
             // BlueIris / Frigate can do mainstream-record + substream-display
             // and save CPU. Same Bosch session, same TLS proxy, same auth.
+            if (persistent) {
+                // The always-on front-door already published a stable stream_url
+                // pointing at the public port; do not overwrite it with the
+                // ephemeral inner port. Digest creds were refreshed above.
+                this.log.debug(
+                    `TLS proxy for camera ${camId.slice(0, 8)}: inner proxy on ephemeral ` +
+                        `:${proxyHandle.port} behind always-on front-door`,
+                );
+                return;
+            }
+
             const credsUrl = this._buildStreamUrl(proxyHandle, session, 1);
             const subUrl = this._buildStreamUrl(proxyHandle, session, 2);
 
@@ -3932,16 +3978,30 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // before the watchdog's renewed session took over; a higher value lets
         // the stream run longer between renewals. Range 600–21600 s; 0/unset
         // keeps the camera-reported value.
+        const dur = this._maxSessionDurationParam(session);
+        return `${proxy.localRtspUrl}?inst=${instance}&enableaudio=1&fmtp=1&maxSessionDuration=${dur}`;
+    }
+
+    /**
+     * Resolve the RTSP `maxSessionDuration` query value: the user's
+     * `stream_max_session_duration` override (clamped 600–21600 s) if set,
+     * otherwise the live session's camera-reported value, otherwise 3600 s.
+     * Extracted so both `_buildStreamUrl` (session known) and the persistent
+     * front-door (no session yet at publish time) build identical URLs.
+     *
+     * @param session  optional live session whose maxSessionDuration to prefer
+     */
+    private _maxSessionDurationParam(session?: LiveSession): number {
         const configured = Number(this.config.stream_max_session_duration);
         const override =
             Number.isFinite(configured) && configured >= 600 ? Math.min(configured, 21_600) : 0;
-        const dur =
-            override > 0
-                ? override
-                : session.maxSessionDuration > 0
-                  ? session.maxSessionDuration
-                  : 3600;
-        return `${proxy.localRtspUrl}?inst=${instance}&enableaudio=1&fmtp=1&maxSessionDuration=${dur}`;
+        if (override > 0) {
+            return override;
+        }
+        if (session && session.maxSessionDuration > 0) {
+            return session.maxSessionDuration;
+        }
+        return 3600;
     }
 
     /**
@@ -4875,6 +4935,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
         this._startStatePolling();
         this._startStreamIdleReaper();
 
+        // v1.5.4: opt-in always-on RTSP endpoint — bind a persistent lazy
+        // front-door per camera so external recorders never get "Connection
+        // refused" (forum #84538). No-op unless stream_persistent_endpoint is on.
+        await this._startPersistentEndpoints(cameras);
+
         // ── Step 7: Cloud maintenance / outage discovery (v0.7.0) ────────────
         // Kick off an immediate fetch so the state is populated on the first
         // adapter start, then refresh every hour. Fire-and-forget — a community
@@ -4973,6 +5038,193 @@ class BoschSmartHomeCamera extends utils.Adapter {
             return 180_000;
         }
         return Math.min(sec, 3600) * 1000;
+    }
+
+    /**
+     * Persistent-endpoint idle linger (ms): zero-client duration on the always-on
+     * front-door before the lazily-opened Bosch session is released. The listener
+     * itself stays bound. Clamped 10–3600 s; default 60 s.
+     */
+    private get _persistentIdleTimeoutMs(): number {
+        const sec = Number(this.config.stream_persistent_idle_timeout);
+        if (!Number.isFinite(sec) || sec < 10) {
+            return 60_000;
+        }
+        return Math.min(sec, 3600) * 1000;
+    }
+
+    /**
+     * v1.5.4: opt-in always-on RTSP endpoint (forum #84538, Reiner). For every
+     * discovered camera, bind a lazy front-door listener on the camera's stable
+     * (sticky) port so an external recorder (iobroker.cameras, BlueIris, Frigate)
+     * can pull `cameras.<id>.stream_url` at any time without "Connection
+     * refused", even while the livestream is off. The Bosch session + inner TLS
+     * proxy are opened on demand on the first inbound connection (via
+     * {@link _resolvePersistentInner}) and released after an idle linger (via
+     * {@link _armFrontDoorIdle}). No-op unless `stream_persistent_endpoint` is on.
+     *
+     * @param cameras  discovered cameras
+     */
+    private async _startPersistentEndpoints(cameras: BoschCamera[]): Promise<void> {
+        if (this.config.stream_persistent_endpoint !== true) {
+            return;
+        }
+        const { bindHost, urlHost } = this._rtspBindConfig();
+        for (const cam of cameras) {
+            const camId = cam.id;
+            if (this._lazyFrontDoors.has(camId)) {
+                continue;
+            }
+            // Reuse the persisted sticky port so the published URL stays stable
+            // across adapter restarts (Reiner's recorder keeps its config).
+            let preferredPort = this._stickyProxyPort.get(camId);
+            if (preferredPort === undefined) {
+                const persisted = await this.getStateAsync(`cameras.${camId}._proxy_port`);
+                const v = persisted?.val;
+                if (typeof v === "number" && v > 0 && v < 65_536) {
+                    preferredPort = v;
+                }
+            }
+            try {
+                const handle = await startLazyFrontDoor({
+                    cameraId: camId,
+                    localPort: preferredPort,
+                    bindHost,
+                    urlHost,
+                    log: (level, msg) => this.log[level](msg),
+                    resolveInner: () => this._resolvePersistentInner(camId),
+                    onActive: () => this._cancelFrontDoorIdle(camId),
+                    onIdle: () => this._armFrontDoorIdle(camId),
+                });
+                this._lazyFrontDoors.set(camId, handle);
+                this._stickyProxyPort.set(camId, handle.port);
+
+                // Persist the front-door port as the stable sticky port.
+                await this.setObjectNotExistsAsync(`cameras.${camId}._proxy_port`, {
+                    type: "state",
+                    common: {
+                        name: "Sticky TLS proxy port (auto-managed)",
+                        role: "value",
+                        type: "number",
+                        read: true,
+                        write: false,
+                        def: 0,
+                    },
+                    native: {},
+                });
+                await this.upsertState(`cameras.${camId}._proxy_port`, handle.port);
+
+                // Publish a stable stream_url / split parts pointing at the
+                // always-on port. No Bosch session is opened yet — it spins up on
+                // the first recorder connection. maxSessionDuration uses the
+                // config override or the 3600 s default until a session exists.
+                const dur = this._maxSessionDurationParam();
+                const url = `${handle.localRtspUrl}?inst=1&enableaudio=1&fmtp=1&maxSessionDuration=${dur}`;
+                const subUrl = `${handle.localRtspUrl}?inst=2&enableaudio=1&fmtp=1&maxSessionDuration=${dur}`;
+                await this.upsertState(`cameras.${camId}.stream_url`, url);
+                await this.upsertState(`cameras.${camId}.stream_url_sub`, subUrl);
+                await this._publishStreamParts(camId, url);
+                this.log.info(
+                    `Always-on RTSP endpoint for camera ${camId.slice(0, 8)}: ${url} ` +
+                        `(Bosch session opens on demand)`,
+                );
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                this.log.warn(
+                    `Could not start always-on RTSP endpoint for ${camId.slice(0, 8)}: ${msg}`,
+                );
+            }
+        }
+    }
+
+    /**
+     * `resolveInner` callback for a persistent front-door: lazily ensure the
+     * Bosch session + inner TLS proxy are up, then return the inner proxy's local
+     * TCP port to pipe the recorder to. Returns null when the camera can't
+     * currently stream (offline / session-quota / no token) so the front-door
+     * drops the client cleanly and the recorder retries on its next poll.
+     *
+     * @param camId  camera UUID
+     */
+    private async _resolvePersistentInner(camId: string): Promise<number | null> {
+        // A new client arrived → cancel any pending idle release.
+        this._cancelFrontDoorIdle(camId);
+        try {
+            await this.ensureLiveSession(camId);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.log.debug(
+                `Persistent endpoint ${camId.slice(0, 8)}: ensureLiveSession failed — ${msg}`,
+            );
+            return null;
+        }
+        const inner = this._tlsProxies.get(camId);
+        return inner ? inner.port : null;
+    }
+
+    /**
+     * Arm the idle-release timer for a persistent endpoint. Fired when the last
+     * recorder disconnects; after `stream_persistent_idle_timeout` s with no
+     * client it releases the lazily-opened Bosch session (the listener stays up).
+     *
+     * @param camId  camera UUID
+     */
+    private _armFrontDoorIdle(camId: string): void {
+        if (!this._lazyFrontDoors.has(camId)) {
+            return;
+        }
+        this._cancelFrontDoorIdle(camId);
+        const timer = this.setTimeout(() => {
+            this._frontDoorIdleTimers.delete(camId);
+            void this._reapPersistentIdle(camId).catch((err: unknown) => {
+                const msg = err instanceof Error ? err.message : String(err);
+                this.log.debug(`Persistent endpoint idle-release ${camId.slice(0, 8)}: ${msg}`);
+            });
+        }, this._persistentIdleTimeoutMs);
+        if (timer) {
+            this._frontDoorIdleTimers.set(camId, timer);
+        }
+    }
+
+    /** Cancel a pending persistent-endpoint idle-release timer. */
+    private _cancelFrontDoorIdle(camId: string): void {
+        const t = this._frontDoorIdleTimers.get(camId);
+        if (t) {
+            this.clearTimeout(t);
+            this._frontDoorIdleTimers.delete(camId);
+        }
+    }
+
+    /**
+     * Release the lazily-opened Bosch session for a persistent endpoint once it
+     * has been idle. Skips if a client reconnected in the meantime, or if the
+     * user explicitly enabled the livestream (then the session stays up 24/7),
+     * or if there is no open session to release. The front-door listener itself
+     * is never stopped here — only the upstream session + inner proxy.
+     *
+     * @param camId  camera UUID
+     */
+    private async _reapPersistentIdle(camId: string): Promise<void> {
+        const door = this._lazyFrontDoors.get(camId);
+        if (!door) {
+            return;
+        }
+        if (door.activeClientCount() > 0) {
+            return; // someone reconnected during the linger
+        }
+        const enabled = await this.getStateAsync(`cameras.${camId}.livestream_enabled`);
+        if (enabled?.val === true) {
+            return; // user wants the stream up permanently — never auto-release
+        }
+        if (!this._liveSessions.has(camId)) {
+            return; // nothing to release
+        }
+        this.log.debug(
+            `Persistent endpoint ${camId.slice(0, 8)}: idle for ` +
+                `${Math.round(this._persistentIdleTimeoutMs / 1000)} s — releasing Bosch session ` +
+                `(front-door stays listening).`,
+        );
+        await this._teardownStream(camId);
     }
 
     /**
@@ -8339,10 +8591,16 @@ class BoschSmartHomeCamera extends utils.Adapter {
         }
         this._liveSessions.delete(camId);
 
-        // Clear the public stream_url DPs (main + sub) so consumers see "no stream"
-        await this.upsertState(`cameras.${camId}.stream_url`, "");
-        await this.upsertState(`cameras.${camId}.stream_url_sub`, "");
-        await this._publishStreamParts(camId, "");
+        // Clear the public stream_url DPs (main + sub) so consumers see "no stream".
+        // EXCEPT when a persistent front-door owns the stable URL (forum #84538):
+        // the listener stays bound and must keep advertising its endpoint even
+        // while the lazily-opened Bosch session is released, otherwise the
+        // recorder loses the URL and can never trigger a reconnect.
+        if (!this._lazyFrontDoors.has(camId)) {
+            await this.upsertState(`cameras.${camId}.stream_url`, "");
+            await this.upsertState(`cameras.${camId}.stream_url_sub`, "");
+            await this._publishStreamParts(camId, "");
+        }
     }
 
     /**
@@ -8361,6 +8619,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _logLivestreamHintIfAllOff(cameras: BoschCamera[]): boolean {
         if (cameras.length === 0) {
+            return false;
+        }
+        // v1.5.4: the persistent endpoint keeps stream_url reachable at all times,
+        // so the "connection refused until you start it" hint would be misleading.
+        if (this.config.stream_persistent_endpoint === true) {
             return false;
         }
         const anyOn = cameras.some((cam) => this._livestreamEnabled.get(cam.id) === true);
@@ -9641,6 +9904,22 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     this._streamReaperTimer = undefined;
                 }
                 this._streamIdleSince.clear();
+
+                // v1.5.4: cancel persistent-endpoint idle-release timers + stop
+                // all always-on front-door listeners (the inner TLS proxies they
+                // pipe to are stopped further down with the rest of _tlsProxies).
+                for (const [, timer] of this._frontDoorIdleTimers) {
+                    this.clearTimeout(timer);
+                }
+                this._frontDoorIdleTimers.clear();
+                for (const [, door] of this._lazyFrontDoors) {
+                    try {
+                        await door.stop();
+                    } catch {
+                        /* best-effort */
+                    }
+                }
+                this._lazyFrontDoors.clear();
 
                 // v0.7.0: stop maintenance poll timer
                 if (this._maintenanceTimer) {

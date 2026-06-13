@@ -173,6 +173,21 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     /** How often the idle-reaper checks proxy client counts (ms). */
     private static readonly STREAM_REAPER_CHECK_MS;
     /**
+     * v1.5.4: always-on RTSP front-door listener per camera (opt-in persistent
+     * endpoint, forum #84538). Stays bound on the stable sticky port regardless
+     * of livestream state so an external recorder (iobroker.cameras) never gets
+     * "Connection refused"; the Bosch session + inner TLS proxy are opened on
+     * demand on the first inbound connection. Empty unless
+     * `stream_persistent_endpoint` is on.
+     */
+    private _lazyFrontDoors;
+    /**
+     * Pending idle-teardown timer per camera for the persistent endpoint: armed
+     * when the last client disconnects, releases the lazily-opened Bosch session
+     * after `stream_persistent_idle_timeout` s (the listener stays bound).
+     */
+    private _frontDoorIdleTimers;
+    /**
      * Camera-state poll interval (ms).
      * v1.2.2: 60 s base tick to match the Home Assistant coordinator's default
      * `scan_interval` (60 s) — was 30 s. The slow tier still lands at 300 s via
@@ -703,6 +718,16 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _buildStreamUrl;
     /**
+     * Resolve the RTSP `maxSessionDuration` query value: the user's
+     * `stream_max_session_duration` override (clamped 600–21600 s) if set,
+     * otherwise the live session's camera-reported value, otherwise 3600 s.
+     * Extracted so both `_buildStreamUrl` (session known) and the persistent
+     * front-door (no session yet at publish time) build identical URLs.
+     *
+     * @param session  optional live session whose maxSessionDuration to prefer
+     */
+    private _maxSessionDurationParam;
+    /**
      * Publish the host / port / path parts of a built stream URL into the
      * split datapoints (stream_host / stream_port / stream_path) so users can
      * paste each value straight into iobroker.cameras, which composes its RTSP
@@ -852,6 +877,55 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private get _slowTierThreshold();
     /** Idle-reaper timeout (ms): zero-client duration before a livestream is reaped. */
     private get _streamIdleTimeoutMs();
+    /**
+     * Persistent-endpoint idle linger (ms): zero-client duration on the always-on
+     * front-door before the lazily-opened Bosch session is released. The listener
+     * itself stays bound. Clamped 10–3600 s; default 60 s.
+     */
+    private get _persistentIdleTimeoutMs();
+    /**
+     * v1.5.4: opt-in always-on RTSP endpoint (forum #84538, Reiner). For every
+     * discovered camera, bind a lazy front-door listener on the camera's stable
+     * (sticky) port so an external recorder (iobroker.cameras, BlueIris, Frigate)
+     * can pull `cameras.<id>.stream_url` at any time without "Connection
+     * refused", even while the livestream is off. The Bosch session + inner TLS
+     * proxy are opened on demand on the first inbound connection (via
+     * {@link _resolvePersistentInner}) and released after an idle linger (via
+     * {@link _armFrontDoorIdle}). No-op unless `stream_persistent_endpoint` is on.
+     *
+     * @param cameras  discovered cameras
+     */
+    private _startPersistentEndpoints;
+    /**
+     * `resolveInner` callback for a persistent front-door: lazily ensure the
+     * Bosch session + inner TLS proxy are up, then return the inner proxy's local
+     * TCP port to pipe the recorder to. Returns null when the camera can't
+     * currently stream (offline / session-quota / no token) so the front-door
+     * drops the client cleanly and the recorder retries on its next poll.
+     *
+     * @param camId  camera UUID
+     */
+    private _resolvePersistentInner;
+    /**
+     * Arm the idle-release timer for a persistent endpoint. Fired when the last
+     * recorder disconnects; after `stream_persistent_idle_timeout` s with no
+     * client it releases the lazily-opened Bosch session (the listener stays up).
+     *
+     * @param camId  camera UUID
+     */
+    private _armFrontDoorIdle;
+    /** Cancel a pending persistent-endpoint idle-release timer. */
+    private _cancelFrontDoorIdle;
+    /**
+     * Release the lazily-opened Bosch session for a persistent endpoint once it
+     * has been idle. Skips if a client reconnected in the meantime, or if the
+     * user explicitly enabled the livestream (then the session stays up 24/7),
+     * or if there is no open session to release. The front-door listener itself
+     * is never stopped here — only the upstream session + inner proxy.
+     *
+     * @param camId  camera UUID
+     */
+    private _reapPersistentIdle;
     /**
      * Opt-in stream idle-reaper (request-saving, experimental). When enabled,
      * periodically checks every active RTSP proxy: if no downstream client

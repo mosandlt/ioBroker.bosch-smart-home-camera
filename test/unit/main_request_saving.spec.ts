@@ -157,13 +157,23 @@ describe("request-saving — _slowTierThreshold (diagnostic poll cadence)", () =
 describe("stream URL — stream_max_session_duration override (forum #84538)", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let build: (...a: any[]) => string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let maxDur: (...a: any[]) => number;
     before(() => {
-        build = loadAdapter()._buildStreamUrl;
+        const adapter = loadAdapter();
+        build = adapter._buildStreamUrl;
+        // v1.6.0: _buildStreamUrl delegates the duration logic to this helper
+        // (shared with the persistent front-door); bind it onto the stub context.
+        maxDur = adapter._maxSessionDurationParam;
     });
     const PROXY = { localRtspUrl: "rtsp://127.0.0.1:9000/rtsp_tunnel" };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     function url(cfgDur: unknown, sessionDur: number): string {
-        return build.call({ config: { stream_max_session_duration: cfgDur } }, PROXY, { maxSessionDuration: sessionDur }, 1);
+        const ctx = {
+            config: { stream_max_session_duration: cfgDur },
+            _maxSessionDurationParam: maxDur,
+        };
+        return build.call(ctx, PROXY, { maxSessionDuration: sessionDur }, 1);
     }
 
     it("no override → uses the camera-reported value (3600)", () => {

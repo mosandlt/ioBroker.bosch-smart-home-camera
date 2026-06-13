@@ -109,6 +109,28 @@ declare global {
              */
             stream_max_session_duration?: number;
             /**
+             * Always-on RTSP endpoint (opt-in, default off). When enabled, the
+             * adapter keeps a lightweight TCP listener bound on a stable
+             * per-camera port at all times — even while the livestream is off.
+             * An external recorder such as iobroker.cameras / BlueIris / Frigate
+             * can therefore pull `cameras.<id>.stream_url` at any moment without
+             * "Connection refused": the Bosch session + inner TLS proxy are
+             * opened lazily on the first inbound connection and released again
+             * after {@link stream_persistent_idle_timeout} seconds with no
+             * client, so the 3 shared Bosch sessions are only occupied while
+             * something is actually pulling the stream. Forum #84538.
+             */
+            stream_persistent_endpoint?: boolean;
+            /**
+             * Seconds with zero clients on the always-on endpoint before the
+             * lazily-opened Bosch session is closed again (the listener itself
+             * stays bound). Clamped 10–3600 s; default 60 s. Only used when
+             * {@link stream_persistent_endpoint} is on. A livestream the user
+             * explicitly enabled (`livestream_enabled=true`) is never closed by
+             * this timer.
+             */
+            stream_persistent_idle_timeout?: number;
+            /**
              * Request-saving option (default on): poll the rarely-changing
              * diagnostic cloud reads (zones, light config, alarm settings,
              * ONVIF/RCP, feature flags). Turn off to stop them entirely.
