@@ -179,6 +179,41 @@
           "md": 6,
           "lg": 6,
           "xl": 6
+        },
+        "_persistent_endpoint_header": {
+          "type": "header",
+          "text": "Always-on RTSP endpoint for external recorders",
+          "size": 5,
+          "newLine": true,
+          "sm": 12
+        },
+        "stream_persistent_endpoint": {
+          "type": "checkbox",
+          "label": "Keep the RTSP endpoint reachable at all times",
+          "help": "OFF (default): the local RTSP proxy only listens while a live stream is running, so a recorder such as iobroker.cameras, BlueIris or Frigate that polls cameras.<id>.stream_url on its own schedule gets 'Connection refused' whenever the stream is off. ON: the adapter keeps a small listener bound on a stable per-camera port all the time. The Bosch session is opened automatically the moment a recorder connects and released again after the idle timeout below, so the endpoint is always reachable without permanently occupying one of the 3 shared Bosch sessions. Recommended when you integrate the camera into iobroker.cameras. Forum #84538.",
+          "default": false,
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 6,
+          "lg": 6,
+          "xl": 6
+        },
+        "stream_persistent_idle_timeout": {
+          "type": "number",
+          "label": "Release session after idle (s)",
+          "help": "Seconds with no recorder connected before the on-demand Bosch session is closed again. The listener stays reachable; only the camera session is released to free the shared Bosch session budget. A stream you explicitly turned on (livestream_enabled = true) is never closed by this timer. Range 10-3600 s. Default 60 s.",
+          "default": 60,
+          "min": 10,
+          "max": 3600,
+          "unit": "s",
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 6,
+          "lg": 6,
+          "xl": 6,
+          "hidden": "!data.stream_persistent_endpoint"
         }
       }
     },
@@ -383,41 +418,6 @@
           "lg": 6,
           "xl": 6,
           "hidden": "!data.stream_idle_reaper"
-        },
-        "_persistent_endpoint_header": {
-          "type": "header",
-          "text": "Always-on RTSP endpoint for external recorders",
-          "size": 5,
-          "newLine": true,
-          "sm": 12
-        },
-        "stream_persistent_endpoint": {
-          "type": "checkbox",
-          "label": "Keep the RTSP endpoint reachable at all times",
-          "help": "OFF (default): the local RTSP proxy only listens while a live stream is running, so a recorder such as iobroker.cameras, BlueIris or Frigate that polls cameras.<id>.stream_url on its own schedule gets 'Connection refused' whenever the stream is off. ON: the adapter keeps a small listener bound on a stable per-camera port all the time. The Bosch session is opened automatically the moment a recorder connects and released again after the idle timeout below, so the endpoint is always reachable without permanently occupying one of the 3 shared Bosch sessions. Recommended when you integrate the camera into iobroker.cameras. Forum #84538.",
-          "default": false,
-          "newLine": true,
-          "xs": 12,
-          "sm": 12,
-          "md": 6,
-          "lg": 6,
-          "xl": 6
-        },
-        "stream_persistent_idle_timeout": {
-          "type": "number",
-          "label": "Release session after idle (s)",
-          "help": "Seconds with no recorder connected before the on-demand Bosch session is closed again. The listener stays reachable; only the camera session is released to free the shared Bosch session budget. A stream you explicitly turned on (livestream_enabled = true) is never closed by this timer. Range 10-3600 s. Default 60 s.",
-          "default": 60,
-          "min": 10,
-          "max": 3600,
-          "unit": "s",
-          "newLine": true,
-          "xs": 12,
-          "sm": 12,
-          "md": 6,
-          "lg": 6,
-          "xl": 6,
-          "hidden": "!data.stream_persistent_endpoint"
         }
       }
     },

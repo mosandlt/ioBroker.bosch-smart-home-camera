@@ -188,6 +188,12 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _frontDoorIdleTimers;
     /**
+     * In-flight `ensureLiveSession` promise per camera for the persistent
+     * endpoint, so simultaneous front-door connects coalesce onto one session
+     * open instead of racing to open several Bosch sessions.
+     */
+    private _persistentInflight;
+    /**
      * Camera-state poll interval (ms).
      * v1.2.2: 60 s base tick to match the Home Assistant coordinator's default
      * `scan_interval` (60 s) — was 30 s. The slow tier still lands at 300 s via
@@ -906,6 +912,8 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param camId  camera UUID
      */
     private _resolvePersistentInner;
+    /** Inner body of {@link _resolvePersistentInner}, guarded against concurrent calls. */
+    private _openPersistentInner;
     /**
      * Arm the idle-release timer for a persistent endpoint. Fired when the last
      * recorder disconnects; after `stream_persistent_idle_timeout` s with no

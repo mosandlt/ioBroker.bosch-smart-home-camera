@@ -596,14 +596,14 @@ it builds the URL from separate fields, so the `stream_url` has to be split.
 > a frame on its own schedule. By default the local RTSP proxy only listens
 > while a live stream is running, so a poll that lands while the stream is off
 > hits a closed port and iobroker.cameras logs `Connection refused`. Enable
-> **Settings → API requests / Power saving → Keep the RTSP endpoint reachable at
-> all times** (`stream_persistent_endpoint`). The adapter then keeps a listener
-> bound on a stable per-camera port at all times and opens the Bosch session
-> automatically when iobroker.cameras connects, releasing it again after an idle
-> timeout — so the endpoint is always reachable without permanently using one of
-> the 3 shared Bosch sessions. With it on, skip step&nbsp;1; `stream_url` /
-> `stream_host` / `stream_port` / `stream_path` are populated and stable from
-> adapter start. Forum #84538.
+> **Settings → RTSP / Stream → Keep the RTSP endpoint reachable at all times**
+> (`stream_persistent_endpoint`). The adapter then keeps a listener bound on a
+> stable per-camera port at all times and opens the Bosch session automatically
+> when iobroker.cameras connects, releasing it again after an idle timeout — so
+> the endpoint is always reachable without permanently using one of the 3 shared
+> Bosch sessions. With it on, skip step&nbsp;1; `stream_url` / `stream_host` /
+> `stream_port` / `stream_path` are populated and stable from adapter start.
+> Forum #84538.
 
 1. (Only needed if the always-on endpoint above is off.) Enable the stream: set
    `cameras.<id>.livestream_enabled = true`. The proxy starts and
@@ -704,7 +704,7 @@ Part of a five-implementation family for Bosch Smart Home Cameras (plus an alpha
 |---|---|---|
 | 🏆 Home Assistant Integration | [Bosch-Smart-Home-Camera-Tool-HomeAssistant](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | **v13.5.14** · HA Quality Scale **Platinum** · production-ready |
 | 🐍 Python CLI | [Bosch-Smart-Home-Camera-Tool-Python](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | **v10.10.2** · Mini-NVR + SMB upload (BETA) · LAN-fallback (ping / --local) · PTZ presets · webhook delivery · capture / research / standalone |
-| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | **v1.5.4** · stable · npm · always-on RTSP endpoint · privacy-toggle Digest rotation · MQTT bridge · PTZ presets · VIS-2 widget |
+| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | **v1.5.5** · stable · npm · always-on RTSP endpoint · privacy-toggle Digest rotation · MQTT bridge · PTZ presets · VIS-2 widget |
 | 🤖 MCP Server | [Bosch-Smart-Home-Camera-Tool-MCP](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) | **v1.5.3** · cred-rotation · PTZ presets · TOFU cert pinning · LAN-ping + prefer_local · Claude Code / Claude Desktop integration |
 | 🔴 Node-RED nodes (alpha) | [Bosch-Smart-Home-Camera-Tool-NodeRED](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-NodeRED) | v0.2.2-alpha · 4 nodes (event / snapshot / privacy / config) |
 
@@ -716,10 +716,17 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.5.5 (2026-06-13)
+Settings-page reorganisation, German translation polish and concurrency hardening for the always-on RTSP endpoint.
+
+- **Settings page reorganised into tabs:** Connection · RTSP / Stream · Events / Notifications · API requests / Power saving · MQTT Bridge. The always-on RTSP endpoint option (`stream_persistent_endpoint`, still opt-in / default off) moved from the *Power saving* tab to **RTSP / Stream**, next to the other external-recorder settings (LAN exposure, external host, max session duration) where it belongs.
+- **German translations polished:** the stream-settings labels/help that shipped machine-translated in v1.5.4 (e.g. *"Freigabesitzung nach Leerlauf(en)"*) are now natural German.
+- **Concurrency hardening:** two recorders connecting to the same camera's always-on endpoint at the exact same moment now share a single `ensureLiveSession` instead of racing to open two Bosch sessions (one of the 3 shared slots could previously be wasted). +15 regression tests.
+
 ### 1.5.4 (2026-06-13)
 New: optional always-on RTSP endpoint for external recorders (iobroker.cameras, BlueIris, Frigate).
 
-- **Always-on RTSP endpoint (`stream_persistent_endpoint`, opt-in, default off):** the local RTSP proxy previously listened only while a live stream was running. An external recorder such as iobroker.cameras polls the RTSP URL on its own schedule, so a poll that landed while the stream was off hit a closed port and the recorder logged `Connection refused` (forum #84538). When the new option is enabled (Settings → API requests / Power saving), the adapter keeps a lightweight TCP listener bound on a stable per-camera port at all times. The Bosch session + TLS proxy are opened on demand the moment a recorder connects and released again after `stream_persistent_idle_timeout` seconds (default 60 s) with no client — so the endpoint is always reachable without permanently occupying one of the 3 shared Bosch sessions. `stream_url` / `stream_host` / `stream_port` / `stream_path` stay populated and stable from adapter start. A live stream the user explicitly enabled (`livestream_enabled = true`) is never auto-released.
+- **Always-on RTSP endpoint (`stream_persistent_endpoint`, opt-in, default off):** the local RTSP proxy previously listened only while a live stream was running. An external recorder such as iobroker.cameras polls the RTSP URL on its own schedule, so a poll that landed while the stream was off hit a closed port and the recorder logged `Connection refused` (forum #84538). When the new option is enabled (Settings → RTSP / Stream), the adapter keeps a lightweight TCP listener bound on a stable per-camera port at all times. The Bosch session + TLS proxy are opened on demand the moment a recorder connects and released again after `stream_persistent_idle_timeout` seconds (default 60 s) with no client — so the endpoint is always reachable without permanently occupying one of the 3 shared Bosch sessions. `stream_url` / `stream_host` / `stream_port` / `stream_path` stay populated and stable from adapter start. A live stream the user explicitly enabled (`livestream_enabled = true`) is never auto-released.
 
 ### 1.5.3 (2026-06-12)
 Fix: Bosch cloud connection failed to start after the v1.5.1 TLS hardening.

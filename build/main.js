@@ -261,6 +261,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
      */
     _frontDoorIdleTimers = new Map();
     /**
+     * In-flight `ensureLiveSession` promise per camera for the persistent
+     * endpoint, so simultaneous front-door connects coalesce onto one session
+     * open instead of racing to open several Bosch sessions.
+     */
+    _persistentInflight = new Map();
+    /**
      * Camera-state poll interval (ms).
      * v1.2.2: 60 s base tick to match the Home Assistant coordinator's default
      * `scan_interval` (60 s) — was 30 s. The slow tier still lands at 300 s via
@@ -4525,6 +4531,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * @param cameras  discovered cameras
      */
     async _startPersistentEndpoints(cameras) {
+        // OPT-IN (default off). Kept opt-in on purpose, consistent with the
+        // stream idle-reaper: an always-bound listener per camera is only useful
+        // when an external recorder (iobroker.cameras / BlueIris / Frigate) polls
+        // the RTSP URL on its own schedule. For everyone else it would just bind
+        // idle sockets and let any local process trigger a Bosch session (one of
+        // the 3 shared slots) on connect — so the user enables it explicitly in
+        // Settings → RTSP / Stream only when they actually wire up a recorder.
         if (this.config.stream_persistent_endpoint !== true) {
             return;
         }
@@ -4602,6 +4615,24 @@ class BoschSmartHomeCamera extends utils.Adapter {
     async _resolvePersistentInner(camId) {
         // A new client arrived → cancel any pending idle release.
         this._cancelFrontDoorIdle(camId);
+        // Coalesce simultaneous connects: two recorders hitting the front-door at
+        // the same moment must SHARE one ensureLiveSession, otherwise each opens
+        // its own Bosch session (a race that wastes one of the 3 shared slots).
+        const inflight = this._persistentInflight.get(camId);
+        if (inflight) {
+            return inflight;
+        }
+        const p = this._openPersistentInner(camId);
+        this._persistentInflight.set(camId, p);
+        try {
+            return await p;
+        }
+        finally {
+            this._persistentInflight.delete(camId);
+        }
+    }
+    /** Inner body of {@link _resolvePersistentInner}, guarded against concurrent calls. */
+    async _openPersistentInner(camId) {
         try {
             await this.ensureLiveSession(camId);
         }
@@ -7550,8 +7581,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (cameras.length === 0) {
             return false;
         }
-        // v1.5.4: the persistent endpoint keeps stream_url reachable at all times,
-        // so the "connection refused until you start it" hint would be misleading.
+        // v1.5.4: when the opt-in persistent endpoint is on, stream_url stays
+        // reachable at all times, so the "connection refused until you start it"
+        // hint would be misleading — suppress it then.
         if (this.config.stream_persistent_endpoint === true) {
             return false;
         }
