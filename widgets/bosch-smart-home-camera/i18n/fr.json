@@ -110,5 +110,7 @@
     "motion": "Mouvement",
     "person": "Personne",
     "Online": "En ligne",
-    "Privacy mode": "Mode privé"
+    "Privacy mode": "Mode privé",
+    "Picture-in-picture": "Image dans l'image",
+    "Picture-in-picture active for another camera": "Image dans l'image active pour une autre caméra"
 }

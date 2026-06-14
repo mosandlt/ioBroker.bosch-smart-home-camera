@@ -1,289 +1,289 @@
 {
-    "common": {
-        "name": "bosch-smart-home-camera",
-        "version": "1.5.5",
-        "news": {
-            "1.5.5": {
-                "en": "Settings page reorganised into clear tabs (Connection, RTSP / Stream, Events, API requests, MQTT). The always-on RTSP endpoint option moved to the RTSP / Stream tab, next to the other recorder settings. Polished the German translations of the stream settings. Internal: simultaneous recorder connections to the always-on endpoint now share one Bosch session instead of racing to open several.",
-                "de": "Einstellungsseite in klare Tabs aufgeteilt (Verbindung, RTSP / Stream, Ereignisse, API-Anfragen, MQTT). Die Option für den dauerhaft erreichbaren RTSP-Endpunkt liegt jetzt im Tab RTSP / Stream bei den anderen Recorder-Einstellungen. Deutsche Übersetzungen der Stream-Einstellungen überarbeitet. Intern: gleichzeitige Recorder-Verbindungen teilen sich nun eine Bosch-Sitzung.",
-                "ru": "Страница настроек разбита на понятные вкладки (Соединение, RTSP / Stream, События, Запросы API, MQTT). Опция постоянно доступного RTSP-эндпоинта перемещена на вкладку RTSP / Stream рядом с другими настройками рекордеров. Улучшены немецкие переводы настроек потока. Внутри: одновременные подключения рекордеров теперь используют одну сессию Bosch.",
-                "pt": "Página de configurações reorganizada em abas claras (Conexão, RTSP / Stream, Eventos, Pedidos de API, MQTT). A opção de endpoint RTSP sempre disponível foi movida para a aba RTSP / Stream, junto às outras configurações de gravadores. Traduções alemãs das configurações de stream revisadas. Interno: conexões simultâneas de gravadores agora compartilham uma sessão Bosch.",
-                "nl": "Instellingenpagina opnieuw ingedeeld in duidelijke tabbladen (Verbinding, RTSP / Stream, Gebeurtenissen, API-verzoeken, MQTT). De optie voor het altijd-bereikbare RTSP-eindpunt staat nu op het tabblad RTSP / Stream, naast de andere recorderinstellingen. Duitse vertalingen van de streaminstellingen verbeterd. Intern: gelijktijdige recorderverbindingen delen nu één Bosch-sessie.",
-                "fr": "Page de paramètres réorganisée en onglets clairs (Connexion, RTSP / Stream, Événements, Requêtes API, MQTT). L'option de point de terminaison RTSP toujours disponible déplacée vers l'onglet RTSP / Stream. Traductions allemandes des réglages de flux peaufinées. Interne : les connexions simultanées d'enregistreurs partagent désormais une seule session Bosch.",
-                "it": "Pagina delle impostazioni riorganizzata in schede chiare (Connessione, RTSP / Stream, Eventi, Richieste API, MQTT). L'opzione dell'endpoint RTSP sempre disponibile spostata nella scheda RTSP / Stream. Migliorate le traduzioni tedesche delle impostazioni di stream. Interno: connessioni simultanee dei registratori ora condividono una sola sessione Bosch.",
-                "es": "Página de ajustes reorganizada en pestañas claras (Conexión, RTSP / Stream, Eventos, Solicitudes de API, MQTT). La opción del punto final RTSP siempre disponible se movió a la pestaña RTSP / Stream, junto a los demás ajustes de grabadores. Mejoradas las traducciones alemanas de los ajustes de transmisión. Interno: las conexiones simultáneas de grabadores ahora comparten una sola sesión de Bosch.",
-                "pl": "Strona ustawień podzielona na czytelne karty (Połączenie, RTSP / Stream, Zdarzenia, Żądania API, MQTT). Opcja zawsze dostępnego punktu końcowego RTSP przeniesiona na kartę RTSP / Stream, obok innych ustawień rejestratorów. Dopracowano niemieckie tłumaczenia ustawień strumienia. Wewnętrznie: jednoczesne połączenia rejestratorów dzielą teraz jedną sesję Bosch.",
-                "uk": "Сторінку налаштувань поділено на зрозумілі вкладки (З'єднання, RTSP / Stream, Події, Запити API, MQTT). Опцію постійно доступного RTSP-кінцевого пункту перенесено на вкладку RTSP / Stream. Покращено німецькі переклади налаштувань потоку. Внутрішньо: одночасні підключення рекордерів тепер спільно використовують одну сесію Bosch.",
-                "zh-cn": "设置页面重新组织为清晰的选项卡（连接、RTSP / Stream、事件、API 请求、MQTT）。常驻 RTSP 端点选项移至 RTSP / Stream 选项卡，与其他录像机设置相邻。改进了流设置的德语翻译。内部：录像机的并发连接现在共享一个 Bosch 会话，而不是竞相打开多个会话。"
-            },
-            "1.5.4": {
-                "en": "New: optional always-on RTSP endpoint (Stream settings). The local RTSP URL now stays reachable at all times, so external recorders such as iobroker.cameras no longer get 'Connection refused' while the live stream is off. The Bosch session opens on demand and is released after an idle timeout, never permanently using one of the 3 shared sessions. Forum #84538.",
-                "de": "Neu: optionaler dauerhaft erreichbarer RTSP-Endpunkt (Stream-Einstellungen). Die lokale RTSP-URL ist jetzt jederzeit erreichbar, sodass externe Recorder wie iobroker.cameras kein 'Connection refused' mehr erhalten, wenn der Livestream aus ist. Die Bosch-Sitzung wird bei Bedarf geöffnet und nach Leerlauf wieder freigegeben. Forum #84538.",
-                "ru": "Новое: дополнительный постоянно доступный RTSP-эндпоинт (настройки потока). Локальный RTSP-URL теперь доступен всегда, поэтому внешние рекордеры, такие как iobroker.cameras, больше не получают 'Connection refused' при выключенном потоке. Сессия Bosch открывается по запросу и освобождается после простоя. Forum #84538.",
-                "pt": "Novo: endpoint RTSP sempre disponível opcional (configurações de stream). O URL RTSP local agora permanece acessível o tempo todo, para que gravadores externos como iobroker.cameras não recebam mais 'Connection refused' com a transmissão desligada. A sessão Bosch abre sob demanda e é liberada após inatividade. Forum #84538.",
-                "nl": "Nieuw: optioneel altijd-bereikbaar RTSP-eindpunt (streaminstellingen). De lokale RTSP-URL blijft nu altijd bereikbaar, zodat externe recorders zoals iobroker.cameras geen 'Connection refused' meer krijgen wanneer de livestream uit staat. De Bosch-sessie opent op aanvraag en wordt na inactiviteit vrijgegeven. Forum #84538.",
-                "fr": "Nouveau : point de terminaison RTSP toujours disponible en option (paramètres de flux). L'URL RTSP locale reste désormais accessible en permanence, de sorte que les enregistreurs externes comme iobroker.cameras ne reçoivent plus 'Connection refused' lorsque le flux est désactivé. La session Bosch s'ouvre à la demande et est libérée après inactivité. Forum #84538.",
-                "it": "Nuovo: endpoint RTSP sempre disponibile opzionale (impostazioni stream). L'URL RTSP locale ora rimane sempre raggiungibile, così i registratori esterni come iobroker.cameras non ricevono più 'Connection refused' quando lo stream è spento. La sessione Bosch si apre su richiesta e viene rilasciata dopo l'inattività. Forum #84538.",
-                "es": "Nuevo: punto final RTSP siempre disponible opcional (ajustes de transmisión). La URL RTSP local ahora permanece accesible en todo momento, de modo que grabadores externos como iobroker.cameras ya no reciben 'Connection refused' con la transmisión apagada. La sesión de Bosch se abre bajo demanda y se libera tras la inactividad. Forum #84538.",
-                "pl": "Nowość: opcjonalny zawsze dostępny punkt końcowy RTSP (ustawienia strumienia). Lokalny adres URL RTSP jest teraz zawsze osiągalny, więc zewnętrzne rejestratory jak iobroker.cameras nie otrzymują już 'Connection refused', gdy transmisja jest wyłączona. Sesja Bosch otwiera się na żądanie i jest zwalniana po bezczynności. Forum #84538.",
-                "uk": "Нове: додатковий постійно доступний RTSP-кінцевий пункт (налаштування потоку). Локальна RTSP-адреса тепер доступна завжди, тож зовнішні рекордери на кшталт iobroker.cameras більше не отримують 'Connection refused', коли потік вимкнено. Сесія Bosch відкривається на вимогу та звільняється після простою. Forum #84538.",
-                "zh-cn": "新增：可选的常驻 RTSP 端点（流设置）。本地 RTSP URL 现在始终可访问，因此 iobroker.cameras 等外部录像机在实时流关闭时不再收到 'Connection refused'。Bosch 会话按需打开，并在空闲后释放。Forum #84538。"
-            },
-            "1.5.3": {
-                "en": "Fix: after the v1.5.1 TLS hardening, Bosch cloud connections could fail to start with 'unable to get issuer certificate', blocking camera discovery on startup on some systems. Cloud certificate verification now anchors the pinned Bosch CA correctly while keeping full MITM protection.",
-                "de": "Fix: Nach der TLS-Härtung in v1.5.1 konnte der Aufbau der Bosch-Cloud-Verbindung mit 'unable to get issuer certificate' fehlschlagen und die Kamera-Erkennung beim Start blockieren. Die Zertifikatsprüfung verankert die gepinnte Bosch-CA jetzt korrekt - bei vollem MITM-Schutz.",
-                "ru": "Исправление: после усиления защиты TLS версии 1.5.1 облачные подключения Bosch могли не запускаться с сообщением «невозможно получить сертификат эмитента», что блокировало обнаружение камеры при запуске в некоторых системах. Проверка облачного сертификата теперь правильно привязывает закрепленный центр сертификации Bosch, сохраняя при этом полную защиту MITM.",
-                "pt": "Correção: após o fortalecimento do TLS v1.5.1, as conexões em nuvem da Bosch poderiam falhar ao iniciar com 'incapaz de obter o certificado do emissor', bloqueando a descoberta da câmera na inicialização em alguns sistemas. A verificação do certificado em nuvem agora ancora corretamente a CA da Bosch fixada, mantendo a proteção total do MITM.",
-                "nl": "Oplossing: na de TLS-verharding v1.5.1 konden Bosch-cloudverbindingen niet starten met 'Kan geen uitgeverscertificaat verkrijgen', waardoor cameradetectie bij het opstarten op sommige systemen werd geblokkeerd. Met cloudcertificaatverificatie wordt de vastgezette Bosch CA nu correct verankerd, terwijl de volledige MITM-bescherming behouden blijft.",
-                "fr": "Correctif : après le renforcement de TLS v1.5.1, les connexions cloud Bosch pouvaient ne pas démarrer avec « impossible d'obtenir le certificat de l'émetteur », bloquant la découverte de la caméra au démarrage sur certains systèmes. La vérification du certificat cloud ancre désormais correctement l'autorité de certification Bosch épinglée tout en conservant une protection MITM complète.",
-                "it": "Correzione: dopo l'hardening TLS v1.5.1, le connessioni cloud Bosch potrebbero non avviarsi con \"impossibile ottenere il certificato dell'emittente\", bloccando il rilevamento della telecamera all'avvio su alcuni sistemi. La verifica del certificato cloud ora ancora correttamente la CA Bosch bloccata mantenendo la protezione MITM completa.",
-                "es": "Solución: después del refuerzo de TLS v1.5.1, las conexiones en la nube de Bosch podrían no iniciarse con \"no se puede obtener el certificado del emisor\", lo que bloquea el descubrimiento de la cámara al iniciar en algunos sistemas. La verificación de certificados en la nube ahora ancla correctamente la CA de Bosch anclada mientras mantiene la protección MITM completa.",
-                "pl": "Poprawka: po wzmocnieniu protokołu TLS w wersji 1.5.1 połączenia w chmurze Bosch mogły nie uruchamiać się z komunikatem „nie można uzyskać certyfikatu wystawcy”, blokując wykrywanie kamer podczas uruchamiania w niektórych systemach. Weryfikacja certyfikatu w chmurze teraz prawidłowo zakotwicza przypięty urząd certyfikacji Bosch, zachowując jednocześnie pełną ochronę MITM.",
-                "uk": "Виправлення: після посилення TLS версії 1.5.1 хмарні з’єднання Bosch могли не запускатися з повідомленням «неможливо отримати сертифікат видавця», блокуючи виявлення камери під час запуску в деяких системах. Перевірка хмарного сертифіката тепер правильно закріплює закріплений ЦС Bosch, зберігаючи повний захист MITM.",
-                "zh-cn": "修复：v1.5.1 TLS 强化后，博世云连接可能无法启动，并显示“无法获取颁发者证书”，从而阻止在某些系统上启动时发现摄像头。云证书验证现在可以正确锚定固定的博世 CA，同时保持完整的 MITM 保护。"
-            },
-            "1.5.2": {
-                "en": "Maintenance: orphaned camera object subtrees left behind by removed cameras are now automatically pruned on adapter start (after a successful camera fetch; a safety guard prevents deletion during a cloud outage).",
-                "de": "Aufräumen: verwaiste cameras.<uuid>-Objektbäume entfernter Kameras werden jetzt beim Start automatisch entfernt (nach erfolgreichem Kamera-Abruf; Safety-Guard gegen Löschen bei Cloud-Ausfall).",
-                "ru": "Обслуживание: осиротевшие поддеревья объектов камер, оставшиеся после удалённых камер, теперь автоматически удаляются при запуске адаптера (после успешного получения списка камер; защитный механизм предотвращает удаление при недоступности облака).",
-                "pt": "Manutenção: as subárvores de objetos de câmeras órfãs deixadas por câmeras removidas agora são eliminadas automaticamente na inicialização do adaptador (após uma busca bem-sucedida; um guarda de segurança impede a exclusão durante uma falha na nuvem).",
-                "nl": "Onderhoud: verweesde camera-objectsubstructuren die zijn achtergebleven door verwijderde camera's, worden nu automatisch opgeschoond bij het starten van de adapter (na een succesvolle cameraquery; een veiligheidsbeveiliging voorkomt verwijdering bij een cloudstoring).",
-                "fr": "Maintenance : les sous-arbres d'objets de caméras orphelines laissés par des caméras supprimées sont maintenant nettoyés automatiquement au démarrage de l'adaptateur (après une récupération réussie ; un garde de sécurité empêche la suppression en cas de panne du cloud).",
-                "it": "Manutenzione: i sottoalberi di oggetti delle telecamere orfane lasciati da telecamere rimosse vengono ora eliminati automaticamente all'avvio dell'adattatore (dopo un recupero riuscito; una guardia di sicurezza impedisce l'eliminazione durante un'interruzione del cloud).",
-                "es": "Mantenimiento: los subárboles de objetos de cámaras huérfanas que dejaron las cámaras eliminadas ahora se limpian automáticamente al iniciar el adaptador (tras una obtención exitosa; un guardia de seguridad evita la eliminación durante una interrupción de la nube).",
-                "pl": "Konserwacja: osierocone poddrzewa obiektów kamer pozostawione przez usunięte kamery są teraz automatycznie usuwane przy starcie adaptera (po pomyślnym pobraniu danych kamery; zabezpieczenie chroni przed usunięciem podczas awarii chmury).",
-                "uk": "Обслуговування: осиротілі піддерева об'єктів камер, залишені видаленими камерами, тепер автоматично видаляються під час запуску адаптера (після успішного отримання даних камери; захисний механізм запобігає видаленню під час збою хмари).",
-                "zh-cn": "维护：适配器启动时（成功获取摄像头列表后）现在会自动清理已删除摄像头遗留的孤立 cameras.<uuid> 对象子树；安全保护机制可防止在云端不可用时误删数据。"
-            },
-            "1.5.1": {
-                "en": "Security: TLS certificate verification for Bosch cloud/proxy calls (CWE-295). The cloud API and video proxy now validate the private Bosch CA instead of accepting any certificate, closing a MITM gap on OAuth tokens on the local network. Local camera endpoints are unchanged.",
-                "de": "Sicherheit: TLS-Zertifikatsprüfung für Bosch-Cloud/Proxy-Aufrufe (CWE-295). Cloud-API und Video-Proxy validieren jetzt die private Bosch-CA statt jedes Zertifikat zu akzeptieren; schließt eine MITM-Lücke auf OAuth-Tokens im lokalen Netz. Lokale Kamera-Endpunkte unverändert.",
-                "ru": "Безопасность: проверка TLS-сертификата для вызовов Bosch cloud/proxy (CWE-295). Облачный API и видеопрокси теперь проверяют закрытый CA Bosch вместо того, чтобы принимать любой сертификат, закрывая уязвимость MITM для токенов OAuth в локальной сети. Локальные конечные точки камеры не изменились.",
-                "pt": "Segurança: verificação de certificado TLS para chamadas Bosch cloud/proxy (CWE-295). A API de nuvem e o proxy de vídeo agora validam a CA privada da Bosch em vez de aceitar qualquer certificado, fechando uma lacuna MITM em tokens OAuth na rede local. Os endpoints locais da câmera não foram alterados.",
-                "nl": "Beveiliging: TLS-certificaatvalidatie voor Bosch cloud/proxy-aanroepen (CWE-295). De cloud-API en videoproxy valideren nu de privé Bosch-CA in plaats van elk certificaat te accepteren, waardoor een MITM-gat in OAuth-tokens op het lokale netwerk wordt gedicht. Lokale camera-eindpunten zijn ongewijzigd.",
-                "fr": "Sécurité : vérification du certificat TLS pour les appels cloud/proxy Bosch (CWE-295). L'API cloud et le proxy vidéo valident désormais la CA privée Bosch au lieu d'accepter n'importe quel certificat, comblant une faille MITM sur les jetons OAuth sur le réseau local. Les endpoints locaux de la caméra restent inchangés.",
-                "it": "Sicurezza: verifica del certificato TLS per le chiamate cloud/proxy Bosch (CWE-295). L'API cloud e il proxy video ora convalidano la CA privata Bosch invece di accettare qualsiasi certificato, chiudendo una falla MITM sui token OAuth nella rete locale. Gli endpoint locali della telecamera rimangono invariati.",
-                "es": "Seguridad: verificación de certificado TLS para llamadas cloud/proxy de Bosch (CWE-295). La API de nube y el proxy de vídeo ahora validan la CA privada de Bosch en lugar de aceptar cualquier certificado, cerrando una brecha MITM en los tokens OAuth en la red local. Los endpoints locales de la cámara no cambian.",
-                "pl": "Bezpieczeństwo: weryfikacja certyfikatu TLS dla wywołań chmury/proxy Bosch (CWE-295). Interfejs API chmury i serwer proxy wideo teraz weryfikują prywatny CA Bosch zamiast akceptować dowolny certyfikat, zamykając lukę MITM w tokenach OAuth w sieci lokalnej. Lokalne punkty końcowe kamery pozostają niezmienione.",
-                "uk": "Безпека: перевірка TLS-сертифіката для викликів Bosch cloud/proxy (CWE-295). Хмарний API і відеопроксі тепер перевіряють приватний CA Bosch замість прийняття будь-якого сертифіката, усуваючи вразливість MITM для токенів OAuth у локальній мережі. Локальні кінцеві точки камери не змінилися.",
-                "zh-cn": "安全：针对博世云端/代理调用的 TLS 证书验证 (CWE-295)。云端 API 和视频代理现在验证博世私有 CA，而不是接受任何证书，从而消除本地网络上 OAuth 令牌的中间人攻击漏洞。本地摄像头端点保持不变。"
-            },
-            "1.5.0": {
-                "en": "Fix: motion no longer silently freezes (last_motion_at stopped after a while) — an always-on safety-net poll keeps it flowing even if the FCM push connection silently dies. New: a configurable stream maxSessionDuration, and an opt-in option to turn off unwatched live streams to free a Bosch session.",
-                "de": "Fix: Bewegungsdaten frieren nicht mehr still ein (last_motion_at blieb nach einiger Zeit stehen) — ein dauerhaft laufendes Sicherheitsnetz-Polling hält sie aktuell, selbst wenn die FCM-Push-Verbindung still stirbt. Neu: einstellbare Stream-maxSessionDuration und eine Opt-in-Option, ungenutzte Livestreams abzuschalten (spart eine Bosch-Sitzung).",
-                "ru": "Исправлено: движение больше не зависает беззвучно (last_motion_at останавливается через некоторое время) — постоянный опрос сети безопасности поддерживает его работу, даже если push-соединение FCM молча прекращается. Новое: настраиваемый поток maxSessionDuration и возможность отключения непросматриваемых прямых трансляций для освобождения сеанса Bosch.",
-                "pt": "Correção: o movimento não congela mais silenciosamente (last_motion_at é interrompido depois de um tempo) — uma pesquisa de rede de segurança sempre ativa o mantém fluindo mesmo se a conexão push do FCM morrer silenciosamente. Novidade: uma transmissão configurável maxSessionDuration e uma opção opcional para desativar transmissões ao vivo não assistidas para liberar uma sessão da Bosch.",
-                "nl": "Oplossing: beweging loopt niet langer stilletjes vast (last_motion_at stopte na een tijdje) — een altijd ingeschakelde vangnet-poll zorgt ervoor dat de beweging blijft doorgaan, zelfs als de FCM-pushverbinding stilletjes wegvalt. Nieuw: een configureerbare stream maxSessionDuration en een opt-in-optie om niet-bekeken livestreams uit te schakelen om een ​​Bosch-sessie vrij te maken.",
-                "fr": "Correction : le mouvement ne se fige plus silencieusement (last_motion_at s'est arrêté après un certain temps) – un sondage de filet de sécurité toujours actif le maintient en mouvement même si la connexion push FCM meurt silencieusement. Nouveau : un flux maxSessionDuration configurable et une option d'inscription pour désactiver les flux en direct non regardés afin de libérer une session Bosch.",
-                "it": "Correzione: il movimento non si blocca più silenziosamente (last_motion_at si interrompe dopo un po'): un sondaggio della rete di sicurezza sempre attivo lo mantiene in esecuzione anche se la connessione push FCM muore silenziosamente. Novità: maxSessionDuration del flusso configurabile e un'opzione di attivazione per disattivare i flussi live non guardati per liberare una sessione Bosch.",
-                "es": "Solución: el movimiento ya no se congela silenciosamente (last_motion_at se detuvo después de un tiempo); una encuesta de red de seguridad siempre activa lo mantiene fluyendo incluso si la conexión push de FCM muere silenciosamente. Nuevo: una transmisión configurable maxSessionDuration y una opción de suscripción para desactivar transmisiones en vivo no vistas para liberar una sesión de Bosch.",
-                "pl": "Poprawka: ruch nie zawiesza się już po chwili (last_motion_at zostaje zatrzymany po chwili) — zawsze włączone odpytywanie sieci zabezpieczającej utrzymuje płynność nawet w przypadku cichego zerwania połączenia push FCM. Nowość: konfigurowalny strumień maxSessionDuration i opcja wyłączenia nieoglądanych transmisji na żywo w celu zwolnienia sesji Bosch.",
-                "uk": "Виправлення: рух більше не мовчки зависає (last_motion_at через деякий час зупиняється) — постійне опитування мережі безпеки підтримує його, навіть якщо з’єднання FCM push тихо вимикається. Нове: конфігурована максимальна тривалість сеансу потоку та можливість вимкнути непереглянуті прямі трансляції, щоб звільнити сеанс Bosch.",
-                "zh-cn": "修复：运动不再无提示地冻结（last_motion_at 一段时间后停止）——即使 FCM 推送连接无提示地终止，始终在线的安全网轮询也会使其保持流动。新增内容：可配置的流 maxSessionDuration，以及用于关闭未观看的直播流以释放博世会话的选择加入选项。"
-            },
-            "1.4.1": {
-                "en": "New Power-saving options that ease the shared 3-session Bosch limit: no per-camera snapshot at adapter start (online is resolved without a session), a configurable cloud poll interval, and an opt-in indoor-tile auto-refresh (off by default). Plus dependency updates.",
-                "de": "Neue Energiespar-Optionen, die das geteilte 3-Sitzungen-Limit von Bosch entlasten: kein Snapshot je Kamera beim Start (Online ohne Sitzung ermittelt), konfigurierbares Abfrageintervall und optionale Auto-Aktualisierung der Innenkamera-Kacheln (standardmäßig aus). Dazu Abhängigkeits-Updates.",
-                "ru": "Новые параметры энергосбережения, которые облегчают общее ограничение Bosch на 3 сеанса: отсутствие снимков для каждой камеры при запуске адаптера (онлайн разрешается без сеанса), настраиваемый интервал опроса облака и автоматическое обновление плиток в помещении (отключено по умолчанию). Плюс обновления зависимостей.",
-                "pt": "Novas opções de economia de energia que facilitam o limite compartilhado de 3 sessões da Bosch: nenhum instantâneo por câmera na inicialização do adaptador (on-line é resolvido sem uma sessão), um intervalo de pesquisa na nuvem configurável e uma atualização automática opcional de blocos internos (desativada por padrão). Além de atualizações de dependências.",
-                "nl": "Nieuwe energiebesparende opties die de gedeelde Bosch-limiet van drie sessies verlichten: geen momentopname per camera bij het starten van de adapter (online wordt opgelost zonder een sessie), een configureerbaar poll-interval in de cloud en een automatische vernieuwing van binnentegels (standaard uitgeschakeld). Plus afhankelijkheidsupdates.",
-                "fr": "Nouvelles options d'économie d'énergie qui atténuent la limite Bosch partagée de 3 sessions : pas d'instantané par caméra au démarrage de l'adaptateur (la connexion en ligne est résolue sans session), un intervalle d'interrogation cloud configurable et une actualisation automatique optionnelle des tuiles intérieures (désactivée par défaut). Plus les mises à jour des dépendances.",
-                "it": "Nuove opzioni di risparmio energetico che riducono il limite Bosch condiviso di 3 sessioni: nessuna istantanea per telecamera all'avvio dell'adattatore (online viene risolto senza una sessione), un intervallo di poll cloud configurabile e un aggiornamento automatico del riquadro interno (disattivato per impostazione predefinita). Inoltre aggiornamenti sulle dipendenze.",
-                "es": "Nuevas opciones de ahorro de energía que alivian el límite compartido de 3 sesiones de Bosch: sin instantáneas por cámara al iniciar el adaptador (en línea se resuelve sin una sesión), un intervalo de sondeo en la nube configurable y una actualización automática de mosaicos interiores opcional (desactivada de forma predeterminada). Además de actualizaciones de dependencia.",
-                "pl": "Nowe opcje oszczędzania energii, które ułatwiają współdzielony limit 3 sesji Bosch: brak migawki dla każdej kamery przy uruchomieniu adaptera (tryb online jest rozwiązywany bez sesji), konfigurowalny interwał odpytywania w chmurze oraz możliwość automatycznego odświeżania kafelków w pomieszczeniach (domyślnie wyłączona). Plus aktualizacje zależności.",
-                "uk": "Нові параметри енергозбереження, які зменшують обмеження Bosch на 3 сеанси спільного використання: відсутність знімка для кожної камери під час запуску адаптера (онлайн вирішується без сеансу), настроюваний інтервал опитування в хмарі та автоматичне оновлення плитки в приміщенні (вимкнено за замовчуванням). Плюс оновлення залежностей.",
-                "zh-cn": "新的节能选项可缓解共享 3 个会话博世的限制：适配器启动时无每个摄像机快照（无需会话即可解析在线）、可配置的云轮询间隔以及选择加入室内图块自动刷新（默认情况下关闭）。加上依赖项更新。"
-            }
-        },
-        "titleLang": {
-            "en": "Bosch Smart Home Camera",
-            "de": "Bosch Smart Home Kamera",
-            "ru": "Камера Bosch Smart Home",
-            "pt": "Câmera Bosch Smart Home",
-            "nl": "Bosch Smart Home Camera",
-            "fr": "Caméra Bosch Smart Home",
-            "it": "Telecamera Bosch Smart Home",
-            "es": "Cámara Bosch Smart Home",
-            "pl": "Kamera Bosch Smart Home",
-            "uk": "Камера Bosch Smart Home",
-            "zh-cn": "博世智能家居摄像头"
-        },
-        "desc": {
-            "en": "Bosch Smart Home Camera (Eyes/360/Gen2) cloud-API integration",
-            "de": "Bosch Smart Home Kamera (Eyes/360/Gen2) Cloud-API-Integration",
-            "ru": "Интеграция облачного API камеры Bosch Smart Home (Eyes/360/Gen2)",
-            "pt": "Integração de API em nuvem da câmera Bosch Smart Home (Eyes/360/Gen2)",
-            "nl": "Bosch Smart Home Camera (Eyes/360/Gen2) cloud-API integratie",
-            "fr": "Intégration API cloud de la caméra Bosch Smart Home (Eyes/360/Gen2)",
-            "it": "Integrazione API cloud della telecamera Bosch Smart Home (Eyes/360/Gen2)",
-            "es": "Integración de API en la nube de la cámara Bosch Smart Home (Eyes/360/Gen2)",
-            "pl": "Integracja API chmury kamery Bosch Smart Home (Eyes/360/Gen2)",
-            "uk": "Інтеграція хмарного API камери Bosch Smart Home (Eyes/360/Gen2)",
-            "zh-cn": "博世智能家居摄像头（Eyes/360/Gen2）云API集成"
-        },
-        "authors": [
-            "mosandlt <10558666+mosandlt@users.noreply.github.com>"
-        ],
-        "keywords": [
-            "bosch",
-            "camera",
-            "eyes",
-            "smart-home",
-            "rtsp",
-            "fcm",
-            "cloud"
-        ],
-        "licenseInformation": {
-            "type": "free",
-            "license": "MIT"
-        },
-        "platform": "Javascript/Node.js",
-        "icon": "bosch-camera.png",
-        "enabled": true,
-        "extIcon": "https://raw.githubusercontent.com/mosandlt/ioBroker.bosch-smart-home-camera/main/admin/bosch-camera.png",
-        "readme": "https://github.com/mosandlt/ioBroker.bosch-smart-home-camera#readme",
-        "loglevel": "info",
-        "mode": "daemon",
-        "type": "multimedia",
-        "connectionType": "cloud",
-        "dataSource": "push",
-        "tier": 3,
-        "compact": true,
-        "messagebox": true,
-        "adminUI": {
-            "config": "json"
-        },
-        "dependencies": [
-            {
-                "js-controller": ">=6.0.11"
-            }
-        ],
-        "globalDependencies": [
-            {
-                "admin": ">=7.6.20"
-            }
-        ],
-        "visWidgets": {
-            "vis2BoschCameraWidgets": {
-                "name": "vis2BoschCameraWidgets",
-                "url": "bosch-smart-home-camera/customWidgets.js",
-                "bundlerType": "module",
-                "i18n": "component",
-                "version": "0.2.0",
-                "components": [
-                    "BoschCamera",
-                    "BoschOverview"
-                ]
-            }
-        }
+  "common": {
+    "name": "bosch-smart-home-camera",
+    "version": "1.5.6",
+    "news": {
+      "1.5.6": {
+        "en": "Widget: Picture-in-Picture for the live WebRTC view. Float the stream in an always-on-top window that shows the camera name; while one camera floats, the PiP button on the others greys out (the browser allows only one PiP window). The window survives a stream reconnect. Hidden where the browser has no PiP support.",
+        "de": "Widget: Bild-im-Bild für die Live-WebRTC-Ansicht. Stream in einem immer-im-Vordergrund-Fenster mit Kameranamen; solange eine Kamera schwebt, wird der PiP-Button der anderen ausgegraut (der Browser erlaubt nur ein PiP-Fenster). Das Fenster übersteht einen Stream-Reconnect. Ausgeblendet wo der Browser kein PiP kann.",
+        "ru": "Виджет: «Картинка в картинке» для просмотра WebRTC в реальном времени. Перемещайте поток в постоянно расположенном окне, в котором отображается имя камеры; пока одна камера плавает, кнопка PiP на других становится серой (браузер допускает только одно окно PiP). Окно выдерживает повторное подключение потока. Скрыто там, где браузер не поддерживает PiP.",
+        "pt": "Widget: Picture-in-Picture para visualização WebRTC ao vivo. Flutue o stream em uma janela sempre visível que mostra o nome da câmera; enquanto uma câmera flutua, o botão PiP nas outras fica cinza (o navegador permite apenas uma janela PiP). A janela sobrevive a uma reconexão de fluxo. Oculto onde o navegador não tem suporte para PiP.",
+        "nl": "Widget: Picture-in-Picture voor de live WebRTC-weergave. Zweef de stream in een altijd zichtbaar venster waarin de cameranaam wordt weergegeven; terwijl één camera zweeft, wordt de PiP-knop op de andere grijs weergegeven (de browser staat slechts één PiP-venster toe). Het venster overleeft een hernieuwde stroomverbinding. Verborgen waar de browser geen PiP-ondersteuning heeft.",
+        "fr": "Widget : Picture-in-Picture pour la vue WebRTC en direct. Faites flotter le flux dans une fenêtre toujours visible qui affiche le nom de la caméra ; tandis qu'une caméra flotte, le bouton PiP des autres est grisé (le navigateur n'autorise qu'une seule fenêtre PiP). La fenêtre survit à une reconnexion de flux. Caché là où le navigateur ne prend pas en charge PiP.",
+        "it": "Widget: Picture-in-Picture per la visualizzazione WebRTC live. Visualizza lo streaming in una finestra sempre in primo piano che mostra il nome della telecamera; mentre una telecamera fluttua, il pulsante PiP sulle altre diventa grigio (il browser consente solo una finestra PiP). La finestra sopravvive alla riconnessione del flusso. Nascosto dove il browser non ha supporto PiP.",
+        "es": "Widget: Imagen en imagen para la vista WebRTC en vivo. Haga flotar la transmisión en una ventana siempre visible que muestra el nombre de la cámara; Mientras una cámara flota, el botón PiP de las demás se vuelve gris (el navegador solo permite una ventana PiP). La ventana sobrevive a una reconexión de transmisión. Oculto donde el navegador no admite PiP.",
+        "pl": "Widget: Obraz w obrazie do podglądu na żywo WebRTC. Wyświetlaj strumień w zawsze widocznym na górze oknie, które pokazuje nazwę kamery; gdy jedna kamera unosi się w powietrzu, przycisk PiP na pozostałych jest szary (przeglądarka umożliwia tylko jedno okno PiP). Okno przetrwa ponowne połączenie strumienia. Ukryty tam, gdzie przeglądarka nie obsługuje PiP.",
+        "uk": "Віджет: Картинка в картинці для перегляду WebRTC у реальному часі. Переміщайте потік у вікно, що завжди знаходиться зверху, у якому відображається назва камери; поки одна камера плаває, кнопки PiP на інших неактивні (браузер дозволяє лише одне вікно PiP). Вікно переживає повторне підключення потоку. Приховано, якщо браузер не підтримує PiP.",
+        "zh-cn": "小部件：实时 WebRTC 视图的画中画。将流浮动在显示摄像机名称的始终位于顶部的窗口中；当一台摄像机浮动时，其他摄像机上的画中画按钮会变灰（浏览器只允许一个画中画窗口）。该窗口在流重新连接后仍然存在。隐藏在浏览器不支持画中画的地方。"
+      },
+      "1.5.5": {
+        "en": "Settings page reorganised into clear tabs (Connection, RTSP / Stream, Events, API requests, MQTT). The always-on RTSP endpoint option moved to the RTSP / Stream tab, next to the other recorder settings. Polished the German translations of the stream settings. Internal: simultaneous recorder connections to the always-on endpoint now share one Bosch session instead of racing to open several.",
+        "de": "Einstellungsseite in klare Tabs aufgeteilt (Verbindung, RTSP / Stream, Ereignisse, API-Anfragen, MQTT). Die Option für den dauerhaft erreichbaren RTSP-Endpunkt liegt jetzt im Tab RTSP / Stream bei den anderen Recorder-Einstellungen. Deutsche Übersetzungen der Stream-Einstellungen überarbeitet. Intern: gleichzeitige Recorder-Verbindungen teilen sich nun eine Bosch-Sitzung.",
+        "ru": "Страница настроек разбита на понятные вкладки (Соединение, RTSP / Stream, События, Запросы API, MQTT). Опция постоянно доступного RTSP-эндпоинта перемещена на вкладку RTSP / Stream рядом с другими настройками рекордеров. Улучшены немецкие переводы настроек потока. Внутри: одновременные подключения рекордеров теперь используют одну сессию Bosch.",
+        "pt": "Página de configurações reorganizada em abas claras (Conexão, RTSP / Stream, Eventos, Pedidos de API, MQTT). A opção de endpoint RTSP sempre disponível foi movida para a aba RTSP / Stream, junto às outras configurações de gravadores. Traduções alemãs das configurações de stream revisadas. Interno: conexões simultâneas de gravadores agora compartilham uma sessão Bosch.",
+        "nl": "Instellingenpagina opnieuw ingedeeld in duidelijke tabbladen (Verbinding, RTSP / Stream, Gebeurtenissen, API-verzoeken, MQTT). De optie voor het altijd-bereikbare RTSP-eindpunt staat nu op het tabblad RTSP / Stream, naast de andere recorderinstellingen. Duitse vertalingen van de streaminstellingen verbeterd. Intern: gelijktijdige recorderverbindingen delen nu één Bosch-sessie.",
+        "fr": "Page de paramètres réorganisée en onglets clairs (Connexion, RTSP / Stream, Événements, Requêtes API, MQTT). L'option de point de terminaison RTSP toujours disponible déplacée vers l'onglet RTSP / Stream. Traductions allemandes des réglages de flux peaufinées. Interne : les connexions simultanées d'enregistreurs partagent désormais une seule session Bosch.",
+        "it": "Pagina delle impostazioni riorganizzata in schede chiare (Connessione, RTSP / Stream, Eventi, Richieste API, MQTT). L'opzione dell'endpoint RTSP sempre disponibile spostata nella scheda RTSP / Stream. Migliorate le traduzioni tedesche delle impostazioni di stream. Interno: connessioni simultanee dei registratori ora condividono una sola sessione Bosch.",
+        "es": "Página de ajustes reorganizada en pestañas claras (Conexión, RTSP / Stream, Eventos, Solicitudes de API, MQTT). La opción del punto final RTSP siempre disponible se movió a la pestaña RTSP / Stream, junto a los demás ajustes de grabadores. Mejoradas las traducciones alemanas de los ajustes de transmisión. Interno: las conexiones simultáneas de grabadores ahora comparten una sola sesión de Bosch.",
+        "pl": "Strona ustawień podzielona na czytelne karty (Połączenie, RTSP / Stream, Zdarzenia, Żądania API, MQTT). Opcja zawsze dostępnego punktu końcowego RTSP przeniesiona na kartę RTSP / Stream, obok innych ustawień rejestratorów. Dopracowano niemieckie tłumaczenia ustawień strumienia. Wewnętrznie: jednoczesne połączenia rejestratorów dzielą teraz jedną sesję Bosch.",
+        "uk": "Сторінку налаштувань поділено на зрозумілі вкладки (З'єднання, RTSP / Stream, Події, Запити API, MQTT). Опцію постійно доступного RTSP-кінцевого пункту перенесено на вкладку RTSP / Stream. Покращено німецькі переклади налаштувань потоку. Внутрішньо: одночасні підключення рекордерів тепер спільно використовують одну сесію Bosch.",
+        "zh-cn": "设置页面重新组织为清晰的选项卡（连接、RTSP / Stream、事件、API 请求、MQTT）。常驻 RTSP 端点选项移至 RTSP / Stream 选项卡，与其他录像机设置相邻。改进了流设置的德语翻译。内部：录像机的并发连接现在共享一个 Bosch 会话，而不是竞相打开多个会话。"
+      },
+      "1.5.4": {
+        "en": "New: optional always-on RTSP endpoint (Stream settings). The local RTSP URL now stays reachable at all times, so external recorders such as iobroker.cameras no longer get 'Connection refused' while the live stream is off. The Bosch session opens on demand and is released after an idle timeout, never permanently using one of the 3 shared sessions. Forum #84538.",
+        "de": "Neu: optionaler dauerhaft erreichbarer RTSP-Endpunkt (Stream-Einstellungen). Die lokale RTSP-URL ist jetzt jederzeit erreichbar, sodass externe Recorder wie iobroker.cameras kein 'Connection refused' mehr erhalten, wenn der Livestream aus ist. Die Bosch-Sitzung wird bei Bedarf geöffnet und nach Leerlauf wieder freigegeben. Forum #84538.",
+        "ru": "Новое: дополнительный постоянно доступный RTSP-эндпоинт (настройки потока). Локальный RTSP-URL теперь доступен всегда, поэтому внешние рекордеры, такие как iobroker.cameras, больше не получают 'Connection refused' при выключенном потоке. Сессия Bosch открывается по запросу и освобождается после простоя. Forum #84538.",
+        "pt": "Novo: endpoint RTSP sempre disponível opcional (configurações de stream). O URL RTSP local agora permanece acessível o tempo todo, para que gravadores externos como iobroker.cameras não recebam mais 'Connection refused' com a transmissão desligada. A sessão Bosch abre sob demanda e é liberada após inatividade. Forum #84538.",
+        "nl": "Nieuw: optioneel altijd-bereikbaar RTSP-eindpunt (streaminstellingen). De lokale RTSP-URL blijft nu altijd bereikbaar, zodat externe recorders zoals iobroker.cameras geen 'Connection refused' meer krijgen wanneer de livestream uit staat. De Bosch-sessie opent op aanvraag en wordt na inactiviteit vrijgegeven. Forum #84538.",
+        "fr": "Nouveau : point de terminaison RTSP toujours disponible en option (paramètres de flux). L'URL RTSP locale reste désormais accessible en permanence, de sorte que les enregistreurs externes comme iobroker.cameras ne reçoivent plus 'Connection refused' lorsque le flux est désactivé. La session Bosch s'ouvre à la demande et est libérée après inactivité. Forum #84538.",
+        "it": "Nuovo: endpoint RTSP sempre disponibile opzionale (impostazioni stream). L'URL RTSP locale ora rimane sempre raggiungibile, così i registratori esterni come iobroker.cameras non ricevono più 'Connection refused' quando lo stream è spento. La sessione Bosch si apre su richiesta e viene rilasciata dopo l'inattività. Forum #84538.",
+        "es": "Nuevo: punto final RTSP siempre disponible opcional (ajustes de transmisión). La URL RTSP local ahora permanece accesible en todo momento, de modo que grabadores externos como iobroker.cameras ya no reciben 'Connection refused' con la transmisión apagada. La sesión de Bosch se abre bajo demanda y se libera tras la inactividad. Forum #84538.",
+        "pl": "Nowość: opcjonalny zawsze dostępny punkt końcowy RTSP (ustawienia strumienia). Lokalny adres URL RTSP jest teraz zawsze osiągalny, więc zewnętrzne rejestratory jak iobroker.cameras nie otrzymują już 'Connection refused', gdy transmisja jest wyłączona. Sesja Bosch otwiera się na żądanie i jest zwalniana po bezczynności. Forum #84538.",
+        "uk": "Нове: додатковий постійно доступний RTSP-кінцевий пункт (налаштування потоку). Локальна RTSP-адреса тепер доступна завжди, тож зовнішні рекордери на кшталт iobroker.cameras більше не отримують 'Connection refused', коли потік вимкнено. Сесія Bosch відкривається на вимогу та звільняється після простою. Forum #84538.",
+        "zh-cn": "新增：可选的常驻 RTSP 端点（流设置）。本地 RTSP URL 现在始终可访问，因此 iobroker.cameras 等外部录像机在实时流关闭时不再收到 'Connection refused'。Bosch 会话按需打开，并在空闲后释放。Forum #84538。"
+      },
+      "1.5.3": {
+        "en": "Fix: after the v1.5.1 TLS hardening, Bosch cloud connections could fail to start with 'unable to get issuer certificate', blocking camera discovery on startup on some systems. Cloud certificate verification now anchors the pinned Bosch CA correctly while keeping full MITM protection.",
+        "de": "Fix: Nach der TLS-Härtung in v1.5.1 konnte der Aufbau der Bosch-Cloud-Verbindung mit 'unable to get issuer certificate' fehlschlagen und die Kamera-Erkennung beim Start blockieren. Die Zertifikatsprüfung verankert die gepinnte Bosch-CA jetzt korrekt - bei vollem MITM-Schutz.",
+        "ru": "Исправление: после усиления защиты TLS версии 1.5.1 облачные подключения Bosch могли не запускаться с сообщением «невозможно получить сертификат эмитента», что блокировало обнаружение камеры при запуске в некоторых системах. Проверка облачного сертификата теперь правильно привязывает закрепленный центр сертификации Bosch, сохраняя при этом полную защиту MITM.",
+        "pt": "Correção: após o fortalecimento do TLS v1.5.1, as conexões em nuvem da Bosch poderiam falhar ao iniciar com 'incapaz de obter o certificado do emissor', bloqueando a descoberta da câmera na inicialização em alguns sistemas. A verificação do certificado em nuvem agora ancora corretamente a CA da Bosch fixada, mantendo a proteção total do MITM.",
+        "nl": "Oplossing: na de TLS-verharding v1.5.1 konden Bosch-cloudverbindingen niet starten met 'Kan geen uitgeverscertificaat verkrijgen', waardoor cameradetectie bij het opstarten op sommige systemen werd geblokkeerd. Met cloudcertificaatverificatie wordt de vastgezette Bosch CA nu correct verankerd, terwijl de volledige MITM-bescherming behouden blijft.",
+        "fr": "Correctif : après le renforcement de TLS v1.5.1, les connexions cloud Bosch pouvaient ne pas démarrer avec « impossible d'obtenir le certificat de l'émetteur », bloquant la découverte de la caméra au démarrage sur certains systèmes. La vérification du certificat cloud ancre désormais correctement l'autorité de certification Bosch épinglée tout en conservant une protection MITM complète.",
+        "it": "Correzione: dopo l'hardening TLS v1.5.1, le connessioni cloud Bosch potrebbero non avviarsi con \"impossibile ottenere il certificato dell'emittente\", bloccando il rilevamento della telecamera all'avvio su alcuni sistemi. La verifica del certificato cloud ora ancora correttamente la CA Bosch bloccata mantenendo la protezione MITM completa.",
+        "es": "Solución: después del refuerzo de TLS v1.5.1, las conexiones en la nube de Bosch podrían no iniciarse con \"no se puede obtener el certificado del emisor\", lo que bloquea el descubrimiento de la cámara al iniciar en algunos sistemas. La verificación de certificados en la nube ahora ancla correctamente la CA de Bosch anclada mientras mantiene la protección MITM completa.",
+        "pl": "Poprawka: po wzmocnieniu protokołu TLS w wersji 1.5.1 połączenia w chmurze Bosch mogły nie uruchamiać się z komunikatem „nie można uzyskać certyfikatu wystawcy”, blokując wykrywanie kamer podczas uruchamiania w niektórych systemach. Weryfikacja certyfikatu w chmurze teraz prawidłowo zakotwicza przypięty urząd certyfikacji Bosch, zachowując jednocześnie pełną ochronę MITM.",
+        "uk": "Виправлення: після посилення TLS версії 1.5.1 хмарні з’єднання Bosch могли не запускатися з повідомленням «неможливо отримати сертифікат видавця», блокуючи виявлення камери під час запуску в деяких системах. Перевірка хмарного сертифіката тепер правильно закріплює закріплений ЦС Bosch, зберігаючи повний захист MITM.",
+        "zh-cn": "修复：v1.5.1 TLS 强化后，博世云连接可能无法启动，并显示“无法获取颁发者证书”，从而阻止在某些系统上启动时发现摄像头。云证书验证现在可以正确锚定固定的博世 CA，同时保持完整的 MITM 保护。"
+      },
+      "1.5.2": {
+        "en": "Maintenance: orphaned camera object subtrees left behind by removed cameras are now automatically pruned on adapter start (after a successful camera fetch; a safety guard prevents deletion during a cloud outage).",
+        "de": "Aufräumen: verwaiste cameras.<uuid>-Objektbäume entfernter Kameras werden jetzt beim Start automatisch entfernt (nach erfolgreichem Kamera-Abruf; Safety-Guard gegen Löschen bei Cloud-Ausfall).",
+        "ru": "Обслуживание: осиротевшие поддеревья объектов камер, оставшиеся после удалённых камер, теперь автоматически удаляются при запуске адаптера (после успешного получения списка камер; защитный механизм предотвращает удаление при недоступности облака).",
+        "pt": "Manutenção: as subárvores de objetos de câmeras órfãs deixadas por câmeras removidas agora são eliminadas automaticamente na inicialização do adaptador (após uma busca bem-sucedida; um guarda de segurança impede a exclusão durante uma falha na nuvem).",
+        "nl": "Onderhoud: verweesde camera-objectsubstructuren die zijn achtergebleven door verwijderde camera's, worden nu automatisch opgeschoond bij het starten van de adapter (na een succesvolle cameraquery; een veiligheidsbeveiliging voorkomt verwijdering bij een cloudstoring).",
+        "fr": "Maintenance : les sous-arbres d'objets de caméras orphelines laissés par des caméras supprimées sont maintenant nettoyés automatiquement au démarrage de l'adaptateur (après une récupération réussie ; un garde de sécurité empêche la suppression en cas de panne du cloud).",
+        "it": "Manutenzione: i sottoalberi di oggetti delle telecamere orfane lasciati da telecamere rimosse vengono ora eliminati automaticamente all'avvio dell'adattatore (dopo un recupero riuscito; una guardia di sicurezza impedisce l'eliminazione durante un'interruzione del cloud).",
+        "es": "Mantenimiento: los subárboles de objetos de cámaras huérfanas que dejaron las cámaras eliminadas ahora se limpian automáticamente al iniciar el adaptador (tras una obtención exitosa; un guardia de seguridad evita la eliminación durante una interrupción de la nube).",
+        "pl": "Konserwacja: osierocone poddrzewa obiektów kamer pozostawione przez usunięte kamery są teraz automatycznie usuwane przy starcie adaptera (po pomyślnym pobraniu danych kamery; zabezpieczenie chroni przed usunięciem podczas awarii chmury).",
+        "uk": "Обслуговування: осиротілі піддерева об'єктів камер, залишені видаленими камерами, тепер автоматично видаляються під час запуску адаптера (після успішного отримання даних камери; захисний механізм запобігає видаленню під час збою хмари).",
+        "zh-cn": "维护：适配器启动时（成功获取摄像头列表后）现在会自动清理已删除摄像头遗留的孤立 cameras.<uuid> 对象子树；安全保护机制可防止在云端不可用时误删数据。"
+      },
+      "1.5.1": {
+        "en": "Security: TLS certificate verification for Bosch cloud/proxy calls (CWE-295). The cloud API and video proxy now validate the private Bosch CA instead of accepting any certificate, closing a MITM gap on OAuth tokens on the local network. Local camera endpoints are unchanged.",
+        "de": "Sicherheit: TLS-Zertifikatsprüfung für Bosch-Cloud/Proxy-Aufrufe (CWE-295). Cloud-API und Video-Proxy validieren jetzt die private Bosch-CA statt jedes Zertifikat zu akzeptieren; schließt eine MITM-Lücke auf OAuth-Tokens im lokalen Netz. Lokale Kamera-Endpunkte unverändert.",
+        "ru": "Безопасность: проверка TLS-сертификата для вызовов Bosch cloud/proxy (CWE-295). Облачный API и видеопрокси теперь проверяют закрытый CA Bosch вместо того, чтобы принимать любой сертификат, закрывая уязвимость MITM для токенов OAuth в локальной сети. Локальные конечные точки камеры не изменились.",
+        "pt": "Segurança: verificação de certificado TLS para chamadas Bosch cloud/proxy (CWE-295). A API de nuvem e o proxy de vídeo agora validam a CA privada da Bosch em vez de aceitar qualquer certificado, fechando uma lacuna MITM em tokens OAuth na rede local. Os endpoints locais da câmera não foram alterados.",
+        "nl": "Beveiliging: TLS-certificaatvalidatie voor Bosch cloud/proxy-aanroepen (CWE-295). De cloud-API en videoproxy valideren nu de privé Bosch-CA in plaats van elk certificaat te accepteren, waardoor een MITM-gat in OAuth-tokens op het lokale netwerk wordt gedicht. Lokale camera-eindpunten zijn ongewijzigd.",
+        "fr": "Sécurité : vérification du certificat TLS pour les appels cloud/proxy Bosch (CWE-295). L'API cloud et le proxy vidéo valident désormais la CA privée Bosch au lieu d'accepter n'importe quel certificat, comblant une faille MITM sur les jetons OAuth sur le réseau local. Les endpoints locaux de la caméra restent inchangés.",
+        "it": "Sicurezza: verifica del certificato TLS per le chiamate cloud/proxy Bosch (CWE-295). L'API cloud e il proxy video ora convalidano la CA privata Bosch invece di accettare qualsiasi certificato, chiudendo una falla MITM sui token OAuth nella rete locale. Gli endpoint locali della telecamera rimangono invariati.",
+        "es": "Seguridad: verificación de certificado TLS para llamadas cloud/proxy de Bosch (CWE-295). La API de nube y el proxy de vídeo ahora validan la CA privada de Bosch en lugar de aceptar cualquier certificado, cerrando una brecha MITM en los tokens OAuth en la red local. Los endpoints locales de la cámara no cambian.",
+        "pl": "Bezpieczeństwo: weryfikacja certyfikatu TLS dla wywołań chmury/proxy Bosch (CWE-295). Interfejs API chmury i serwer proxy wideo teraz weryfikują prywatny CA Bosch zamiast akceptować dowolny certyfikat, zamykając lukę MITM w tokenach OAuth w sieci lokalnej. Lokalne punkty końcowe kamery pozostają niezmienione.",
+        "uk": "Безпека: перевірка TLS-сертифіката для викликів Bosch cloud/proxy (CWE-295). Хмарний API і відеопроксі тепер перевіряють приватний CA Bosch замість прийняття будь-якого сертифіката, усуваючи вразливість MITM для токенів OAuth у локальній мережі. Локальні кінцеві точки камери не змінилися.",
+        "zh-cn": "安全：针对博世云端/代理调用的 TLS 证书验证 (CWE-295)。云端 API 和视频代理现在验证博世私有 CA，而不是接受任何证书，从而消除本地网络上 OAuth 令牌的中间人攻击漏洞。本地摄像头端点保持不变。"
+      },
+      "1.5.0": {
+        "en": "Fix: motion no longer silently freezes (last_motion_at stopped after a while) — an always-on safety-net poll keeps it flowing even if the FCM push connection silently dies. New: a configurable stream maxSessionDuration, and an opt-in option to turn off unwatched live streams to free a Bosch session.",
+        "de": "Fix: Bewegungsdaten frieren nicht mehr still ein (last_motion_at blieb nach einiger Zeit stehen) — ein dauerhaft laufendes Sicherheitsnetz-Polling hält sie aktuell, selbst wenn die FCM-Push-Verbindung still stirbt. Neu: einstellbare Stream-maxSessionDuration und eine Opt-in-Option, ungenutzte Livestreams abzuschalten (spart eine Bosch-Sitzung).",
+        "ru": "Исправлено: движение больше не зависает беззвучно (last_motion_at останавливается через некоторое время) — постоянный опрос сети безопасности поддерживает его работу, даже если push-соединение FCM молча прекращается. Новое: настраиваемый поток maxSessionDuration и возможность отключения непросматриваемых прямых трансляций для освобождения сеанса Bosch.",
+        "pt": "Correção: o movimento não congela mais silenciosamente (last_motion_at é interrompido depois de um tempo) — uma pesquisa de rede de segurança sempre ativa o mantém fluindo mesmo se a conexão push do FCM morrer silenciosamente. Novidade: uma transmissão configurável maxSessionDuration e uma opção opcional para desativar transmissões ao vivo não assistidas para liberar uma sessão da Bosch.",
+        "nl": "Oplossing: beweging loopt niet langer stilletjes vast (last_motion_at stopte na een tijdje) — een altijd ingeschakelde vangnet-poll zorgt ervoor dat de beweging blijft doorgaan, zelfs als de FCM-pushverbinding stilletjes wegvalt. Nieuw: een configureerbare stream maxSessionDuration en een opt-in-optie om niet-bekeken livestreams uit te schakelen om een ​​Bosch-sessie vrij te maken.",
+        "fr": "Correction : le mouvement ne se fige plus silencieusement (last_motion_at s'est arrêté après un certain temps) – un sondage de filet de sécurité toujours actif le maintient en mouvement même si la connexion push FCM meurt silencieusement. Nouveau : un flux maxSessionDuration configurable et une option d'inscription pour désactiver les flux en direct non regardés afin de libérer une session Bosch.",
+        "it": "Correzione: il movimento non si blocca più silenziosamente (last_motion_at si interrompe dopo un po'): un sondaggio della rete di sicurezza sempre attivo lo mantiene in esecuzione anche se la connessione push FCM muore silenziosamente. Novità: maxSessionDuration del flusso configurabile e un'opzione di attivazione per disattivare i flussi live non guardati per liberare una sessione Bosch.",
+        "es": "Solución: el movimiento ya no se congela silenciosamente (last_motion_at se detuvo después de un tiempo); una encuesta de red de seguridad siempre activa lo mantiene fluyendo incluso si la conexión push de FCM muere silenciosamente. Nuevo: una transmisión configurable maxSessionDuration y una opción de suscripción para desactivar transmisiones en vivo no vistas para liberar una sesión de Bosch.",
+        "pl": "Poprawka: ruch nie zawiesza się już po chwili (last_motion_at zostaje zatrzymany po chwili) — zawsze włączone odpytywanie sieci zabezpieczającej utrzymuje płynność nawet w przypadku cichego zerwania połączenia push FCM. Nowość: konfigurowalny strumień maxSessionDuration i opcja wyłączenia nieoglądanych transmisji na żywo w celu zwolnienia sesji Bosch.",
+        "uk": "Виправлення: рух більше не мовчки зависає (last_motion_at через деякий час зупиняється) — постійне опитування мережі безпеки підтримує його, навіть якщо з’єднання FCM push тихо вимикається. Нове: конфігурована максимальна тривалість сеансу потоку та можливість вимкнути непереглянуті прямі трансляції, щоб звільнити сеанс Bosch.",
+        "zh-cn": "修复：运动不再无提示地冻结（last_motion_at 一段时间后停止）——即使 FCM 推送连接无提示地终止，始终在线的安全网轮询也会使其保持流动。新增内容：可配置的流 maxSessionDuration，以及用于关闭未观看的直播流以释放博世会话的选择加入选项。"
+      }
     },
-    "encryptedNative": [
-        "mqtt_password"
-    ],
-    "protectedNative": [
-        "mqtt_password"
-    ],
-    "native": {
-        "redirect_url": "",
-        "region": "EU",
-        "use_mjpeg_snapshot": true,
-        "mqtt_password": ""
+    "titleLang": {
+      "en": "Bosch Smart Home Camera",
+      "de": "Bosch Smart Home Kamera",
+      "ru": "Камера Bosch Smart Home",
+      "pt": "Câmera Bosch Smart Home",
+      "nl": "Bosch Smart Home Camera",
+      "fr": "Caméra Bosch Smart Home",
+      "it": "Telecamera Bosch Smart Home",
+      "es": "Cámara Bosch Smart Home",
+      "pl": "Kamera Bosch Smart Home",
+      "uk": "Камера Bosch Smart Home",
+      "zh-cn": "博世智能家居摄像头"
     },
-    "instanceObjects": [
-        {
-            "_id": "info",
-            "type": "channel",
-            "common": {
-                "name": "Information"
-            },
-            "native": {}
-        },
-        {
-            "_id": "info.connection",
-            "type": "state",
-            "common": {
-                "role": "indicator.connected",
-                "name": "Device or service connected",
-                "type": "boolean",
-                "read": true,
-                "write": false,
-                "def": false
-            },
-            "native": {}
-        },
-        {
-            "_id": "info.access_token",
-            "type": "state",
-            "common": {
-                "role": "text",
-                "name": "Encrypted Bosch SingleKey ID access token (AES via ioBroker system secret — never plaintext from v0.6.0)",
-                "type": "string",
-                "read": true,
-                "write": false,
-                "def": ""
-            },
-            "native": {}
-        },
-        {
-            "_id": "info.refresh_token",
-            "type": "state",
-            "common": {
-                "role": "text",
-                "name": "Encrypted Bosch SingleKey ID refresh token (AES via ioBroker system secret — never plaintext from v0.6.0)",
-                "type": "string",
-                "read": true,
-                "write": false,
-                "def": ""
-            },
-            "native": {}
-        },
-        {
-            "_id": "info.token_expires_at",
-            "type": "state",
-            "common": {
-                "role": "value.time",
-                "name": "Access token expiration timestamp (epoch ms)",
-                "type": "number",
-                "read": true,
-                "write": false,
-                "def": 0
-            },
-            "native": {}
-        },
-        {
-            "_id": "info.fcm_creds",
-            "type": "state",
-            "common": {
-                "role": "json",
-                "name": "Persisted FCM credentials (ECDH key + ACG creds) so a restart does not re-register against Bosch CBS / Google FCM",
-                "type": "string",
-                "read": true,
-                "write": false,
-                "def": ""
-            },
-            "native": {}
-        },
-        {
-            "_id": "info.fcm_active",
-            "type": "state",
-            "common": {
-                "role": "text",
-                "name": "FCM push listener status: healthy / stub / error / stopped",
-                "type": "string",
-                "read": true,
-                "write": false,
-                "def": "stub"
-            },
-            "native": {}
-        },
-        {
-            "_id": "cameras",
-            "type": "device",
-            "common": {
-                "name": "Bosch cameras"
-            },
-            "native": {}
-        }
+    "desc": {
+      "en": "Bosch Smart Home Camera (Eyes/360/Gen2) cloud-API integration",
+      "de": "Bosch Smart Home Kamera (Eyes/360/Gen2) Cloud-API-Integration",
+      "ru": "Интеграция облачного API камеры Bosch Smart Home (Eyes/360/Gen2)",
+      "pt": "Integração de API em nuvem da câmera Bosch Smart Home (Eyes/360/Gen2)",
+      "nl": "Bosch Smart Home Camera (Eyes/360/Gen2) cloud-API integratie",
+      "fr": "Intégration API cloud de la caméra Bosch Smart Home (Eyes/360/Gen2)",
+      "it": "Integrazione API cloud della telecamera Bosch Smart Home (Eyes/360/Gen2)",
+      "es": "Integración de API en la nube de la cámara Bosch Smart Home (Eyes/360/Gen2)",
+      "pl": "Integracja API chmury kamery Bosch Smart Home (Eyes/360/Gen2)",
+      "uk": "Інтеграція хмарного API камери Bosch Smart Home (Eyes/360/Gen2)",
+      "zh-cn": "博世智能家居摄像头（Eyes/360/Gen2）云API集成"
+    },
+    "authors": [
+      "mosandlt <10558666+mosandlt@users.noreply.github.com>"
     ],
-    "objects": []
+    "keywords": [
+      "bosch",
+      "camera",
+      "eyes",
+      "smart-home",
+      "rtsp",
+      "fcm",
+      "cloud"
+    ],
+    "licenseInformation": {
+      "type": "free",
+      "license": "MIT"
+    },
+    "platform": "Javascript/Node.js",
+    "icon": "bosch-camera.png",
+    "enabled": true,
+    "extIcon": "https://raw.githubusercontent.com/mosandlt/ioBroker.bosch-smart-home-camera/main/admin/bosch-camera.png",
+    "readme": "https://github.com/mosandlt/ioBroker.bosch-smart-home-camera#readme",
+    "loglevel": "info",
+    "mode": "daemon",
+    "type": "multimedia",
+    "connectionType": "cloud",
+    "dataSource": "push",
+    "tier": 3,
+    "compact": true,
+    "messagebox": true,
+    "adminUI": {
+      "config": "json"
+    },
+    "dependencies": [
+      {
+        "js-controller": ">=6.0.11"
+      }
+    ],
+    "globalDependencies": [
+      {
+        "admin": ">=7.6.20"
+      }
+    ],
+    "visWidgets": {
+      "vis2BoschCameraWidgets": {
+        "name": "vis2BoschCameraWidgets",
+        "url": "bosch-smart-home-camera/customWidgets.js",
+        "bundlerType": "module",
+        "i18n": "component",
+        "version": "0.2.0",
+        "components": [
+          "BoschCamera",
+          "BoschOverview"
+        ]
+      }
+    }
+  },
+  "encryptedNative": [
+    "mqtt_password"
+  ],
+  "protectedNative": [
+    "mqtt_password"
+  ],
+  "native": {
+    "redirect_url": "",
+    "region": "EU",
+    "use_mjpeg_snapshot": true,
+    "mqtt_password": ""
+  },
+  "instanceObjects": [
+    {
+      "_id": "info",
+      "type": "channel",
+      "common": {
+        "name": "Information"
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.connection",
+      "type": "state",
+      "common": {
+        "role": "indicator.connected",
+        "name": "Device or service connected",
+        "type": "boolean",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.access_token",
+      "type": "state",
+      "common": {
+        "role": "text",
+        "name": "Encrypted Bosch SingleKey ID access token (AES via ioBroker system secret — never plaintext from v0.6.0)",
+        "type": "string",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.refresh_token",
+      "type": "state",
+      "common": {
+        "role": "text",
+        "name": "Encrypted Bosch SingleKey ID refresh token (AES via ioBroker system secret — never plaintext from v0.6.0)",
+        "type": "string",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.token_expires_at",
+      "type": "state",
+      "common": {
+        "role": "value.time",
+        "name": "Access token expiration timestamp (epoch ms)",
+        "type": "number",
+        "read": true,
+        "write": false,
+        "def": 0
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.fcm_creds",
+      "type": "state",
+      "common": {
+        "role": "json",
+        "name": "Persisted FCM credentials (ECDH key + ACG creds) so a restart does not re-register against Bosch CBS / Google FCM",
+        "type": "string",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.fcm_active",
+      "type": "state",
+      "common": {
+        "role": "text",
+        "name": "FCM push listener status: healthy / stub / error / stopped",
+        "type": "string",
+        "read": true,
+        "write": false,
+        "def": "stub"
+      },
+      "native": {}
+    },
+    {
+      "_id": "cameras",
+      "type": "device",
+      "common": {
+        "name": "Bosch cameras"
+      },
+      "native": {}
+    }
+  ],
+  "objects": []
 }

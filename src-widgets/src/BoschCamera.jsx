@@ -26,12 +26,26 @@ import {
     Tune,
     PlayArrow,
     Close,
+    PictureInPictureAlt,
 } from "@mui/icons-material";
 
 import Generic from "./Generic";
 import { ACCORDIONS, ALL_CONTROL_DPS } from "./controls";
 import { Go2rtcStream } from "./lib/go2rtc";
 import { ZoomController } from "./lib/zoom";
+
+// Picture-in-Picture is a browser-wide singleton — only ONE <video> can float
+// at a time (document.pictureInPictureElement). While one camera is in PiP,
+// every other card's PiP button is greyed/disabled; the active card lights up.
+// This module-level registry broadcasts PiP ownership to all live instances.
+const _boschPipCards = new Set(); // all mounted BoschCamera instances
+let _boschPipActive = null;       // the instance currently in PiP, or null
+function _boschPipSetActive(card) {
+    _boschPipActive = card;
+    for (const c of _boschPipCards) {
+        try { c._reflectPipState(); } catch (_) { /* detached */ }
+    }
+}
 
 const FONT =
     '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
@@ -312,6 +326,8 @@ class BoschCamera extends Generic {
         this.canvasRef = React.createRef();
         this.wrapRef = React.createRef();
         this.state.full = false;
+        this.state.pip = false; // true while this instance's <video> is in PiP
+        this.state.pipBlocked = false; // true when another instance owns PiP
         this.state.cam = {
             name: "",
             online: null,
@@ -559,6 +575,7 @@ class BoschCamera extends Generic {
     async componentDidMount() {
         super.componentDidMount();
         this._mounted = true;
+        _boschPipCards.add(this); // join the cross-card single-PiP greying group
         document.addEventListener("visibilitychange", this._onVisibility);
         window.addEventListener("pagehide", this._onPageHide);
         await this.applyConfig();
@@ -567,6 +584,10 @@ class BoschCamera extends Generic {
     componentWillUnmount() {
         super.componentWillUnmount();
         this._mounted = false;
+        // Leave the PiP greying group; if we owned PiP, release so remaining
+        // cards re-enable their PiP buttons.
+        _boschPipCards.delete(this);
+        if (_boschPipActive === this) _boschPipSetActive(null);
         document.removeEventListener("visibilitychange", this._onVisibility);
         window.removeEventListener("pagehide", this._onPageHide);
         this.teardown();
@@ -987,12 +1008,24 @@ class BoschCamera extends Generic {
             this.setState({ streamPhase: "idle" });
             return;
         }
+        // PiP event listeners: broadcast ownership changes to all cards so the
+        // greying logic (_reflectPipState) stays in sync across instances.
+        // Re-registering on each _startLive is safe — the old <video> element
+        // persists (same DOM node, new srcObject); the listeners are idempotent
+        // because _boschPipSetActive is idempotent.
+        video.addEventListener("enterpictureinpicture", this._onEnterPip);
+        video.addEventListener("leavepictureinpicture", this._onLeavePip);
         try {
             await this.stream.start(video, { wantAudio: this.state.audioOn, armed: true });
         } catch {
             this.setState({ streamPhase: "idle", transport: null });
         }
     }
+
+    _onEnterPip = () => _boschPipSetActive(this);
+    _onLeavePip = () => {
+        if (_boschPipActive === this) _boschPipSetActive(null);
+    };
 
     _onStreamPhase(phase, transport) {
         if (!this._mounted) return;
@@ -1028,6 +1061,18 @@ class BoschCamera extends Generic {
             this.uptimeTimer = null;
         }
         this.streamStartedAt = 0;
+        // Exit PiP on true stop (user tap / privacy / teardown).
+        // go2rtc reconnects (session rotation, 60-min limit) are handled internally
+        // by Go2rtcStream without calling _stopLive — the same <video> node gets a
+        // new srcObject, so the PiP window survives reconnects automatically.
+        if (document.pictureInPictureElement === this.videoRef.current) {
+            document.exitPictureInPicture().catch(() => {});
+        }
+        const video = this.videoRef.current;
+        if (video) {
+            video.removeEventListener("enterpictureinpicture", this._onEnterPip);
+            video.removeEventListener("leavepictureinpicture", this._onLeavePip);
+        }
         if (this.stream) {
             try {
                 this.stream.stop();
@@ -1116,7 +1161,57 @@ class BoschCamera extends Generic {
         }, 2000);
     };
 
-    toggleFull = () => this.setState({ full: !this.state.full });
+    toggleFull = () => {
+        // Can't be in PiP and CSS-fullscreen at once — exit PiP first.
+        // fire-and-forget keeps the gesture synchronous for the state update.
+        if (document.pictureInPictureElement) {
+            document.exitPictureInPicture().catch(() => {});
+        }
+        this.setState({ full: !this.state.full });
+    };
+
+    // ── Picture-in-Picture ───────────────────────────────────────────────────
+    togglePip = () => {
+        // Already floating → same button closes PiP (toggle, like fullscreen).
+        if (document.pictureInPictureElement) {
+            document.exitPictureInPicture().catch(() => {});
+            return;
+        }
+        const video = this.videoRef.current;
+        if (!video || !document.pictureInPictureEnabled || video.disablePictureInPicture) {
+            return; // browser/element can't do PiP (iOS Safari, old Firefox)
+        }
+        // Needs at least metadata; a just-started WebRTC stream may not be ready.
+        if (video.readyState < 1 /* HAVE_METADATA */) {
+            return; // start the live stream first, then tap PiP
+        }
+        // Label the PiP window with the camera name — Chrome otherwise shows the
+        // page origin. MUST be synchronous in the click gesture (before await).
+        this._setPipMetadata();
+        // requestPictureInPicture MUST be called synchronously inside the click
+        // handler (no await before it) — otherwise browsers throw NotAllowedError.
+        video.requestPictureInPicture().catch(() => {
+            // gesture lost / NotAllowedError — silent, user can tap again
+        });
+    };
+
+    _reflectPipState() {
+        if (!this._mounted) return;
+        const mine = _boschPipActive === this;
+        const blocked = _boschPipActive !== null && !mine;
+        this.setState({ pip: mine, pipBlocked: blocked });
+    }
+
+    _setPipMetadata() {
+        if (!("mediaSession" in navigator) || typeof MediaMetadata === "undefined") return;
+        try {
+            const name = this.state.cam.name || "Bosch Kamera";
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: name,
+                artist: "Bosch Smart Home",
+            });
+        } catch (_) { /* MediaMetadata constructor unavailable */ }
+    }
 
     toggleAudio = () => {
         const next = !this.state.audioOn;
@@ -1556,6 +1651,28 @@ class BoschCamera extends Generic {
                         <IconButton size="small" sx={this._pillSx(this.state.menuOpen, false, pal)} onClick={() => this.setState({ menuOpen: !this.state.menuOpen })}>
                             <Tune fontSize="small" />
                         </IconButton>
+                    </Tooltip>
+                ) : null}
+
+                {/* PiP button — hidden where the browser API is unavailable (iOS WebView, old Firefox) */}
+                {document.pictureInPictureEnabled && mode === "webrtc" ? (
+                    <Tooltip
+                        title={
+                            this.state.pipBlocked
+                                ? Generic.t("Picture-in-picture active for another camera")
+                                : Generic.t("Picture-in-picture")
+                        }
+                    >
+                        <span>
+                            <IconButton
+                                size="small"
+                                sx={this._pillSx(this.state.pip, this.state.pipBlocked, pal)}
+                                onClick={this.togglePip}
+                                disabled={this.state.pipBlocked}
+                            >
+                                <PictureInPictureAlt fontSize="small" />
+                            </IconButton>
+                        </span>
                     </Tooltip>
                 ) : null}
 

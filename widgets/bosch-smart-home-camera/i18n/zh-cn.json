@@ -110,5 +110,7 @@
     "motion": "移动",
     "person": "人员",
     "Online": "在线",
-    "Privacy mode": "隐私模式"
+    "Privacy mode": "隐私模式",
+    "Picture-in-picture": "画中画",
+    "Picture-in-picture active for another camera": "画中画正在另一个摄像头上使用"
 }

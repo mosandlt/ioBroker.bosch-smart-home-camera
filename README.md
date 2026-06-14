@@ -387,8 +387,11 @@ The adapter ships two built-in **VIS-2 widgets** (React / Module-Federation, bui
 - Pan buttons ◀◀ ◀ ▶ ▶▶ with a position readout; only for the Gen1 360° indoor (`hardware_version==="INDOOR"`)
 - Frosted-glass control bar (iOS/Android/auto theme; normal/minimal/compact layout)
 - Fullscreen via a React portal (covers the whole screen)
+- Picture-in-Picture (WebRTC mode): pop the live stream into the browser's floating, always-on-top window — over **all** apps on macOS Safari, over the browser on Chrome. The window title shows the camera name. Only **one** PiP window is allowed by the browser, so while one camera floats the PiP button on every other BoschCamera widget on the view greys out; it survives a stream reconnect. Hidden where the browser lacks PiP (most iOS/Android WebViews, snapshot/MJPEG modes).
 - Collapsible bottom-sheet accordions for all advanced settings: notifications, advanced, Gen2 automation/security, light & camera (incl. `front_light_intensity` slider), diagnostics, zones, services
 - 11 UI languages (de/en/es/fr/it/nl/pl/pt/ru/uk/zh-cn)
+
+> **Live subtitles & translation (browser feature, no setup):** if your camera has audio, **Chrome → Settings → Accessibility → Live Caption** transcribes spoken audio in the WebRTC stream on-device in real time, and **Live Translate** can translate the captions into your language. No widget changes needed — it captions whatever audio plays in the tab (works alongside Picture-in-Picture).
 
 **Building the widget** (for contributors): `npm run build:widget` installs `src-widgets/`, runs the Vite/Module-Federation build and copies the bundle into `widgets/bosch-smart-home-camera/`.
 
@@ -715,6 +718,13 @@ HA stays the **reference implementation** — features land there first; the Pyt
 ---
 
 ## Changelog
+
+### 1.5.6 (2026-06-14)
+Picture-in-Picture for the VIS-2 camera widget (live WebRTC view).
+
+- **Picture-in-Picture:** a new button in the BoschCamera widget's control bar floats the live WebRTC stream into the browser's always-on-top window — over every app on macOS Safari, over the browser on Chrome. The floating window's title shows the camera name (via the Media Session API).
+- **Single-PiP greying:** the browser allows only one PiP window at a time, so while one camera is floating, the PiP button on every other BoschCamera widget on the view greys out; it lights up on the active one and re-enables for all when PiP closes.
+- The window keeps playing across a stream reconnect, and the button is hidden where the browser lacks PiP support (most iOS/Android WebViews; snapshot/MJPEG modes). New tooltip strings added in all 11 UI languages.
 
 ### 1.5.5 (2026-06-13)
 Settings-page reorganisation, German translation polish and concurrency hardening for the always-on RTSP endpoint.
