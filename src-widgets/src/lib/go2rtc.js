@@ -218,6 +218,13 @@ export class Go2rtcStream {
      * Creates / reuses a shared AudioContext and calls ctx.resume().
      */
     static armAudioUnlock() {
+        // If the context is in "interrupted" state (Android doze / OS audio session
+        // stolen), it cannot be resumed — null it out so the next gesture creates a
+        // fresh one. 2026-06-15 fix (Android #2).
+        if (_sharedAudioCtx && _sharedAudioCtx.state === "interrupted") {
+            try { _sharedAudioCtx.close(); } catch (_) {}
+            _sharedAudioCtx = null;
+        }
         if (!_sharedAudioCtx) {
             try {
                 _sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -227,7 +234,16 @@ export class Go2rtcStream {
             }
         }
         // resume() must be called in a synchronous user-gesture stack frame.
-        _sharedAudioCtx.resume().catch(() => {});
+        // Log a warning (non-fatal) if the context remains suspended after resume —
+        // this can happen on Android when the gesture budget is exhausted.
+        _sharedAudioCtx.resume().then(() => {
+            if (_sharedAudioCtx && _sharedAudioCtx.state !== "running") {
+                console.warn("[go2rtc] AudioContext resume did not reach 'running'; state:", _sharedAudioCtx.state);
+                // Null out so the NEXT gesture gets a fresh context.
+                try { _sharedAudioCtx.close(); } catch (_) {}
+                _sharedAudioCtx = null;
+            }
+        }).catch(() => {});
     }
 
     // -----------------------------------------------------------------------

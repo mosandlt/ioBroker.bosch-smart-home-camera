@@ -338,6 +338,44 @@ describe("main adapter — FCM auto-reconnect on disconnect (v0.6.2)", () => {
         expect(pending, "no further reconnect scheduled after success").to.have.lengthOf(0);
     });
 
+    it("BUG-2: successful reconnect does NOT clear the always-on safety-net event poll (forum #84538)", async () => {
+        // Before the fix, _attemptFcmReconnect called clearInterval(_eventPollTimer)
+        // on success. This permanently killed the safety-net poll — a subsequent
+        // silent FCM death would freeze motion forever with no polling fallback.
+        // Fix: _fcmHealthy = true already throttles the tick; never stop the timer.
+        const fcmStart = sinon.stub().resolves(undefined);
+        const f = await createFixture(fcmStart);
+
+        // Record what clearInterval was called with
+        const clearedHandles: unknown[] = [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (f.adapter as any).clearInterval = (h: unknown): void => {
+            clearedHandles.push(h);
+        };
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pollTimerBefore = (f.adapter as any)._eventPollTimer;
+
+        f.fcmListener.emit("disconnect");
+        await new Promise<void>((r) => setImmediate(r));
+
+        await f.fireTimer(5_000); // triggers _attemptFcmReconnect → success
+
+        expect(getStateVal(f.db, f.adapter, "info.fcm_active")).to.equal("healthy");
+
+        // The poll timer must NOT have been cleared during reconnect
+        expect(clearedHandles, "clearInterval must NOT be called on reconnect").to.have.lengthOf(0);
+
+        // The poll timer reference must be unchanged (still whatever it was at boot)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pollTimerAfter = (f.adapter as any)._eventPollTimer;
+        expect(pollTimerAfter, "event poll timer unchanged after reconnect").to.equal(pollTimerBefore);
+
+        // _fcmHealthy must be true so the safety net runs at slow cadence
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        expect((f.adapter as any)._fcmHealthy, "FCM marked healthy after reconnect").to.equal(true);
+    });
+
     it("backoff progression 5 s → 30 s → 120 s → 600 s on repeated failures", async () => {
         // start() rejects every time
         const fcmStart = sinon.stub();

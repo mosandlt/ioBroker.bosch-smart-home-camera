@@ -123,7 +123,12 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * insurance), when false we poll fast. Mirrors HA's `_fcm_healthy`.
      */
     private _fcmHealthy;
-    /** Date.now() ms of the last event fetch (push-driven OR polled). */
+    /**
+     * Date.now() ms of the last event fetch (push-driven OR polled).
+     * SENTINEL_RULE: -Infinity means "never fetched" — avoids 0/epoch ambiguity
+     * and aligns with HA's float('-inf') pattern. _eventSafetyPollDue handles
+     * -Infinity correctly (Date.now() - (-Infinity) = Infinity >= FCM_SAFETY_POLL_MS).
+     */
     private _lastEventFetchAt;
     /**
      * Safety-net event-poll cadence (ms) while FCM is healthy. @aracna/fcm does

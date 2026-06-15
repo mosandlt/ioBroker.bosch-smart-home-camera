@@ -102,6 +102,8 @@ export class ZoomController {
 
         // Bound listener references stored for precise removal
         this._listeners = [];
+        // Non-passive wheel listener bound ref (registered only when zoom is enabled)
+        this._wheelBound = null;
     }
 
     // ─── Public API ────────────────────────────────────────────────────────────
@@ -131,7 +133,10 @@ export class ZoomController {
         this._addListener(captureEl, "pointermove", this._onPointerMove.bind(this));
         this._addListener(captureEl, "pointerup", this._onPointerUp.bind(this));
         this._addListener(captureEl, "pointercancel", this._onPointerUp.bind(this));
-        this._addListener(captureEl, "wheel", this._onWheel.bind(this), { passive: false });
+        // Wheel listener is NOT added here — it's registered non-passive (to allow
+        // preventDefault for zoom) only when zoom is enabled via setEnabled(true).
+        // This avoids the performance penalty of a non-passive wheel listener on the
+        // entire tile surface when zoom is inactive. 2026-06-15 fix (Safari/Android).
     }
 
     /**
@@ -142,7 +147,19 @@ export class ZoomController {
      */
     setEnabled(enabled) {
         this._enabled = enabled;
-        if (!enabled) {
+        if (enabled) {
+            // Register the non-passive wheel listener only when zoom is active.
+            // Remove any prior binding first (idempotent). 2026-06-15 fix.
+            if (this._captureEl && !this._wheelBound) {
+                this._wheelBound = this._onWheel.bind(this);
+                this._captureEl.addEventListener("wheel", this._wheelBound, { passive: false });
+            }
+        } else {
+            // Unregister wheel listener when zoom is disabled.
+            if (this._captureEl && this._wheelBound) {
+                this._captureEl.removeEventListener("wheel", this._wheelBound, { passive: false });
+                this._wheelBound = null;
+            }
             this._pointers.clear();
             this._prevDist = -1;
             this.reset();
@@ -167,6 +184,12 @@ export class ZoomController {
             el.removeEventListener(type, fn, opts);
         }
         this._listeners = [];
+
+        // Clean up wheel listener registered via setEnabled(true).
+        if (this._captureEl && this._wheelBound) {
+            this._captureEl.removeEventListener("wheel", this._wheelBound, { passive: false });
+            this._wheelBound = null;
+        }
 
         this.reset();
 
@@ -344,7 +367,10 @@ export class ZoomController {
             return;
         }
 
-        e.preventDefault();
+        if (e.cancelable) {
+            e.preventDefault();
+        }
+        e.stopPropagation();
 
         const factor = e.deltaY < 0 ? 1.15 : 0.87;
         const newScale = Math.max(1, Math.min(this._maxScale, this._scale * factor));

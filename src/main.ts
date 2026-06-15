@@ -245,8 +245,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * insurance), when false we poll fast. Mirrors HA's `_fcm_healthy`.
      */
     private _fcmHealthy = false;
-    /** Date.now() ms of the last event fetch (push-driven OR polled). */
-    private _lastEventFetchAt = 0;
+    /**
+     * Date.now() ms of the last event fetch (push-driven OR polled).
+     * SENTINEL_RULE: -Infinity means "never fetched" — avoids 0/epoch ambiguity
+     * and aligns with HA's float('-inf') pattern. _eventSafetyPollDue handles
+     * -Infinity correctly (Date.now() - (-Infinity) = Infinity >= FCM_SAFETY_POLL_MS).
+     */
+    private _lastEventFetchAt = -Infinity;
     /**
      * Safety-net event-poll cadence (ms) while FCM is healthy. @aracna/fcm does
      * not surface a raw TCP socket death (isHealthy() stays true), so motion
@@ -5201,6 +5206,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * @param camId  camera UUID
      */
     private _armFrontDoorIdle(camId: string): void {
+        if (this._isUnloading) {
+            return; // BUG-3 FIX: suppress "setTimeout called but adapter is shutting down"
+        }
         if (!this._lazyFrontDoors.has(camId)) {
             return;
         }
@@ -5243,6 +5251,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (door.activeClientCount() > 0) {
             return; // someone reconnected during the linger
         }
+        if (this._isUnloading) {
+            return; // BUG-4 FIX: avoid getStateAsync warning during adapter teardown
+        }
         const enabled = await this.getStateAsync(`cameras.${camId}.livestream_enabled`);
         if (enabled?.val === true) {
             return; // user wants the stream up permanently — never auto-release
@@ -5284,6 +5295,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
     }
 
     private async _streamReaperTick(): Promise<void> {
+        if (this._isUnloading) {
+            return; // streamReaper FIX: do not touch state during adapter teardown
+        }
         const timeoutMs = this._streamIdleTimeoutMs;
         const now = Date.now();
         for (const [camId, proxy] of this._tlsProxies) {
@@ -5300,6 +5314,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
             }
             // Only reap a stream the user actually enabled.
             const enabled = await this.getStateAsync(`cameras.${camId}.livestream_enabled`);
+            // Re-check: proxy may have been torn down while we awaited getStateAsync.
+            if (!this._tlsProxies.has(camId)) {
+                this._streamIdleSince.delete(camId);
+                continue;
+            }
             if (enabled?.val !== true) {
                 this._streamIdleSince.delete(camId);
                 continue;
@@ -5315,6 +5334,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     `Stream idle-reaper: no client for ${camId.slice(0, 8)} in ` +
                         `${Math.round((now - since) / 1000)} s — turning livestream off to free the Bosch session.`,
                 );
+                if (this._isUnloading) {
+                    continue; // streamReaper FIX: skip setStateAsync during teardown
+                }
                 // ack:false → onStateChange runs the normal livestream-off
                 // teardown path (closes the session + proxy, clears stream_url).
                 await this.setStateAsync(`cameras.${camId}.livestream_enabled`, false, false);
@@ -9484,15 +9506,15 @@ class BoschSmartHomeCamera extends utils.Adapter {
         try {
             await this._fcmListener.start();
             this._fcmReconnectAttempt = 0;
-            // v1.1.0: push works again — stop the polling fallback so we don't
-            // keep hitting /v11/events every 30 s for the adapter's lifetime
-            // (it was started when push first failed and is otherwise never
-            // cleared). If push dies again the disconnect→reconnect path
-            // re-arms it.
-            if (this._eventPollTimer) {
-                this.clearInterval(this._eventPollTimer);
-                this._eventPollTimer = undefined;
-            }
+            // BUG-2 FIX (2026-06-15): do NOT stop _eventPollTimer here.
+            // _startEventPolling() is the always-on safety-net (forum #84538).
+            // The timer was incorrectly cleared on successful reconnect, so a
+            // 2nd silent FCM death would leave motion frozen permanently with
+            // no poll to catch it. _fcmHealthy = true (set above in onReady via
+            // setStateAsync path and also here via the next line's state update)
+            // already throttles the tick cadence to slow via _eventSafetyPollDue
+            // — no need to stop the timer entirely.
+            this._fcmHealthy = true;
             await this.setStateAsync("info.fcm_active", "healthy", true);
             this.log.info("FCM push listener reconnected");
         } catch (err: unknown) {

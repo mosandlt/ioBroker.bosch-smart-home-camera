@@ -1,6 +1,6 @@
 {
-  "_Generic-DOwhsKM8.js": {
-    "file": "assets/Generic-DOwhsKM8.js",
+  "_Generic-BFV5GGpP.js": {
+    "file": "assets/Generic-BFV5GGpP.js",
     "name": "Generic"
   },
   "___virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react__loadShare__.mjs_commonjs-proxy-BCWc1WpG.js": {
@@ -68,7 +68,7 @@
     "name": "preload-helper"
   },
   "src/BoschCamera.jsx": {
-    "file": "assets/BoschCamera-BOjSyzSY.js",
+    "file": "assets/BoschCamera-ij9b0uBj.js",
     "name": "BoschCamera",
     "src": "src/BoschCamera.jsx",
     "isEntry": true,
@@ -79,12 +79,12 @@
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react_mf_2_dom__loadShare__.mjs-y9UHucvy.js",
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-BGlmKQUy.js",
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_icons_mf_2_material__loadShare__.mjs-D2sLdf7L.js",
-      "_Generic-DOwhsKM8.js",
+      "_Generic-BFV5GGpP.js",
       "___virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react__loadShare__.mjs_commonjs-proxy-BCWc1WpG.js"
     ]
   },
   "src/BoschOverview.jsx": {
-    "file": "assets/BoschOverview-yVCu_qgz.js",
+    "file": "assets/BoschOverview-BNZjRSoR.js",
     "name": "BoschOverview",
     "src": "src/BoschOverview.jsx",
     "isEntry": true,
@@ -95,7 +95,7 @@
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react_mf_2_dom__loadShare__.mjs-y9UHucvy.js",
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_material__loadShare__.mjs-BGlmKQUy.js",
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare___mf_0_mui_mf_1_icons_mf_2_material__loadShare__.mjs-D2sLdf7L.js",
-      "_Generic-DOwhsKM8.js",
+      "_Generic-BFV5GGpP.js",
       "___virtual_mf___mfe_internal__vis2BoschCameraWidgets__loadShare__react__loadShare__.mjs_commonjs-proxy-BCWc1WpG.js"
     ]
   },
@@ -125,7 +125,7 @@
     ]
   },
   "virtual:mf-exposes:__mfe_internal__vis2BoschCameraWidgets__customWidgets_js": {
-    "file": "assets/virtualExposes-CP6jDrjD.js",
+    "file": "assets/virtualExposes-odgSwUxt.js",
     "name": "virtualExposes",
     "src": "virtual:mf-exposes:__mfe_internal__vis2BoschCameraWidgets__customWidgets_js",
     "isDynamicEntry": true,

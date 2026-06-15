@@ -1040,13 +1040,17 @@ class BoschCamera extends Generic {
             this.setState({ streamPhase: "idle" });
             return;
         }
-        // PiP event listeners: broadcast ownership changes to all cards so the
-        // greying logic (_reflectPipState) stays in sync across instances.
-        // Re-registering on each _startLive is safe — the old <video> element
-        // persists (same DOM node, new srcObject); the listeners are idempotent
-        // because _boschPipSetActive is idempotent.
+        // PiP event listeners: detach before re-registering to avoid listener
+        // accumulation when _startLive is called without a preceding _stopLive
+        // (e.g., config changes, bfcache restore). 2026-06-15 fix (Chromium #1).
+        video.removeEventListener("enterpictureinpicture", this._onEnterPip);
+        video.removeEventListener("leavepictureinpicture", this._onLeavePip);
+        video.removeEventListener("webkitpresentationmodechanged", this._onWebkitPresentationModeChanged);
         video.addEventListener("enterpictureinpicture", this._onEnterPip);
         video.addEventListener("leavepictureinpicture", this._onLeavePip);
+        // iOS Safari: webkitpresentationmodechanged fires when entering/leaving PiP
+        // via webkitSetPresentationMode. Mirror the W3C PiP state into _reflectPipState.
+        video.addEventListener("webkitpresentationmodechanged", this._onWebkitPresentationModeChanged);
         try {
             await this.stream.start(video, { wantAudio: this.state.audioOn, armed: true });
         } catch {
@@ -1057,6 +1061,16 @@ class BoschCamera extends Generic {
     _onEnterPip = () => _boschPipSetActive(this);
     _onLeavePip = () => {
         if (_boschPipActive === this) _boschPipSetActive(null);
+    };
+
+    _onWebkitPresentationModeChanged = (e) => {
+        const video = e.target || this.videoRef.current;
+        if (!video) return;
+        if (video.webkitPresentationMode === "picture-in-picture") {
+            _boschPipSetActive(this);
+        } else if (_boschPipActive === this) {
+            _boschPipSetActive(null);
+        }
     };
 
     _onStreamPhase(phase, transport) {
@@ -1101,9 +1115,17 @@ class BoschCamera extends Generic {
             document.exitPictureInPicture().catch(() => {});
         }
         const video = this.videoRef.current;
+        // iOS Safari: webkitSetPresentationMode path — document.pictureInPictureElement
+        // is always falsy on iOS, so the W3C exit above never fires. Exit webkit PiP
+        // explicitly on stream stop to avoid a frozen floating window. 2026-06-15 fix.
+        if (video && typeof video.webkitSetPresentationMode === "function" &&
+            video.webkitPresentationMode === "picture-in-picture") {
+            try { video.webkitSetPresentationMode("inline"); } catch (_) {}
+        }
         if (video) {
             video.removeEventListener("enterpictureinpicture", this._onEnterPip);
             video.removeEventListener("leavepictureinpicture", this._onLeavePip);
+            video.removeEventListener("webkitpresentationmodechanged", this._onWebkitPresentationModeChanged);
         }
         if (this.stream) {
             try {
@@ -1218,8 +1240,18 @@ class BoschCamera extends Generic {
             return;
         }
         const video = this.videoRef.current;
-        if (!video || !document.pictureInPictureEnabled || video.disablePictureInPicture) {
-            return; // browser/element can't do PiP (iOS Safari, old Firefox)
+        if (!video) return;
+
+        // iOS Safari: document.pictureInPictureEnabled is false but
+        // video.webkitSetPresentationMode is available on Safari 15+/iPadOS.
+        if (!document.pictureInPictureEnabled && typeof video.webkitSetPresentationMode === "function") {
+            const next = video.webkitPresentationMode === "picture-in-picture" ? "inline" : "picture-in-picture";
+            try { video.webkitSetPresentationMode(next); } catch (_) {}
+            return;
+        }
+
+        if (!document.pictureInPictureEnabled || video.disablePictureInPicture) {
+            return; // browser/element can't do PiP (iOS Safari without webkit API, old Firefox)
         }
         // Needs at least metadata; a just-started WebRTC stream may not be ready.
         if (video.readyState < 1 /* HAVE_METADATA */) {
@@ -1263,6 +1295,15 @@ class BoschCamera extends Generic {
                 v.muted = false;
                 v.volume = this.state.volume;
                 if (v.paused) v.play().catch(() => {});
+                // Chrome may silently re-mute within ~2s if activation budget is
+                // exhausted. Re-check after a tick and force-replay if it did.
+                // 2026-06-15 fix (Chromium #2).
+                setTimeout(() => {
+                    if (this.state.audioOn && v.muted) {
+                        v.muted = false;
+                        v.play().catch(() => { v.muted = true; });
+                    }
+                }, 200);
             } else {
                 v.muted = true;
             }
@@ -1300,7 +1341,7 @@ class BoschCamera extends Generic {
                         style={{ ...mediaStyle, transform: rot.trim() || undefined }}
                         playsInline
                         autoPlay
-                        muted={!this.state.audioOn}
+                        muted
                     />
                     {this.renderStreamOverlay()}
                 </div>
@@ -1517,10 +1558,9 @@ class BoschCamera extends Generic {
         if (!t) return "";
         try {
             const d = new Date(t);
-            const hh = String(d.getHours()).padStart(2, "0");
-            const mm = String(d.getMinutes()).padStart(2, "0");
+            const timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
             const type = this.state.cam.lastEventType ? `${Generic.t(this.state.cam.lastEventType)} ` : "";
-            return `${type}${hh}:${mm}`;
+            return `${type}${timeStr}`;
         } catch {
             return "";
         }
@@ -1559,6 +1599,7 @@ class BoschCamera extends Generic {
             border: "1px solid rgba(255,255,255,.14)",
             boxShadow: "0 4px 14px rgba(0,0,0,.4)",
             whiteSpace: "nowrap",
+            overflowX: "auto",
             zIndex: 12,
         };
 
@@ -1605,7 +1646,19 @@ class BoschCamera extends Generic {
                         onMouseLeave={() => this.setState({ showVol: false })}
                     >
                         <Tooltip title={Generic.t(this.state.audioOn ? "Mute" : "Sound")}>
-                            <IconButton size="small" sx={this._pillSx(this.state.audioOn, false, pal)} onClick={this.toggleAudio}>
+                            <IconButton size="small" sx={this._pillSx(this.state.audioOn, false, pal)} onClick={() => {
+                                // Capture next state BEFORE toggleAudio() to avoid reading
+                                // stale this.state.audioOn (React setState is async). 2026-06-15 fix.
+                                const next = !this.state.audioOn;
+                                this.toggleAudio();
+                                // On touch devices, toggle the volume popup on audio-button tap.
+                                // (mouseenter/leave don't fire on touch.) 2026-06-15 fix (Android #1).
+                                if (next) {
+                                    this.setState(prev => ({ showVol: !prev.showVol }));
+                                } else {
+                                    this.setState({ showVol: false });
+                                }
+                            }}>
                                 {this.state.audioOn ? <VolumeUp fontSize="small" /> : <VolumeOff fontSize="small" />}
                             </IconButton>
                         </Tooltip>
@@ -1701,7 +1754,7 @@ class BoschCamera extends Generic {
                 {/* PiP button — hidden where the browser API is unavailable (iOS WebView,
                     old Firefox) AND while no live stream is playing (you can't float a
                     snapshot — appears on stream start). 2026-06-15 (parity HA #15). */}
-                {document.pictureInPictureEnabled && mode === "webrtc" && this.state.streamPhase === "live" ? (
+                {(document.pictureInPictureEnabled || (typeof HTMLVideoElement !== "undefined" && typeof HTMLVideoElement.prototype.webkitSetPresentationMode === "function")) && mode === "webrtc" && this.state.streamPhase === "live" ? (
                     <Tooltip
                         title={
                             this.state.pipBlocked

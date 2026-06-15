@@ -68,8 +68,14 @@ describe("event-poll safety net — _eventSafetyPollDue", () => {
         expect(due.call({ _fcmHealthy: false, _lastEventFetchAt: NOW - 1 }, NOW)).to.equal(true);
     });
 
-    it("FCM down + never fetched → true", () => {
+    it("FCM down + never fetched (0 legacy sentinel) → true", () => {
         expect(due.call({ _fcmHealthy: false, _lastEventFetchAt: 0 }, NOW)).to.equal(true);
+    });
+
+    it("FCM down + never fetched (-Infinity sentinel, SENTINEL_RULE) → true", () => {
+        // BUG-1 regression: _lastEventFetchAt was 0 (epoch), now -Infinity.
+        // Date.now() - (-Infinity) = Infinity ≥ FCM_SAFETY_POLL_MS → due.
+        expect(due.call({ _fcmHealthy: false, _lastEventFetchAt: -Infinity }, NOW)).to.equal(true);
     });
 
     it("FCM healthy + fetched just now → skip (false)", () => {
@@ -88,7 +94,13 @@ describe("event-poll safety net — _eventSafetyPollDue", () => {
         expect(due.call({ _fcmHealthy: true, _lastEventFetchAt: NOW - 600_000 }, NOW)).to.equal(true);
     });
 
-    it("FCM healthy + never fetched → true (first tick after boot)", () => {
+    it("FCM healthy + never fetched (0 legacy) → true (first tick after boot)", () => {
         expect(due.call({ _fcmHealthy: true, _lastEventFetchAt: 0 }, NOW)).to.equal(true);
+    });
+
+    it("FCM healthy + never fetched (-Infinity sentinel) → true (first tick after boot)", () => {
+        // SENTINEL_RULE: -Infinity is the canonical 'never fetched' value.
+        // Infinity ≥ FCM_SAFETY_POLL_MS → first healthy tick fetches events once.
+        expect(due.call({ _fcmHealthy: true, _lastEventFetchAt: -Infinity }, NOW)).to.equal(true);
     });
 });
