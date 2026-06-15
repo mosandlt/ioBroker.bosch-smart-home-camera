@@ -132,6 +132,7 @@ export class Go2rtcStream {
         this._onPause = this._handlePause.bind(this);
         this._iceTimer = null;
         this._hlsKeepalive = null;
+        this._stallChecker = null;
     }
 
     // -----------------------------------------------------------------------
@@ -148,16 +149,23 @@ export class Go2rtcStream {
         this._stopping = false;
         this._videoEl = videoEl;
 
-        // Always start muted unless audio is wanted AND the audio context was
-        // already unlocked synchronously in the same user gesture.
-        videoEl.muted = !(wantAudio && armed);
+        // On an auto-reconnect there is no fresh user gesture, but the shared
+        // AudioContext unlocked by the ORIGINAL gesture is still running — so we can
+        // still bring sound back (mirrors HA preserving the unmute intent across a
+        // reconnect). Treat a running shared context as "armed". 2026-06-15 (#1).
+        const effectivelyArmed =
+            armed || !!(wantAudio && _sharedAudioCtx && _sharedAudioCtx.state === "running");
+
+        // Always start muted unless audio is wanted AND the audio context is
+        // unlocked (fresh gesture or still-running shared context).
+        videoEl.muted = !(wantAudio && effectivelyArmed);
 
         this._onPhase("connecting", null);
 
         const webrtcTimeout = isRemoteSession() ? 2500 : 5000;
 
         try {
-            await this._startWebRTC(videoEl, wantAudio, armed, webrtcTimeout);
+            await this._startWebRTC(videoEl, wantAudio, effectivelyArmed, webrtcTimeout);
         } catch (webrtcErr) {
             if (this._stopping) {
                 return;
@@ -165,7 +173,7 @@ export class Go2rtcStream {
             console.warn("[go2rtc] WebRTC failed, falling back to HLS:", webrtcErr.message);
             this._cleanupWebRTC();
             try {
-                await this._startHLS(videoEl, wantAudio, armed);
+                await this._startHLS(videoEl, wantAudio, effectivelyArmed);
             } catch (hlsErr) {
                 if (this._stopping) {
                     return;
@@ -261,24 +269,29 @@ export class Go2rtcStream {
             pc.addTransceiver("video", { direction: "recvonly" });
             pc.addTransceiver("audio", { direction: "recvonly" });
 
-            // Deliver media to the video element.
+            // Deliver media to the video element. go2rtc sends audio and video as
+            // SEPARATE track events — accumulate them into ONE MediaStream instead
+            // of re-assigning srcObject on every ontrack (the second assignment
+            // caused a brief flash/glitch). 2026-06-15 (parity HA v13.5.17 #13).
+            const remoteStream = new MediaStream();
             pc.ontrack = (evt) => {
                 if (this._stopping) {
                     return;
                 }
-                if (evt.streams && evt.streams[0]) {
-                    videoEl.srcObject = evt.streams[0];
+                remoteStream.addTrack(evt.track);
+                if (videoEl.srcObject !== remoteStream) {
+                    videoEl.srcObject = remoteStream;
                 }
             };
 
-            // Fast-fail on ICE failure.
+            // Fast-fail on ICE failure. Only "failed" is terminal — "disconnected"
+            // is transient (a brief LAN/Wi-Fi blip, common on Firefox during ICE
+            // gathering) and usually recovers; treating it as fatal forced a
+            // premature HLS fallback. The outer timeout still bounds a stuck
+            // connect. 2026-06-15 (parity HA v13.5.17 #12).
             pc.oniceconnectionstatechange = () => {
-                const s = pc.iceConnectionState;
-                if (s === "failed" || s === "disconnected") {
-                    settle(reject, new Error(`ICE state: ${s}`));
-                }
-                if (s === "connected" || s === "completed") {
-                    // Resolved later via the 'playing' event; no action needed here.
+                if (pc.iceConnectionState === "failed") {
+                    settle(reject, new Error("ICE state: failed"));
                 }
             };
 
@@ -461,6 +474,12 @@ export class Go2rtcStream {
      *
      */
     _attachVideoListeners(videoEl, wantAudio, armed, onFirstPlaying) {
+        // Remove any listeners + stall checker from a prior attach: a WebRTC→HLS
+        // fallback reuses the SAME <video> without a stop() in between, so without
+        // this the old 'playing'/'pause' closures leak and accumulate across
+        // reconnects (removeEventListener later only sees the newest ref).
+        // 2026-06-15 (parity HA v13.5.17 #9).
+        this._detachVideoListeners();
         let firstPlay = true;
 
         this._onPlaying = () => {
@@ -491,15 +510,47 @@ export class Go2rtcStream {
 
         videoEl.addEventListener("playing", this._onPlaying);
         videoEl.addEventListener("pause", this._onPause);
+        this._startStallChecker(videoEl);
     }
 
     /**
      *
      */
     _detachVideoListeners() {
+        this._stopStallChecker();
         if (this._videoEl) {
             this._videoEl.removeEventListener("playing", this._onPlaying);
             this._videoEl.removeEventListener("pause", this._onPause);
+        }
+    }
+
+    /**
+     * Stall-checker: the browser can pause a live <video> WITHOUT firing 'pause'
+     * (background-tab throttle / Chrome 145 muted-background-pause / OS doze) — the
+     * pause-guard never sees it. Poll and nudge it back. Self-heal only (no
+     * reconnect escalation) to avoid loops; go2rtc owns ICE reconnect.
+     * 2026-06-15 (parity HA v13.5.17 #11).
+     */
+    _startStallChecker(videoEl) {
+        this._stopStallChecker();
+        this._stallChecker = setInterval(() => {
+            if (this._stopping || !this._live || !videoEl) {
+                this._stopStallChecker();
+                return;
+            }
+            if (videoEl.paused) {
+                videoEl.play().catch(() => {});
+            }
+        }, 5000);
+    }
+
+    /**
+     *
+     */
+    _stopStallChecker() {
+        if (this._stallChecker) {
+            clearInterval(this._stallChecker);
+            this._stallChecker = null;
         }
     }
 

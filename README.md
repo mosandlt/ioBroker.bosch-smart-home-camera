@@ -719,6 +719,15 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.5.7 (2026-06-15)
+Cross-version parity with the Home Assistant card v13.5.17 — live-stream reliability + quieter controls for the BoschCamera VIS-2 widget.
+
+- **Live sound survives an auto-reconnect:** the stream no longer comes back muted after a stall / HLS-fallback / session refresh (the shared AudioContext keeps the unmute intent across reconnect; the pause-guard remains the safety net).
+- **Tab-switch & bfcache recovery:** the live (WebRTC) stream now restarts when the page returns to the foreground or is restored from the browser's back/forward cache (`pageshow`/`visibilitychange`), instead of staying frozen.
+- **Quieter controls:** the audio and Picture-in-Picture buttons appear only while a live stream is playing (hidden over an idle/snapshot tile). Card corners no longer flicker on re-composite (`isolation: isolate`).
+- **WebRTC robustness:** ICE `disconnected` is treated as transient (only `failed` falls back to HLS, no more premature downgrade); audio/video tracks are accumulated into one MediaStream (no srcObject re-assign flash); a leaked `playing`/`pause` listener on WebRTC→HLS fallback is fixed; a light stall-checker re-plays a live `<video>` the browser paused in the background.
+- **Maintenance banner** is dismissable with an × (per browser session). **Privacy placeholder** now shows the last-event time.
+
 ### 1.5.6 (2026-06-14)
 Picture-in-Picture for the VIS-2 camera widget (live WebRTC view).
 

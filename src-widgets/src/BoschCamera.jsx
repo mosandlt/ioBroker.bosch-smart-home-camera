@@ -84,6 +84,10 @@ const styles = {
         height: "100%",
         position: "relative",
         overflow: "hidden",
+        // Flatten to one compositing layer so the rounded-corner clip is rasterised
+        // once — without this the corners flicker over the hardware-composited
+        // <video> on re-composite. 2026-06-15 (parity HA v13.5.17 #14).
+        isolation: "isolate",
         background: "#0b0b10",
         borderRadius: 18,
         boxShadow: "0 6px 22px rgba(0,0,0,.45)",
@@ -355,6 +359,7 @@ class BoschCamera extends Generic {
         this.state.liveActive = false; // mjpeg canvas first frame received
         this.state.frameLoaded = false; // snapshot <img> has loaded ≥1 good frame
         this.state.streamPhase = "idle"; // idle|gate|connecting|live|stopping
+        this.state.maintDismissed = null; // maintenance value the user × -dismissed this session
         this.state.transport = null; // webrtc|hls|null
         this.state.uptime = "";
         this.state.audioOn = false;
@@ -386,6 +391,7 @@ class BoschCamera extends Generic {
         this.zoom = new ZoomController({ maxScale: 4 });
         this._onVisibility = this._onVisibility.bind(this);
         this._onPageHide = this._onPageHide.bind(this);
+        this._onPageShow = this._onPageShow.bind(this);
     }
 
     static getWidgetInfo() {
@@ -578,6 +584,7 @@ class BoschCamera extends Generic {
         _boschPipCards.add(this); // join the cross-card single-PiP greying group
         document.addEventListener("visibilitychange", this._onVisibility);
         window.addEventListener("pagehide", this._onPageHide);
+        window.addEventListener("pageshow", this._onPageShow);
         await this.applyConfig();
     }
 
@@ -590,6 +597,7 @@ class BoschCamera extends Generic {
         if (_boschPipActive === this) _boschPipSetActive(null);
         document.removeEventListener("visibilitychange", this._onVisibility);
         window.removeEventListener("pagehide", this._onPageHide);
+        window.removeEventListener("pageshow", this._onPageShow);
         this.teardown();
     }
 
@@ -890,8 +898,32 @@ class BoschCamera extends Generic {
         }, ms);
     }
 
+    // Restart a torn-down live (webrtc) stream when the page returns to the
+    // foreground / is restored from bfcache. Guards mirror _startLive's gate so it
+    // never auto-starts a stream the user/privacy stopped. 2026-06-15 (parity HA #7/#8).
+    _resumeLiveIfNeeded() {
+        const mode = this.state.rxData.mode || "snapshot";
+        if (mode !== "webrtc" || !this._mounted) return;
+        if (this.state.cam.privacy) return;
+        if (this.state.streamPhase !== "idle") return;
+        if (!this._shouldAutoPlay()) return;
+        this._startLive();
+    }
+
+    _onPageShow(e) {
+        // bfcache restore: _onPageHide tore the stream down and nothing restarted
+        // it. Re-evaluate. 2026-06-15 (parity HA v13.5.17 #7).
+        if (e && e.persisted) this._resumeLiveIfNeeded();
+    }
+
     _onVisibility() {
         const mode = this.state.rxData.mode || "snapshot";
+        // webrtc: restart a torn-down live stream on return to foreground (the
+        // snapshot polling below only applies to snapshot mode). 2026-06-15 (#8).
+        if (mode === "webrtc") {
+            if (document.visibilityState === "visible") this._resumeLiveIfNeeded();
+            return;
+        }
         if (mode !== "snapshot" || this.state.cam.livestream) return;
         // restart timer with the appropriate interval; refresh soon when visible
         if (this.pollTimer) clearInterval(this.pollTimer);
@@ -1085,7 +1117,15 @@ class BoschCamera extends Generic {
         if (!silent && mode === "webrtc" && this.state.cam.livestreamAvail && this.state.cam.livestream) {
             this.props.context.socket.setState(this.dp("livestream_enabled"), false);
         }
-        if (!silent) this.setState({ streamPhase: "idle", transport: null, uptime: "" });
+        // Reset the UI phase even on a SILENT stop (pagehide/bfcache teardown): the
+        // pageshow recovery (_resumeLiveIfNeeded, guarded on streamPhase==="idle")
+        // and the audio/PiP button visibility both depend on it. Only the iobroker
+        // write above is skipped when silent. _mounted-guarded so a teardown stop
+        // (componentWillUnmount) can't setState on an unmounted component.
+        // 2026-06-15 (parity HA #7 — fixes silent-stop leaving phase stuck "live").
+        if (this._mounted) {
+            this.setState({ streamPhase: "idle", transport: null, uptime: "" });
+        }
     }
 
     // ── primary controls ─────────────────────────────────────────────────────
@@ -1522,7 +1562,11 @@ class BoschCamera extends Generic {
             zIndex: 12,
         };
 
-        const showAudio = mode === "webrtc" && this.state.rxData.showAudio !== false;
+        // Audio is stream-contextual — show it only while a live stream is playing
+        // (appears with the stop button, hidden over an idle/snapshot tile) rather
+        // than greyed out. 2026-06-15 (parity HA v13.5.17 #15).
+        const showAudio =
+            mode === "webrtc" && this.state.rxData.showAudio !== false && this.state.streamPhase === "live";
         const hasZones = !!c.motionZones;
         const hasMasks = !!c.privacyMasks;
 
@@ -1654,8 +1698,10 @@ class BoschCamera extends Generic {
                     </Tooltip>
                 ) : null}
 
-                {/* PiP button — hidden where the browser API is unavailable (iOS WebView, old Firefox) */}
-                {document.pictureInPictureEnabled && mode === "webrtc" ? (
+                {/* PiP button — hidden where the browser API is unavailable (iOS WebView,
+                    old Firefox) AND while no live stream is playing (you can't float a
+                    snapshot — appears on stream start). 2026-06-15 (parity HA #15). */}
+                {document.pictureInPictureEnabled && mode === "webrtc" && this.state.streamPhase === "live" ? (
                     <Tooltip
                         title={
                             this.state.pipBlocked
@@ -1865,8 +1911,39 @@ class BoschCamera extends Generic {
     renderMaintenanceBanner() {
         const m = this.state.cam.maintenance;
         if (!m || m === "none") return null;
+        // × dismiss for this browser session (ioBroker's maintenance state carries
+        // no window/title, so a persistent per-window key isn't possible — a reload
+        // or a state change re-shows it). 2026-06-15 (parity HA v13.5.17 #16).
+        if (this.state.maintDismissed === m) return null;
         const txt = m === "active" ? "Bosch cloud maintenance active" : "Bosch cloud maintenance scheduled";
-        return <div style={{ ...styles.banner, ...styles.maintBanner }}>{Generic.t(txt)}</div>;
+        return (
+            <div style={{ ...styles.banner, ...styles.maintBanner, position: "relative", paddingRight: 34 }}>
+                {Generic.t(txt)}
+                <span
+                    role="button"
+                    aria-label={Generic.t("Dismiss")}
+                    title={Generic.t("Dismiss")}
+                    onClick={() => this.setState({ maintDismissed: m })}
+                    style={{
+                        position: "absolute",
+                        top: "50%",
+                        right: 8,
+                        transform: "translateY(-50%)",
+                        width: 24,
+                        height: 24,
+                        lineHeight: "24px",
+                        textAlign: "center",
+                        borderRadius: "50%",
+                        background: "rgba(0,0,0,.18)",
+                        cursor: "pointer",
+                        fontSize: 16,
+                        touchAction: "manipulation",
+                    }}
+                >
+                    ×
+                </span>
+            </div>
+        );
     }
 
     renderHlsBanner() {
@@ -1880,12 +1957,22 @@ class BoschCamera extends Generic {
     // toggled back off.
     renderPrivacy(isFull) {
         const mediaStyle = isFull ? styles.mediaFull : styles.media;
+        // Show the last-event timestamp so the frozen tile is clearly identified as
+        // stale (ioBroker has no live-snapshot timestamp source, so "last event" is
+        // the closest available — the HA snapshot-default needs a snapshot clock the
+        // widget doesn't track). 2026-06-15 (parity HA v13.5.17 #17).
+        const lastEvt = this._lastEventLabel();
         return (
             <div style={{ ...mediaStyle, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, background: "radial-gradient(circle at 50% 40%, #20203a, #0b0b10)" }}>
                 <VisibilityOff style={{ fontSize: 46, color: "#8a8ad0", opacity: 0.85 }} />
                 <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", color: "#8a8ad0" }}>
                     {Generic.t("Privacy mode")}
                 </div>
+                {lastEvt ? (
+                    <div style={{ fontSize: 11, fontWeight: 500, color: "rgba(138,138,208,.8)" }}>
+                        {Generic.t("Last event")}: {lastEvt}
+                    </div>
+                ) : null}
             </div>
         );
     }
