@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "bosch-smart-home-camera",
-    "version": "1.6.0",
+    "version": "1.6.1",
     "news": {
+      "1.6.1": {
+        "en": "FCM push reliability: the safety-net event poll is no longer suppressed after a failed cloud fetch, so motion detection recovers on the next tick instead of staying quiet for up to 5 minutes after a brief cloud hiccup.",
+        "de": "FCM-Push-Zuverlässigkeit: Der Sicherheits-Poll für Events wird nach einem fehlgeschlagenen Cloud-Abruf nicht mehr unterdrückt — die Bewegungserkennung erholt sich beim nächsten Durchlauf, statt nach einem kurzen Cloud-Aussetzer bis zu 5 Minuten stumm zu bleiben.",
+        "ru": "Надежность push-уведомлений FCM: опрос событий сети безопасности больше не подавляется после неудачной выборки облака, поэтому обнаружение движения восстанавливается на следующем такте, а не остается тихим в течение 5 минут после кратковременного сбоя в облаке.",
+        "pt": "Confiabilidade de push do FCM: a pesquisa de eventos da rede de segurança não é mais suprimida após uma falha na busca da nuvem, portanto, a detecção de movimento se recupera no próximo tick, em vez de permanecer silenciosa por até 5 minutos após um breve soluço na nuvem.",
+        "nl": "FCM-pushbetrouwbaarheid: de vangnet-gebeurtenispoll wordt niet langer onderdrukt na een mislukte cloud-ophaalactie, zodat de bewegingsdetectie zich herstelt bij de volgende tik in plaats van tot 5 minuten stil te blijven na een korte cloud-hik.",
+        "fr": "Fiabilité du push FCM : l'interrogation des événements du filet de sécurité n'est plus supprimée après un échec de récupération dans le cloud, de sorte que la détection de mouvement récupère au prochain tick au lieu de rester silencieuse pendant 5 minutes maximum après un bref hoquet dans le cloud.",
+        "it": "Affidabilità push FCM: il sondaggio degli eventi della rete di sicurezza non viene più soppresso dopo un recupero del cloud non riuscito, quindi il rilevamento del movimento viene ripristinato al tick successivo invece di rimanere silenzioso fino a 5 minuti dopo un breve singhiozzo del cloud.",
+        "es": "Fiabilidad de inserción de FCM: la encuesta de eventos de la red de seguridad ya no se suprime después de una búsqueda fallida de la nube, por lo que la detección de movimiento se recupera en el siguiente tic en lugar de permanecer en silencio durante hasta 5 minutos después de un breve problema en la nube.",
+        "pl": "Niezawodność wypychania FCM: ankieta dotycząca zdarzeń sieci bezpieczeństwa nie jest już tłumiona po nieudanym pobraniu chmury, więc wykrywanie ruchu zostaje wznowione przy następnym taktowaniu, zamiast pozostawać cicho przez maksymalnie 5 minut po krótkim przerwaniu w chmurze.",
+        "uk": "Надійність FCM push: опитування подій мережі безпеки більше не пригнічується після невдалої вибірки хмари, тому виявлення руху відновлюється на наступному тику, а не залишається тихим до 5 хвилин після короткої хмарної гикавки.",
+        "zh-cn": "FCM 推送可靠性：云获取失败后，安全网事件轮询不再受到抑制，因此运动检测会在下一个滴答声中恢复，而不是在短暂的云中断后保持安静长达 5 分钟。"
+      },
       "1.6.0": {
         "en": "Cross-platform widget and adapter reliability round. iOS Picture-in-Picture now works (WebKit fallback); the volume control is reachable by touch; audio recovers after Android background/doze. Fixed a PiP listener leak and a mute-state conflict on reconnect. The motion-event safety-net poll now survives a push reconnect, and shutdown-time timer warnings are gone.",
         "de": "Plattformübergreifende Zuverlässigkeitsrunde für Widget und Adapter. iOS Picture-in-Picture funktioniert jetzt (WebKit-Fallback); die Lautstärke ist per Touch erreichbar; Audio erholt sich nach Android-Hintergrund/Doze. PiP-Listener-Leck und Mute-Konflikt beim Reconnect behoben. Der Bewegungs-Sicherheitspoll überlebt jetzt einen Push-Reconnect, Timer-Warnungen beim Herunterfahren sind weg.",
@@ -80,19 +93,6 @@
         "pl": "Poprawka: po wzmocnieniu protokołu TLS w wersji 1.5.1 połączenia w chmurze Bosch mogły nie uruchamiać się z komunikatem „nie można uzyskać certyfikatu wystawcy”, blokując wykrywanie kamer podczas uruchamiania w niektórych systemach. Weryfikacja certyfikatu w chmurze teraz prawidłowo zakotwicza przypięty urząd certyfikacji Bosch, zachowując jednocześnie pełną ochronę MITM.",
         "uk": "Виправлення: після посилення TLS версії 1.5.1 хмарні з’єднання Bosch могли не запускатися з повідомленням «неможливо отримати сертифікат видавця», блокуючи виявлення камери під час запуску в деяких системах. Перевірка хмарного сертифіката тепер правильно закріплює закріплений ЦС Bosch, зберігаючи повний захист MITM.",
         "zh-cn": "修复：v1.5.1 TLS 强化后，博世云连接可能无法启动，并显示“无法获取颁发者证书”，从而阻止在某些系统上启动时发现摄像头。云证书验证现在可以正确锚定固定的博世 CA，同时保持完整的 MITM 保护。"
-      },
-      "1.5.2": {
-        "en": "Maintenance: orphaned camera object subtrees left behind by removed cameras are now automatically pruned on adapter start (after a successful camera fetch; a safety guard prevents deletion during a cloud outage).",
-        "de": "Aufräumen: verwaiste cameras.<uuid>-Objektbäume entfernter Kameras werden jetzt beim Start automatisch entfernt (nach erfolgreichem Kamera-Abruf; Safety-Guard gegen Löschen bei Cloud-Ausfall).",
-        "ru": "Обслуживание: осиротевшие поддеревья объектов камер, оставшиеся после удалённых камер, теперь автоматически удаляются при запуске адаптера (после успешного получения списка камер; защитный механизм предотвращает удаление при недоступности облака).",
-        "pt": "Manutenção: as subárvores de objetos de câmeras órfãs deixadas por câmeras removidas agora são eliminadas automaticamente na inicialização do adaptador (após uma busca bem-sucedida; um guarda de segurança impede a exclusão durante uma falha na nuvem).",
-        "nl": "Onderhoud: verweesde camera-objectsubstructuren die zijn achtergebleven door verwijderde camera's, worden nu automatisch opgeschoond bij het starten van de adapter (na een succesvolle cameraquery; een veiligheidsbeveiliging voorkomt verwijdering bij een cloudstoring).",
-        "fr": "Maintenance : les sous-arbres d'objets de caméras orphelines laissés par des caméras supprimées sont maintenant nettoyés automatiquement au démarrage de l'adaptateur (après une récupération réussie ; un garde de sécurité empêche la suppression en cas de panne du cloud).",
-        "it": "Manutenzione: i sottoalberi di oggetti delle telecamere orfane lasciati da telecamere rimosse vengono ora eliminati automaticamente all'avvio dell'adattatore (dopo un recupero riuscito; una guardia di sicurezza impedisce l'eliminazione durante un'interruzione del cloud).",
-        "es": "Mantenimiento: los subárboles de objetos de cámaras huérfanas que dejaron las cámaras eliminadas ahora se limpian automáticamente al iniciar el adaptador (tras una obtención exitosa; un guardia de seguridad evita la eliminación durante una interrupción de la nube).",
-        "pl": "Konserwacja: osierocone poddrzewa obiektów kamer pozostawione przez usunięte kamery są teraz automatycznie usuwane przy starcie adaptera (po pomyślnym pobraniu danych kamery; zabezpieczenie chroni przed usunięciem podczas awarii chmury).",
-        "uk": "Обслуговування: осиротілі піддерева об'єктів камер, залишені видаленими камерами, тепер автоматично видаляються під час запуску адаптера (після успішного отримання даних камери; захисний механізм запобігає видаленню під час збою хмари).",
-        "zh-cn": "维护：适配器启动时（成功获取摄像头列表后）现在会自动清理已删除摄像头遗留的孤立 cameras.<uuid> 对象子树；安全保护机制可防止在云端不可用时误删数据。"
       }
     },
     "titleLang": {

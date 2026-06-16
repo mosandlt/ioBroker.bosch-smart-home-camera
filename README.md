@@ -719,6 +719,9 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.6.1 (2026-06-16)
+- **FCM push reliability:** the motion-event safety-net poll is no longer suppressed after a failed cloud fetch. A transient cloud hiccup during a push used to stamp the defer-timestamp *before* the fetch succeeded, keeping the safety poll quiet for up to 5 minutes and delaying motion detection. The defer-timestamp now advances only after a definitive response (+3 regression tests). Cross-version of the Home Assistant integration's event-poll fix.
+
 ### 1.6.0 (2026-06-15)
 Cross-platform reliability round for the BoschCamera VIS-2 widget and the adapter, driven by a structured bug-hunt (Chrome, Safari, Firefox, Edge on macOS, Windows, iOS, Android, Linux).
 
