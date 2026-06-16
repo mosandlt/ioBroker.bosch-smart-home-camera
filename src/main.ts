@@ -8757,12 +8757,16 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (!this._currentAccessToken) {
             return;
         }
-        // Mark that events were just fetched (push- OR poll-driven) so the
-        // safety-net poll stays slow while FCM is actively delivering.
-        this._lastEventFetchAt = Date.now();
         const token = this._currentAccessToken;
         const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
 
+        // Advance the safety-poll defer timestamp only after at least one camera
+        // returns a definitive 200 (set below + stamped after the loop). Stamping
+        // here — before any fetch — kept the safety-net poll slow for up to
+        // FCM_SAFETY_POLL_MS (300s) even when the cloud was unreachable, silently
+        // delaying motion detection on a transient outage. Cross-version parity
+        // with the HA _last_events fix.
+        let anyFetchOk = false;
         for (const [camId] of this._cameras) {
             try {
                 const url = `${CLOUD_API}/v11/events?videoInputId=${camId}&limit=5`;
@@ -8770,6 +8774,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     headers,
                     validateStatus: () => true,
                 });
+                if (resp.status === 200) {
+                    // A 200 is a definitive answer (even with zero events) so the
+                    // safety poll may defer; a non-200 / network error must not.
+                    anyFetchOk = true;
+                }
                 if (resp.status !== 200 || !Array.isArray(resp.data) || resp.data.length === 0) {
                     continue;
                 }
@@ -8899,6 +8908,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     `fetchAndProcessEvents failed for ${camId.slice(0, 8)}: ${(err as Error).message}`,
                 );
             }
+        }
+
+        // Stamp the defer timestamp only when the cloud actually answered. On a
+        // total failure it stays put so _eventSafetyPollDue() stays true and the
+        // safety-net poll retries on the next tick instead of waiting 300s.
+        if (anyFetchOk) {
+            this._lastEventFetchAt = Date.now();
         }
     }
 

@@ -418,4 +418,58 @@ describe("main adapter — event processing (v0.3.0+ / v0.5.3 motion)", () => {
         expect(at === "" || at === undefined || at === null).to.equal(true);
         void db;
     });
+
+    // ── _lastEventFetchAt defer-stamp (cross-version parity with HA _last_events) ──
+    // The stamp must advance ONLY after a definitive 200. Stamping before the
+    // fetch kept the safety-net poll slow for up to FCM_SAFETY_POLL_MS (300s)
+    // even when the cloud was unreachable, silently delaying motion detection.
+
+    it("fetchAndProcessEvents: a non-200 events fetch does NOT advance _lastEventFetchAt", async () => {
+        stubAxiosSequence([{ status: 200, data: CAMERAS_BODY }]);
+        const { db, adapter } = createAdapter();
+        await bootWithTokens(db, adapter);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const a = adapter as any;
+        a._lastEventFetchAt = -Infinity;
+        sinon.stub(a._httpClient, "get").resolves({ status: 503, data: { error: "down" } });
+
+        await a.fetchAndProcessEvents();
+
+        // Stays at the sentinel → _eventSafetyPollDue() fires on the next tick.
+        expect(a._lastEventFetchAt).to.equal(-Infinity);
+        void db;
+    });
+
+    it("fetchAndProcessEvents: a network error does NOT advance _lastEventFetchAt", async () => {
+        stubAxiosSequence([{ status: 200, data: CAMERAS_BODY }]);
+        const { db, adapter } = createAdapter();
+        await bootWithTokens(db, adapter);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const a = adapter as any;
+        a._lastEventFetchAt = -Infinity;
+        sinon.stub(a._httpClient, "get").rejects(new Error("ECONNRESET"));
+
+        await a.fetchAndProcessEvents();
+
+        expect(a._lastEventFetchAt).to.equal(-Infinity);
+        void db;
+    });
+
+    it("fetchAndProcessEvents: a 200 (even with zero events) DOES advance _lastEventFetchAt", async () => {
+        stubAxiosSequence([{ status: 200, data: CAMERAS_BODY }]);
+        const { db, adapter } = createAdapter();
+        await bootWithTokens(db, adapter);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const a = adapter as any;
+        a._lastEventFetchAt = -Infinity;
+        sinon.stub(a._httpClient, "get").resolves({ status: 200, data: [] });
+
+        await a.fetchAndProcessEvents();
+
+        expect(a._lastEventFetchAt).to.be.greaterThan(0);
+        void db;
+    });
 });
