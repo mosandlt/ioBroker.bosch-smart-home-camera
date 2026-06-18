@@ -719,6 +719,9 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.7.1 (2026-06-18)
+- **Daily counters now bucket by local date (fix):** `events_today`, `movement_count` and `audio_count` were bucketed by UTC day, but Bosch event timestamps carry an explicit timezone offset (e.g. `+02:00[Europe/Berlin]`) — so events in the hours around local midnight were counted on the wrong day and the counters rolled over at UTC midnight instead of local midnight. They now bucket by each event's local calendar date, matching the Home Assistant integration (issue #34). `last_motion_at` and event freshness were already correct.
+
 ### 1.7.0 (2026-06-18)
 Cross-version round porting the latest Home Assistant integration features and fixes.
 

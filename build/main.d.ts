@@ -1573,9 +1573,14 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     /**
      * iOB-S1: count today's cloud events from a /v11/events list, bucketed by
-     * UTC day (mirrors HA's EventsToday/Movement/Audio sensors exactly). Bosch
-     * timestamps are Z-suffix UTC strings, so "today" must also be UTC — using
-     * local time mis-buckets events in the hours around the UTC boundary.
+     * the LOCAL calendar date of each event's true instant (mirrors HA's
+     * EventsToday/Movement/Audio sensors, issue #34). Bosch timestamps are
+     * OFFSET-bearing — "2026-06-18T06:06:30.499+02:00[Europe/Berlin]", NOT
+     * Z-suffix UTC. The previous code compared the raw string's date PREFIX
+     * (which is the local date) against a UTC "today", mis-bucketing events in
+     * the hours around midnight. We strip the [zone] suffix, parse the offset
+     * (V8 honors +HH:MM), and compare the event's local date to today's local
+     * date so the counters roll over at local midnight.
      * Classification uses the RAW upper-case API `eventType` (MOVEMENT counts
      * person-tagged movements too, matching HA which buckets on raw eventType).
      * Static + injectable clock so it is deterministically unit-testable.
@@ -1584,6 +1589,8 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param nowMs   clock override (defaults to Date.now())
      */
     private static _countDailyEvents;
+    /** Local-timezone YYYY-MM-DD key for a Date (server local tz, like HA's as_local). */
+    private static _localDateKey;
     private fetchAndProcessEvents;
     /**
      * Privacy mode: PUT /v11/video_inputs/{camId}/privacy with

@@ -1,16 +1,18 @@
 /**
- * Item: iOB-S1 — Daily event counts bucket by UTC (not local time)
- * Migration-concept: port HA v13.7.0 fix for events_today/movement_count/
- *   audio_count midnight miscount (events at 23:30 local with UTC-Z timestamps
- *   were bucketed to the wrong day when comparing local date vs UTC-Z string).
+ * Item: iOB-S1 — Daily event counts bucket by the event's LOCAL date
+ * Migration-concept: port HA v13.7.2 fix (issue #34) for events_today/
+ *   movement_count/audio_count. Bosch timestamps are OFFSET-bearing
+ *   ("2026-06-18T06:06:30.499+02:00[Europe/Berlin]"), NOT Z-suffix UTC. The
+ *   old code compared the raw string's local-date PREFIX against a UTC "today"
+ *   → mis-bucketed events in the hours around midnight. Counts are now bucketed
+ *   against the LOCAL calendar date of each event's true instant (offset honored
+ *   after stripping the [zone] suffix), mirroring HA's as_local sensors so the
+ *   counters roll over at local midnight.
  * Layer: adapter backend (main.ts — _countDailyEvents, derived from /v11/events)
- * Soll-Assertion: counts are bucketed against the UTC day of each event's
- *   Z-suffix timestamp (mirrors HA exactly). MOVEMENT (incl. person-tagged) and
- *   AUDIO_ALARM are classified on the RAW upper-case API eventType; events_today
- *   counts ALL event types today.
  *
  * The static helper is pulled off the real adapter class (built main.js) and
- * called with an injected clock so the UTC-boundary assertions are deterministic.
+ * called with an injected clock. process.env.TZ is pinned per-describe so the
+ * local-date assertions are deterministic regardless of the CI runner's zone.
  */
 
 import { expect } from "chai";
@@ -68,16 +70,26 @@ function loadAdapter(): any {
     return captured;
 }
 
-// midday UTC so "today" = 2026-06-18 unambiguously
-const NOON = Date.parse("2026-06-18T12:00:00Z");
-
-describe("iOB-S1 — _countDailyEvents (UTC-day bucketing)", () => {
+describe("iOB-S1 — _countDailyEvents (local-day bucketing, TZ=UTC)", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let count: (events: Array<Record<string, unknown>>, nowMs?: number) => any;
+    let origTz: string | undefined;
+    // Under TZ=UTC local date == UTC date, so Z timestamps are unambiguous.
+    const NOON = Date.parse("2026-06-18T12:00:00Z");
 
     before(() => {
+        origTz = process.env.TZ;
+        process.env.TZ = "UTC";
         const adapter = loadAdapter();
         count = adapter.constructor._countDailyEvents;
+    });
+
+    after(() => {
+        if (origTz === undefined) {
+            delete process.env.TZ;
+        } else {
+            process.env.TZ = origTz;
+        }
     });
 
     it("classifies movement / audio / total for today (raw eventType)", () => {
@@ -95,12 +107,12 @@ describe("iOB-S1 — _countDailyEvents (UTC-day bucketing)", () => {
         expect(r).to.deep.equal({ today: 4, movement: 2, audio: 1 });
     });
 
-    it("excludes events from other UTC days", () => {
+    it("excludes events from other days", () => {
         const r = count(
             [
-                { timestamp: "2026-06-17T23:59:59Z", eventType: "MOVEMENT" }, // yesterday UTC
+                { timestamp: "2026-06-17T23:59:59Z", eventType: "MOVEMENT" }, // yesterday
                 { timestamp: "2026-06-18T00:00:00Z", eventType: "MOVEMENT" }, // today start
-                { timestamp: "2026-06-19T00:00:00Z", eventType: "MOVEMENT" }, // tomorrow UTC
+                { timestamp: "2026-06-19T00:00:00Z", eventType: "MOVEMENT" }, // tomorrow
             ],
             NOON,
         );
@@ -123,21 +135,19 @@ describe("iOB-S1 — _countDailyEvents (UTC-day bucketing)", () => {
     });
 });
 
-// The UTC-boundary regression must be caught regardless of the runner's
-// timezone. CI runs UTC, where a buggy local-date implementation would produce
-// the SAME bucket as the correct UTC one (so the test couldn't fail on the bug).
-// Forcing a negative-offset timezone here makes a local-date bug diverge: at
-// 00:30 UTC the New-York local date is still the PREVIOUS day, so a getDate()
-// implementation would mis-bucket the 23:30Z event. The correct toISOString()
-// implementation is immune to TZ, so this test still passes on the real code.
-describe("iOB-S1 — _countDailyEvents UTC boundary (timezone-robust)", () => {
+// The real Bosch format carries an explicit offset + IANA zone suffix. Pin that
+// the offset is honored and the event is bucketed by its LOCAL date. Forcing
+// TZ=Europe/Berlin makes this deterministic: an event at 00:30+02:00 is local
+// "today" even though its UTC instant (22:30Z) is the previous UTC day — the
+// old UTC-prefix code mis-counted exactly this window.
+describe("iOB-S1 — _countDailyEvents offset format + local midnight (TZ=Europe/Berlin)", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let count: (events: Array<Record<string, unknown>>, nowMs?: number) => any;
     let origTz: string | undefined;
 
     before(() => {
         origTz = process.env.TZ;
-        process.env.TZ = "America/New_York"; // UTC-4/-5 — local date lags UTC after midnight
+        process.env.TZ = "Europe/Berlin"; // UTC+2 in June
         const adapter = loadAdapter();
         count = adapter.constructor._countDailyEvents;
     });
@@ -150,25 +160,25 @@ describe("iOB-S1 — _countDailyEvents UTC boundary (timezone-robust)", () => {
         }
     });
 
-    it("event at 23:30Z (prev UTC day) is excluded just after 00:30 UTC even in a UTC-offset locale", () => {
-        const afterMidnightUtc = Date.parse("2026-06-18T00:30:00Z");
+    it("honors +02:00[Europe/Berlin] and buckets by local date across UTC midnight", () => {
+        // Local now = 2026-06-18 01:00 Berlin (= 2026-06-17 23:00Z).
+        const nowMs = Date.parse("2026-06-18T01:00:00+02:00");
         const r = count(
             [
-                { timestamp: "2026-06-17T23:30:00Z", eventType: "MOVEMENT" }, // prev UTC day
-                { timestamp: "2026-06-18T00:15:00Z", eventType: "AUDIO_ALARM" }, // this UTC day
+                // local-today (06-18 00:30 Berlin = 06-17 22:30Z) → counts
+                { timestamp: "2026-06-18T00:30:00.000+02:00[Europe/Berlin]", eventType: "MOVEMENT" },
+                // local-yesterday (06-17 23:00 Berlin = 06-17 21:00Z) → excluded
+                { timestamp: "2026-06-17T23:00:00.000+02:00[Europe/Berlin]", eventType: "AUDIO_ALARM" },
             ],
-            afterMidnightUtc,
+            nowMs,
         );
-        // Correct (UTC) bucketing: only the 00:15Z audio event counts.
-        // A local-date bug under TZ=America/New_York would bucket "today" as
-        // 06-17 and wrongly include the 23:30Z movement.
-        expect(r).to.deep.equal({ today: 1, movement: 0, audio: 1 });
+        expect(r).to.deep.equal({ today: 1, movement: 1, audio: 0 });
     });
 });
 
 // Wiring: the counters must be written to the per-camera DPs on EVERY successful
 // poll — including an empty list and a duplicate-newest event — so they roll over
-// to 0 at UTC midnight without needing a fresh event.
+// to 0 at local midnight without needing a fresh event.
 describe("iOB-S1 — fetchAndProcessEvents writes counters every poll", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let fetchEvents: (...a: any[]) => Promise<void>;
@@ -217,7 +227,7 @@ describe("iOB-S1 — fetchAndProcessEvents writes counters every poll", () => {
     });
 
     it("duplicate-newest event still refreshes the counters (before the dedup skip)", async () => {
-        const todayIso = new Date().toISOString(); // real UTC today
+        const todayIso = new Date().toISOString(); // real now → always local-today
         const s = stub([{ id: "evt1", timestamp: todayIso, eventType: "MOVEMENT" }], "evt1");
         await fetchEvents.call(s);
         const c = counterCalls(s.upsertState);
