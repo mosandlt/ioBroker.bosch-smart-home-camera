@@ -47,7 +47,7 @@
   "dependencies": {
     "@aracna/core": "^1.5.0",
     "@aracna/fcm": "^1.0.33",
-    "@iobroker/adapter-core": "^3.3.2",
+    "@iobroker/adapter-core": "^3.4.1",
     "axios": "^1.17.0",
     "axios-cookiejar-support": "^7.0.0",
     "mqtt": "^5.15.1",
@@ -73,7 +73,9 @@
   "overrides": {
     "serialize-javascript": "^7.0.5",
     "esbuild": "^0.25.0",
-    "diff": "^8.0.3"
+    "diff": "^8.0.3",
+    "form-data": "^4.0.6",
+    "ws": "^8.21.0"
   },
   "repository": {
     "type": "git",
