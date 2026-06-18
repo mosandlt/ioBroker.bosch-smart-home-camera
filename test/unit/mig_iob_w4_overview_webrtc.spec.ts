@@ -21,7 +21,12 @@ import { formatLastEventLabel, shouldShowMaintBanner } from "../../src-widgets/s
 const t = (key: string): string => key;
 
 const FAKE_TS = "2026-06-18T10:30:00Z"; // ISO timestamp (fake, no PII)
-const FAKE_TS_LOCAL = new Date(FAKE_TS).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+// Compute the expected local-time string with the SAME formatter the helper uses,
+// at call time — so the assertion is timezone-agnostic (a fixed module-level
+// capture diverged from the helper when the CI runner's TZ wasn't UTC, and when
+// a sibling spec mutated process.env.TZ). Mirrors event-label.js exactly.
+const expectedLocalTime = (ts: string): string =>
+    new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 describe("iOB-W4 — BoschOverview W4a: maintenance banner decision logic (real module)", () => {
     it("shouldShowMaintBanner returns false when state is 'none'", () => {
@@ -71,20 +76,20 @@ describe("iOB-W4 — BoschOverview W4b: last-event label formatting (real module
         const label = formatLastEventLabel(FAKE_TS, null, t);
         expect(label).to.be.a("string").and.to.have.length.greaterThan(0);
         // Must include the locale-formatted time component
-        expect(label).to.include(FAKE_TS_LOCAL);
+        expect(label).to.include(expectedLocalTime(FAKE_TS));
     });
 
     it("formatLastEventLabel prepends the translated event type when provided", () => {
         const label = formatLastEventLabel(FAKE_TS, "motion", t);
         expect(label).to.include("motion");
-        expect(label).to.include(FAKE_TS_LOCAL);
+        expect(label).to.include(expectedLocalTime(FAKE_TS));
         // Format: "<type> <time>" (type + space + time)
         expect(label).to.match(/^motion .+/);
     });
 
     it("formatLastEventLabel without event type returns only the time string", () => {
         const label = formatLastEventLabel(FAKE_TS, "", t);
-        expect(label).to.equal(FAKE_TS_LOCAL);
+        expect(label).to.equal(expectedLocalTime(FAKE_TS));
     });
 
     it("formatLastEventLabel returns empty string for an invalid date (never 'Invalid Date')", () => {
