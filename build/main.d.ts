@@ -199,6 +199,14 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _persistentInflight;
     /**
+     * iOB-B1: in-flight `handleSnapshotTrigger` promise per camera, so two
+     * concurrent snapshot triggers for the SAME camera (e.g. a card-poll timer
+     * firing while a motion event arrives) coalesce onto ONE ensureLiveSession +
+     * fetch instead of opening two parallel Bosch sessions and double-fetching
+     * the same frame. Mirrors HA's `_refresh_inflight` guard.
+     */
+    private _snapshotInflight;
+    /**
      * Camera-state poll interval (ms).
      * v1.2.2: 60 s base tick to match the Home Assistant coordinator's default
      * `scan_interval` (60 s) — was 30 s. The slow tier still lands at 300 s via
@@ -1563,6 +1571,19 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      *   { id, eventType, eventTags, timestamp/createdAt, videoInputId }
      * Gen2: eventType=MOVEMENT + eventTags=["PERSON"] → normalise to "person"
      */
+    /**
+     * iOB-S1: count today's cloud events from a /v11/events list, bucketed by
+     * UTC day (mirrors HA's EventsToday/Movement/Audio sensors exactly). Bosch
+     * timestamps are Z-suffix UTC strings, so "today" must also be UTC — using
+     * local time mis-buckets events in the hours around the UTC boundary.
+     * Classification uses the RAW upper-case API `eventType` (MOVEMENT counts
+     * person-tagged movements too, matching HA which buckets on raw eventType).
+     * Static + injectable clock so it is deterministically unit-testable.
+     *
+     * @param events  raw /v11/events array (objects with timestamp + eventType)
+     * @param nowMs   clock override (defaults to Date.now())
+     */
+    private static _countDailyEvents;
     private fetchAndProcessEvents;
     /**
      * Privacy mode: PUT /v11/video_inputs/{camId}/privacy with
@@ -1665,6 +1686,17 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private handleSnapshotTrigger;
     /**
+     * iOB-B1: publish a motion-event snapshot as base64 so push integrations
+     * (Telegram, Signal, Matrix) can forward the picture without reading the
+     * adapter file store. Extracted so both the in-flight leader and a
+     * coalesced joiner can publish from the same fetched frame.
+     *
+     * @param camId Camera UUID
+     * @param buf   The JPEG buffer to publish
+     */
+    private _publishMotionEventImage;
+    private _doSnapshotTrigger;
+    /**
      * Fetch a snapshot via snap.jpg with one retry on transient errors.
      *
      * Extracted from handleSnapshotTrigger so the MJPEG fast path can fall back
@@ -1765,6 +1797,14 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _handleSessionLimitError;
     private markCameraReachability;
+    /**
+     * iOB-B2: true when a camera-relevant Bosch cloud maintenance window is
+     * currently ACTIVE. Reads the in-memory last-known window (synchronous, no
+     * cloud round-trip) so it is safe to call on the snapshot-failure hot path.
+     * Used to suppress the snapshot-driven offline flip while a camera is
+     * locally streaming.
+     */
+    private _isCameraMaintenanceActive;
     /**
      * Reconcile `cameras.<id>.online` from the cloud (LAN-TCP → /ping →
      * /commissioned) for cameras the snapshot path can't probe (privacy mode).

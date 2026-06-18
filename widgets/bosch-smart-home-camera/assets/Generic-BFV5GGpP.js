@@ -1,1 +1,0 @@
-(function(){window.__boschWidgetBannerPrinted||(window.__boschWidgetBannerPrinted=!0,console.info("%c BOSCH-SMART-HOME-CAMERA WIDGETS %c v1.6.0 ","color: #fff; background: #ea0016; font-weight: 700;","color: #ea0016; background: #fff; font-weight: 700;"))})();class e extends window.visRxWidget{static getI18nPrefix(){return""}}export{e as G};

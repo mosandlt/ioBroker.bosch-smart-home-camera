@@ -67,8 +67,11 @@ function loadMethod(): AnyFn {
     factory({ config: { redirect_url: "", region: "EU", startup_snapshot: true } });
     if (!captured) throw new Error("adapter not captured");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fn = (captured as any).handleSnapshotTrigger as AnyFn | undefined;
-    if (typeof fn !== "function") throw new Error("handleSnapshotTrigger not found");
+    // iOB-B1 refactor: the finally idle-teardown logic this spec exercises now
+    // lives in the renamed body `_doSnapshotTrigger` (handleSnapshotTrigger is
+    // now the in-flight coalescing wrapper). Target the body directly.
+    const fn = (captured as any)._doSnapshotTrigger as AnyFn | undefined;
+    if (typeof fn !== "function") throw new Error("_doSnapshotTrigger not found");
     return fn;
 }
 

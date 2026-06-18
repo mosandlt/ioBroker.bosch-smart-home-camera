@@ -272,6 +272,14 @@ class BoschSmartHomeCamera extends utils.Adapter {
      */
     _persistentInflight = new Map();
     /**
+     * iOB-B1: in-flight `handleSnapshotTrigger` promise per camera, so two
+     * concurrent snapshot triggers for the SAME camera (e.g. a card-poll timer
+     * firing while a motion event arrives) coalesce onto ONE ensureLiveSession +
+     * fetch instead of opening two parallel Bosch sessions and double-fetching
+     * the same frame. Mirrors HA's `_refresh_inflight` guard.
+     */
+    _snapshotInflight = new Map();
+    /**
      * Camera-state poll interval (ms).
      * v1.2.2: 60 s base tick to match the Home Assistant coordinator's default
      * `scan_interval` (60 s) — was 30 s. The slow tier still lands at 300 s via
@@ -2871,6 +2879,28 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 },
                 native: {},
             });
+            // iOB-S1: daily event counters, bucketed by UTC day (mirrors HA's
+            // EventsToday / MovementEventsToday / AudioEventsToday sensors).
+            // Derived from the cached /v11/events list on every poll so they
+            // roll over at UTC midnight even without a new event.
+            for (const [dp, label] of [
+                ["events_today", "Total cloud events today (UTC day)"],
+                ["movement_count", "Movement events today (UTC day)"],
+                ["audio_count", "Audio-alarm events today (UTC day)"],
+            ]) {
+                await this.setObjectNotExistsAsync(`${prefix}.${dp}`, {
+                    type: "state",
+                    common: {
+                        name: label,
+                        role: "value",
+                        type: "number",
+                        read: true,
+                        write: false,
+                        def: 0,
+                    },
+                    native: {},
+                });
+            }
             // v1.1.0: commissioned status (read-only, all cameras). GET /commissioned
             // → {configured, connected, commissioned}. Mirrors HA BoschCommissionedSensor.
             await this.setObjectNotExistsAsync(`${prefix}.commissioned`, {
@@ -2910,6 +2940,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
             // (listing's `numberOfUnreadEvents` is unreliable — see v0.9.1 notes).
             const unreadState = await this.getStateAsync(`${prefix}.unread_events_count`);
             await this.upsertState(`${prefix}.unread_events_count`, typeof unreadState?.val === "number" ? unreadState.val : 0);
+            // iOB-S1: seed the daily counters from cached state if any, else 0,
+            // so a fresh install reads 0 (not null) before the first poll and a
+            // restart keeps the last value until the next /v11/events tick.
+            for (const dp of ["events_today", "movement_count", "audio_count"]) {
+                const cached = await this.getStateAsync(`${prefix}.${dp}`);
+                await this.upsertState(`${prefix}.${dp}`, typeof cached?.val === "number" ? cached.val : 0);
+            }
             // Seed in-memory livestream flag from the persisted state so a
             // restart preserves whatever the user toggled before. Default
             // false when no state exists yet (fresh install).
@@ -7681,6 +7718,39 @@ class BoschSmartHomeCamera extends utils.Adapter {
      *   { id, eventType, eventTags, timestamp/createdAt, videoInputId }
      * Gen2: eventType=MOVEMENT + eventTags=["PERSON"] → normalise to "person"
      */
+    /**
+     * iOB-S1: count today's cloud events from a /v11/events list, bucketed by
+     * UTC day (mirrors HA's EventsToday/Movement/Audio sensors exactly). Bosch
+     * timestamps are Z-suffix UTC strings, so "today" must also be UTC — using
+     * local time mis-buckets events in the hours around the UTC boundary.
+     * Classification uses the RAW upper-case API `eventType` (MOVEMENT counts
+     * person-tagged movements too, matching HA which buckets on raw eventType).
+     * Static + injectable clock so it is deterministically unit-testable.
+     *
+     * @param events  raw /v11/events array (objects with timestamp + eventType)
+     * @param nowMs   clock override (defaults to Date.now())
+     */
+    static _countDailyEvents(events, nowMs) {
+        const todayUtc = new Date(nowMs ?? Date.now()).toISOString().slice(0, 10); // YYYY-MM-DD
+        let today = 0;
+        let movement = 0;
+        let audio = 0;
+        for (const ev of events) {
+            const ts = (ev.timestamp ?? ev.createdAt ?? "");
+            if (!ts.startsWith(todayUtc)) {
+                continue;
+            }
+            today++;
+            const type = (ev.eventType ?? "").toUpperCase();
+            if (type === "MOVEMENT") {
+                movement++;
+            }
+            else if (type === "AUDIO_ALARM") {
+                audio++;
+            }
+        }
+        return { today, movement, audio };
+    }
     async fetchAndProcessEvents() {
         if (!this._currentAccessToken) {
             return;
@@ -7696,7 +7766,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
         let anyFetchOk = false;
         for (const [camId] of this._cameras) {
             try {
-                const url = `${auth_1.CLOUD_API}/v11/events?videoInputId=${camId}&limit=5`;
+                // iOB-S1: limit raised 5→20 to mirror HA's events fetch so the
+                // daily counters see a full day's events, not just the newest 5.
+                const url = `${auth_1.CLOUD_API}/v11/events?videoInputId=${camId}&limit=20`;
                 const resp = await this._httpClient.get(url, {
                     headers,
                     validateStatus: () => true,
@@ -7705,6 +7777,17 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     // A 200 is a definitive answer (even with zero events) so the
                     // safety poll may defer; a non-200 / network error must not.
                     anyFetchOk = true;
+                    // iOB-S1: refresh the UTC-day counters on EVERY successful
+                    // poll (even an empty list / a duplicate-newest event) so
+                    // they roll over to 0 at UTC midnight without needing a new
+                    // event. Derived from the list — mirrors HA's lazy sensors.
+                    const list = Array.isArray(resp.data)
+                        ? resp.data
+                        : [];
+                    const counts = BoschSmartHomeCamera._countDailyEvents(list);
+                    await this.upsertState(`cameras.${camId}.events_today`, counts.today);
+                    await this.upsertState(`cameras.${camId}.movement_count`, counts.movement);
+                    await this.upsertState(`cameras.${camId}.audio_count`, counts.audio);
                 }
                 if (resp.status !== 200 || !Array.isArray(resp.data) || resp.data.length === 0) {
                     continue;
@@ -8106,6 +8189,55 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * @param opts.asMotionEvent
      */
     async handleSnapshotTrigger(camId, opts = {}) {
+        // iOB-B1: coalesce concurrent triggers for the same camera onto one
+        // fetch. Without this, a poll timer + a motion event firing together
+        // open two parallel Bosch sessions and double-fetch the same frame.
+        const inflight = this._snapshotInflight.get(camId);
+        if (inflight) {
+            await inflight.promise;
+            // If THIS caller needs the motion-event base64 AND the leader was a
+            // plain snapshot that didn't already publish it, publish it from the
+            // frame the leader cached — no second fetch / no second session.
+            // (If the leader was itself a motion event it already published, so
+            // we skip to avoid a duplicate last_event_image_at tick.) Note: the
+            // cached frame may be up to one poll interval old if the leader was
+            // a routine poll that started just before this motion event — an
+            // inherent, acceptable trade-off of coalescing.
+            if (opts.asMotionEvent && !inflight.asMotionEvent) {
+                const buf = this._latestSnapshots.get(camId);
+                if (buf) {
+                    await this._publishMotionEventImage(camId, buf);
+                }
+            }
+            return;
+        }
+        const entry = {
+            promise: this._doSnapshotTrigger(camId, opts),
+            asMotionEvent: opts.asMotionEvent === true,
+        };
+        this._snapshotInflight.set(camId, entry);
+        try {
+            await entry.promise;
+        }
+        finally {
+            this._snapshotInflight.delete(camId);
+        }
+    }
+    /**
+     * iOB-B1: publish a motion-event snapshot as base64 so push integrations
+     * (Telegram, Signal, Matrix) can forward the picture without reading the
+     * adapter file store. Extracted so both the in-flight leader and a
+     * coalesced joiner can publish from the same fetched frame.
+     *
+     * @param camId Camera UUID
+     * @param buf   The JPEG buffer to publish
+     */
+    async _publishMotionEventImage(camId, buf) {
+        const b64 = `data:image/jpeg;base64,${buf.toString("base64")}`;
+        await this.setStateAsync(`cameras.${camId}.last_event_image`, b64, true);
+        await this.setStateAsync(`cameras.${camId}.last_event_image_at`, new Date().toISOString(), true);
+    }
+    async _doSnapshotTrigger(camId, opts = {}) {
         let session;
         try {
             session = await this.ensureLiveSession(camId);
@@ -8190,9 +8322,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
             // base64 so push integrations (Telegram, Signal, Matrix) can
             // forward the picture without reading the adapter file store.
             if (opts.asMotionEvent) {
-                const b64 = `data:image/jpeg;base64,${buf.toString("base64")}`;
-                await this.setStateAsync(`cameras.${camId}.last_event_image`, b64, true);
-                await this.setStateAsync(`cameras.${camId}.last_event_image_at`, new Date().toISOString(), true);
+                await this._publishMotionEventImage(camId, buf);
             }
             await this.markCameraReachability(camId, true);
             this.log.debug(`Snapshot saved for camera ${camId.slice(0, 8)}: ${buf.length} bytes`);
@@ -8617,10 +8747,37 @@ class BoschSmartHomeCamera extends utils.Adapter {
         const failures = (this._snapshotFailCount.get(camId) ?? 0) + 1;
         this._snapshotFailCount.set(camId, failures);
         if (failures >= BoschSmartHomeCamera.OFFLINE_THRESHOLD) {
+            // iOB-B2: during an ACTIVE, camera-relevant Bosch cloud maintenance
+            // window, snapshot failures are very likely the cloud outage — not
+            // the camera. If a live local session/proxy is actually OPEN for
+            // this camera, it is demonstrably LAN-reachable, so keep the
+            // last-known online state instead of flipping it offline (mirrors
+            // HA 682bf6e). We gate on `_liveSessions` (an open session/proxy),
+            // NOT `_livestreamEnabled` (mere user intent) — the latter is not
+            // cleared by a watchdog/idle `_teardownStream`, so a hardware-dead
+            // camera could otherwise get stuck online for the whole window. The
+            // failure count keeps climbing, so a real outage still flips offline
+            // once the session is torn down or the window clears.
+            if (this._isCameraMaintenanceActive() && this._liveSessions.has(camId)) {
+                this.log.debug(`[status] suppressing offline flip for ${camId.slice(0, 8)} — ` +
+                    `active cloud maintenance + local stream running`);
+                return;
+            }
             await this.setStateAsync(`cameras.${camId}.online`, false, true);
             // v0.7.2: notify on offline threshold reached
             await this._maybeannounceCameraStatus(camId, "offline");
         }
+    }
+    /**
+     * iOB-B2: true when a camera-relevant Bosch cloud maintenance window is
+     * currently ACTIVE. Reads the in-memory last-known window (synchronous, no
+     * cloud round-trip) so it is safe to call on the snapshot-failure hot path.
+     * Used to suppress the snapshot-driven offline flip while a camera is
+     * locally streaming.
+     */
+    _isCameraMaintenanceActive() {
+        const mw = this._lastMaintenanceWindow;
+        return mw !== null && mw.camera_relevant === true && (0, maintenance_1.classifyState)(mw) === "active";
     }
     /**
      * Reconcile `cameras.<id>.online` from the cloud (LAN-TCP → /ping →
@@ -8801,6 +8958,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     this.clearTimeout(timer);
                 }
                 this._snapshotIdleTimers.clear();
+                // iOB-B1: drop in-flight snapshot coalescing entries so a
+                // snapshot promise that resolves after teardown does not keep
+                // a reference / retry against a dead adapter. The fetch itself
+                // already bails via the `_isUnloading` guard in its retry loop.
+                this._snapshotInflight.clear();
                 // v0.5.3: cancel motion_active auto-clear timers so they
                 // don't fire after shutdown and try to write states on a
                 // dead adapter.

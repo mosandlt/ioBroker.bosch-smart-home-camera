@@ -13,6 +13,8 @@ import {
 } from "@mui/icons-material";
 
 import Generic from "./Generic";
+import { Go2rtcStream } from "./lib/go2rtc";
+import { formatLastEventLabel, shouldShowMaintBanner } from "./lib/event-label";
 
 const FONT =
     '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
@@ -103,19 +105,57 @@ const styles = {
         fontFamily: FONT,
     },
     overlayImg: { maxWidth: "96vw", maxHeight: "88vh", objectFit: "contain", borderRadius: 12 },
+    overlayVideo: { maxWidth: "96vw", maxHeight: "88vh", objectFit: "contain", borderRadius: 12, background: "#000" },
     closeBtn: { position: "absolute", top: 14, right: 14, color: "#fff", background: "rgba(0,0,0,.5)", width: 46, height: 46 },
+    // W4a: adapter-level maintenance banner (above the grid)
+    maintBanner: {
+        width: "100%",
+        padding: "7px 36px 7px 12px",
+        boxSizing: "border-box",
+        fontSize: 12,
+        fontWeight: 600,
+        color: "#fff",
+        background: "rgba(99,102,241,.92)",
+        position: "relative",
+        fontFamily: FONT,
+        flexShrink: 0,
+    },
+    maintDismiss: {
+        position: "absolute",
+        top: "50%",
+        right: 8,
+        transform: "translateY(-50%)",
+        width: 24,
+        height: 24,
+        lineHeight: "24px",
+        textAlign: "center",
+        borderRadius: "50%",
+        background: "rgba(0,0,0,.18)",
+        cursor: "pointer",
+        fontSize: 16,
+        touchAction: "manipulation",
+        color: "#fff",
+    },
 };
 
 class BoschOverview extends Generic {
     constructor(props) {
         super(props);
-        this.state.cams = {}; // camId -> {name,online,privacy,motion,light,lightAvail,snapshotUrl}
+        this.state.cams = {}; // camId -> {name,online,privacy,motion,light,lightAvail,snapshotUrl,lastEventAt,lastEventType}
         this.state.order = []; // discovered camId order
         this.state.expanded = null; // camId in fullscreen
+        // W4a: adapter-level maintenance
+        this.state.maintState = "none"; // info.maintenance.state value
+        this.state.maintTitle = ""; // info.maintenance.title value
+        this.state.maintDismissed = null; // value the user session-dismissed
+        this.state.expandStreamError = false; // W4c: go2rtc failed → fall back to snapshot
         this.instance = "0";
         this.subs = [];
         this.expandTimer = null;
         this._mounted = false;
+        // W4c: live stream in expanded overlay
+        this.videoRef = React.createRef();
+        this.expandStream = null; // active Go2rtcStream instance for expanded overlay
     }
 
     static getWidgetInfo() {
@@ -147,6 +187,21 @@ class BoschOverview extends Generic {
                         { name: "minWidth", type: "number", label: "Min tile width (px)", default: 320, hidden: 'data.columns !== "auto"' },
                         { name: "hideOffline", type: "checkbox", label: "Hide offline cameras", default: false },
                         { name: "showControls", type: "checkbox", label: "Show per-tile controls", default: true },
+                        // W4c: go2rtc config for expanded overlay live stream
+                        {
+                            name: "go2rtcUrl",
+                            type: "text",
+                            label: "go2rtc base URL (for expanded overlay)",
+                            tooltip: "e.g. http://192.168.1.50:1984 — enables WebRTC/HLS in the click-to-expand overlay. Leave empty to keep snapshot-only.",
+                            default: "",
+                        },
+                        {
+                            name: "go2rtcSrc",
+                            type: "text",
+                            label: "go2rtc stream name override",
+                            tooltip: "Optional fixed go2rtc source name used for ALL expanded cameras. Leave empty (recommended for multi-camera setups) to use each camera's own name.",
+                            default: "",
+                        },
                         { name: "noCard", type: "checkbox", label: "Without card" },
                         { name: "widgetTitle", type: "text", label: "Name", hidden: "!!data.noCard" },
                     ],
@@ -165,6 +220,10 @@ class BoschOverview extends Generic {
         return `bosch-smart-home-camera.${this.instance}.cameras.${camId}.${field}`;
     }
 
+    dpInfo(field) {
+        return `bosch-smart-home-camera.${this.instance}.${field}`;
+    }
+
     async componentDidMount() {
         super.componentDidMount();
         this._mounted = true;
@@ -174,10 +233,13 @@ class BoschOverview extends Generic {
     componentWillUnmount() {
         super.componentWillUnmount();
         this._mounted = false;
+        // W4c: tear down any live stream on unmount
+        this._stopExpandStream();
         this.teardown();
     }
 
     async onRxDataChanged() {
+        this._stopExpandStream();
         this.teardown();
         await this.discover();
     }
@@ -198,7 +260,7 @@ class BoschOverview extends Generic {
         const prefix = `bosch-smart-home-camera.${this.instance}.cameras.`;
         let camIds = [];
         try {
-            const view = await this.props.context.socket.getObjectViewSystem("channel", prefix, `${prefix}\u9999`);
+            const view = await this.props.context.socket.getObjectViewSystem("channel", prefix, `${prefix}香`);
             const ids = new Set();
             for (const id of Object.keys(view || {})) {
                 const rest = id.slice(prefix.length);
@@ -210,14 +272,36 @@ class BoschOverview extends Generic {
         }
         if (!this._mounted) return; // unmounted while the object view was in flight
         this.setState({ order: camIds });
+
+        // W4a: subscribe to adapter-level maintenance DPs (one banner for the whole overview)
+        this._subInfo("info.maintenance.state", v => this._mounted && this.setState({ maintState: v || "none" }));
+        this._subInfo("info.maintenance.title", v => this._mounted && this.setState({ maintTitle: v || "" }));
+
         for (const camId of camIds) {
             this._sub(camId, "name", v => this._patch(camId, { name: v || "" }));
             this._sub(camId, "online", v => this._patch(camId, { online: !!v }));
             this._sub(camId, "privacy_enabled", v => this._patch(camId, { privacy: !!v }));
             this._sub(camId, "motion_active", v => this._patch(camId, { motion: !!v }));
             this._sub(camId, "snapshot_url", v => this._patch(camId, { snapshotUrl: v || "" }));
+            // W4b: last-event timestamp + type per camera
+            this._sub(camId, "last_motion_at", v => this._patch(camId, { lastEventAt: v || "" }));
+            this._sub(camId, "last_motion_event_type", v => this._patch(camId, { lastEventType: v || "" }));
             this._subIf(camId, "front_light_enabled", v => this._patch(camId, { light: !!v, lightAvail: true }));
         }
+    }
+
+    // Subscribe to an adapter-level (non-camera) DP.
+    _subInfo(dpPath, apply) {
+        const id = this.dpInfo(dpPath);
+        const cb = (sid, state) => {
+            if (state) apply(state.val);
+        };
+        this.props.context.socket
+            .getState(id)
+            .then(st => st && cb(id, st))
+            .catch(() => {});
+        this.props.context.socket.subscribeState(id, cb);
+        this.subs.push({ id, cb });
     }
 
     _sub(camId, field, apply) {
@@ -308,14 +392,24 @@ class BoschOverview extends Generic {
     };
 
     expand(camId) {
-        this.setState({ expanded: camId });
-        // refresh the enlarged snapshot every 2s while open
+        // W4c: ALWAYS tear down any prior stream first — covers a same-camera
+        // re-expand AND a camera switch. _stopExpandStream bumps the generation so
+        // an in-flight _startExpandStream that lost the race aborts cleanly.
+        this._stopExpandStream();
+        this.setState({ expanded: camId, expandStreamError: false });
+        // refresh the enlarged snapshot every 2s while open (fallback when no go2rtcUrl)
         this._tick = Date.now();
         if (this.expandTimer) clearInterval(this.expandTimer);
         this.expandTimer = setInterval(() => {
             this._tick = Date.now();
             this.forceUpdate();
         }, 2000);
+        // W4c: start live stream if go2rtcUrl is configured
+        const base = (this.state.rxData.go2rtcUrl || "").replace(/\/$/, "");
+        if (base) {
+            // defer one tick so the <video> ref is mounted in the portal
+            setTimeout(() => this._startExpandStream(camId), 0);
+        }
     }
 
     closeExpand = () => {
@@ -323,13 +417,117 @@ class BoschOverview extends Generic {
             clearInterval(this.expandTimer);
             this.expandTimer = null;
         }
+        // W4c: stop any live stream when overlay closes
+        this._stopExpandStream();
         this.setState({ expanded: null });
     };
+
+    // ── W4c: expand overlay stream lifecycle ─────────────────────────────────
+
+    _stopExpandStream() {
+        // Bump the generation so any in-flight _startExpandStream aborts and stops
+        // its OWN local stream instead of orphaning it (rapid switch / re-expand).
+        this._expandGen = (this._expandGen || 0) + 1;
+        if (this.expandStream) {
+            try {
+                this.expandStream.stop();
+            } catch {
+                /* ignore */
+            }
+            this.expandStream = null;
+        }
+    }
+
+    async _startExpandStream(camId) {
+        if (!this._mounted) return;
+        const base = (this.state.rxData.go2rtcUrl || "").replace(/\/$/, "");
+        const c = this.state.cams[camId] || {};
+        const srcPrefix = (this.state.rxData.go2rtcSrc || "").trim();
+        const src = srcPrefix || c.name || camId;
+        if (!base || !src) return;
+
+        // Generation token: this start owns `gen`. Any _stopExpandStream() (close,
+        // switch, unmount) or a newer _startExpandStream bumps _expandGen, so a
+        // start that lost the race tears down ITS local stream rather than leaving
+        // a second Go2rtcStream running (the camera allows only ~3 sessions).
+        const gen = (this._expandGen = (this._expandGen || 0) + 1);
+        const stream = new Go2rtcStream({
+            baseUrl: base,
+            src,
+            onPhase: () => {},
+            onError: () => this._mounted && this.setState({ expandStreamError: true }),
+        });
+
+        // Wait one tick for the portal <video> to mount.
+        await new Promise(r => setTimeout(r, 0));
+        const video = this.videoRef.current;
+        if (gen !== this._expandGen || !this._mounted || this.state.expanded !== camId || !video) {
+            try {
+                stream.stop();
+            } catch {
+                /* ignore */
+            }
+            return;
+        }
+        this.expandStream = stream;
+        try {
+            await stream.start(video, { wantAudio: false, armed: false });
+        } catch {
+            try {
+                stream.stop();
+            } catch {
+                /* ignore */
+            }
+            if (this.expandStream === stream) this.expandStream = null;
+            if (this._mounted && gen === this._expandGen) this.setState({ expandStreamError: true });
+            return;
+        }
+        // Won the start but a stop/switch happened while awaiting → tear ours down.
+        if (gen !== this._expandGen || !this._mounted || this.state.expanded !== camId) {
+            try {
+                stream.stop();
+            } catch {
+                /* ignore */
+            }
+            if (this.expandStream === stream) this.expandStream = null;
+        }
+    }
+
+    // ── W4a: maintenance banner ───────────────────────────────────────────────
+
+    renderMaintBanner() {
+        if (!shouldShowMaintBanner(this.state.maintState, this.state.maintDismissed)) return null;
+        const m = this.state.maintState;
+        // Use title if available, otherwise fall back to generic text (mirrors BoschCamera pattern)
+        const txt = this.state.maintTitle
+            ? this.state.maintTitle
+            : m === "active"
+            ? Generic.t("Bosch cloud maintenance active")
+            : Generic.t("Bosch cloud maintenance scheduled");
+        return (
+            <div style={styles.maintBanner} className="maintenance-banner">
+                {txt}
+                <span
+                    role="button"
+                    aria-label={Generic.t("Dismiss")}
+                    title={Generic.t("Dismiss")}
+                    onClick={() => this.setState({ maintDismissed: m })}
+                    style={styles.maintDismiss}
+                >
+                    ×
+                </span>
+            </div>
+        );
+    }
 
     renderCell(camId) {
         const c = this.state.cams[camId] || {};
         const showControls = this.state.rxData.showControls !== false;
         const offline = c.online === false;
+
+        // W4b: last-event label for privacy tiles
+        const lastEvtLabel = formatLastEventLabel(c.lastEventAt, c.lastEventType, k => Generic.t(k));
+
         return (
             <div key={camId} style={styles.cell} onClick={() => this.expand(camId)}>
                 {offline ? (
@@ -343,6 +541,12 @@ class BoschOverview extends Generic {
                         <VisibilityOff style={{ fontSize: 38, color: "#8a8ad0", opacity: 0.85 }} />
                         <div style={{ fontSize: 13, fontWeight: 600, color: "#9a9aa8" }}>{c.name || ""}</div>
                         <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#8a8ad0" }}>{Generic.t("Privacy mode")}</div>
+                        {/* W4b: last-event timestamp on privacy tile */}
+                        {lastEvtLabel ? (
+                            <div className="privacy-badge" style={{ fontSize: 11, fontWeight: 500, color: "rgba(138,138,208,.8)" }}>
+                                {Generic.t("Last event")}: {lastEvtLabel}
+                            </div>
+                        ) : null}
                     </div>
                 ) : c.snapshotUrl ? (
                     <img style={styles.img} src={this.snapUrl(camId)} alt={c.name || ""} />
@@ -368,6 +572,12 @@ class BoschOverview extends Generic {
                         ) : null}
                         {c.motion ? <span style={{ ...styles.badge, background: "rgba(245,158,11,.9)" }}>{Generic.t("Motion")}</span> : null}
                         {c.privacy ? <span style={{ ...styles.badge, background: "rgba(99,102,241,.9)" }}>{Generic.t("Privacy")}</span> : null}
+                        {/* W4b: last-event badge on non-privacy online tiles */}
+                        {!c.privacy && lastEvtLabel ? (
+                            <span className="last-event-badge" style={{ ...styles.badge, background: "rgba(60,60,67,.75)" }}>
+                                {lastEvtLabel}
+                            </span>
+                        ) : null}
                     </span>
                 </div>
 
@@ -404,9 +614,22 @@ class BoschOverview extends Generic {
         const camId = this.state.expanded;
         if (!camId) return null;
         const c = this.state.cams[camId] || {};
+        const hasGo2rtc = !!(this.state.rxData.go2rtcUrl || "").trim();
+
         const overlay = (
             <div style={styles.overlay} onClick={this.closeExpand}>
-                {c.snapshotUrl ? (
+                {/* W4c: WebRTC/HLS <video> when go2rtc is configured AND healthy; on a
+                    stream error fall back to the snapshot <img> (no black overlay). */}
+                {hasGo2rtc && !this.state.expandStreamError ? (
+                    <video
+                        ref={this.videoRef}
+                        style={styles.overlayVideo}
+                        autoPlay
+                        playsInline
+                        muted
+                        onClick={e => e.stopPropagation()}
+                    />
+                ) : c.snapshotUrl ? (
                     <img style={styles.overlayImg} src={this.snapUrl(camId)} alt={c.name || ""} onClick={e => e.stopPropagation()} />
                 ) : (
                     <div style={{ color: "#9a9aa8" }}>{Generic.t("No snapshot URL — set snapshot_http_port in the adapter")}</div>
@@ -433,10 +656,30 @@ class BoschOverview extends Generic {
                 ? `repeat(auto-fill, minmax(min(${minW}px, 100%), 1fr))`
                 : `repeat(${cols}, minmax(0, 1fr))`;
 
+        // W4a: banner sits ABOVE the grid (wrapper flex column)
+        const banner = this.renderMaintBanner();
+
         let content;
         if (!sorted.length) {
-            content = <div style={styles.hint}>{Generic.t("No Bosch cameras found for this instance")}</div>;
+            content = (
+                <>
+                    {banner}
+                    <div style={styles.hint}>{Generic.t("No Bosch cameras found for this instance")}</div>
+                </>
+            );
+        } else if (banner) {
+            // Banner present → flex-column wrapper so the banner sits above the grid.
+            content = (
+                <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", boxSizing: "border-box" }}>
+                    {banner}
+                    <div style={{ ...styles.grid, gridTemplateColumns: gridTemplate, flex: "1 1 auto", minHeight: 0 }}>
+                        {sorted.map(id => this.renderCell(id))}
+                        {this.renderExpanded()}
+                    </div>
+                </div>
+            );
         } else {
+            // No active maintenance → original markup unchanged (no layout shift).
             content = (
                 <div style={{ ...styles.grid, gridTemplateColumns: gridTemplate }}>
                     {sorted.map(id => this.renderCell(id))}

@@ -55,7 +55,14 @@ const STREAM_COOLDOWN_MS = 5000;
 const OPTIMISTIC_REVERT_MS = 8000;
 const SNAP_VISIBLE_MS = 60000;
 const SNAP_HIDDEN_MS = 1800000;
-const VOL_KEY = "bosch_card_volume";
+// W2: per-camera volume localStorage key — imported from dedicated helper so
+// both the widget and unit tests can use the same function without JSX.
+import { buildVolumeKey, VOL_KEY_SHARED as _VOL_KEY_SHARED } from "./lib/storage-keys.js";
+// W3: per-camera audio registry — same-camera tiles mute each other, different
+// cameras stay independent (HA parity). Extracted to plain JS for unit testing.
+import { registerAudio as _boschAudioRegister, unregisterAudio as _boschAudioUnregister } from "./lib/audio-registry.js";
+// W4b: shared last-event label formatter (single source of truth with BoschOverview).
+import { formatLastEventLabel } from "./lib/event-label";
 
 // ── theme palette ───────────────────────────────────────────────────────────
 function palette(theme) {
@@ -388,6 +395,7 @@ class BoschCamera extends Generic {
         this.stream = null; // Go2rtcStream
         this.streamStartedAt = 0;
         this._mounted = false; // guards setState after async resolves post-unmount
+        this._lastGoodSrc = null; // W1: last successfully loaded snapshot URL (backdrop for offline/privacy)
         this.zoom = new ZoomController({ maxScale: 4 });
         this._onVisibility = this._onVisibility.bind(this);
         this._onPageHide = this._onPageHide.bind(this);
@@ -548,7 +556,13 @@ class BoschCamera extends Generic {
 
     _readStoredVolume() {
         try {
-            const v = parseFloat(window.localStorage.getItem(VOL_KEY));
+            // W2: prefer per-camera key; fall back to old shared key for migration.
+            const camKey = buildVolumeKey(this.camId || null);
+            let raw = window.localStorage.getItem(camKey);
+            if (raw === null && camKey !== _VOL_KEY_SHARED) {
+                raw = window.localStorage.getItem(_VOL_KEY_SHARED);
+            }
+            const v = parseFloat(raw);
             return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.7;
         } catch {
             return 0.7;
@@ -595,6 +609,8 @@ class BoschCamera extends Generic {
         // cards re-enable their PiP buttons.
         _boschPipCards.delete(this);
         if (_boschPipActive === this) _boschPipSetActive(null);
+        // W3: leave the audio registry so other instances can take over.
+        _boschAudioUnregister(this);
         document.removeEventListener("visibilitychange", this._onVisibility);
         window.removeEventListener("pagehide", this._onPageHide);
         window.removeEventListener("pageshow", this._onPageShow);
@@ -693,10 +709,27 @@ class BoschCamera extends Generic {
 
     async applyConfig() {
         const rawDp = this.state.rxData.cam_id_dp || "";
+        const prevCamId = this.camId;
         this.camId = BoschCamera.camIdFromDp(rawDp);
         this.instance = BoschCamera.instanceFromDp(rawDp);
         if (!this.camId) {
             return;
+        }
+        // W1: drop the cached backdrop frame when the widget is reconfigured to a
+        // different camera, so we never flash the previous camera's last frame.
+        if (this.camId !== prevCamId) {
+            this._lastGoodSrc = null;
+        }
+        // W2: the constructor read the volume with camId=null (shared-key
+        // fallback). Now that camId is resolved, re-read the per-camera value so
+        // a saved per-camera preference actually takes effect on mount.
+        const storedVol = this._readStoredVolume();
+        if (storedVol !== this.state.volume) {
+            this.setState({ volume: storedVol });
+            const vEl = this.videoRef.current;
+            if (vEl) {
+                vEl.volume = storedVol;
+            }
         }
 
         const subscribe = (field, apply) => {
@@ -837,6 +870,9 @@ class BoschCamera extends Generic {
         const img = this.videoRef.current;
         img.onload = () => {
             this.loadingFrame = false;
+            // W1: remember the last successfully loaded src so offline/privacy
+            // renderers can show it as a dimmed backdrop instead of a black screen.
+            this._lastGoodSrc = img.src;
             // first good frame → drop the loading veil that hides the empty/
             // broken <img> right after privacy turns off ("Bild nicht verfügbar").
             if (this._mounted && !this.state.frameLoaded) this.setState({ frameLoaded: true });
@@ -1285,12 +1321,25 @@ class BoschCamera extends Generic {
         } catch (_) { /* MediaMetadata constructor unavailable */ }
     }
 
+    // W3: called by _boschAudioRegister when another widget starts audio.
+    // Mutes this instance silently without toggling the audioOn flag — the user
+    // can tap the audio pill to unmute explicitly.
+    _autoMuteAudio() {
+        if (!this.state.audioOn) return; // already silent, nothing to do
+        this.setState({ audioOn: false });
+        const v = this.videoRef.current;
+        if (v) v.muted = true;
+        _boschAudioUnregister(this);
+    }
+
     toggleAudio = () => {
         const next = !this.state.audioOn;
         this.setState({ audioOn: next });
         const v = this.videoRef.current;
         if (v) {
             if (next) {
+                // W3: notify registry — mutes any other widget currently playing.
+                _boschAudioRegister(this);
                 Go2rtcStream.armAudioUnlock();
                 v.muted = false;
                 v.volume = this.state.volume;
@@ -1306,6 +1355,8 @@ class BoschCamera extends Generic {
                 }, 200);
             } else {
                 v.muted = true;
+                // W3: remove from registry when user explicitly mutes.
+                _boschAudioUnregister(this);
             }
         }
     };
@@ -1314,7 +1365,8 @@ class BoschCamera extends Generic {
         const vol = Math.min(1, Math.max(0, val));
         this.setState({ volume: vol });
         try {
-            window.localStorage.setItem(VOL_KEY, String(vol));
+            // W2: write to per-camera key so multiple widgets don't overwrite each other.
+            window.localStorage.setItem(buildVolumeKey(this.camId || null), String(vol));
         } catch {
             /* ignore */
         }
@@ -1481,11 +1533,22 @@ class BoschCamera extends Generic {
     }
 
     renderOffline() {
+        // W1: if a last-good snapshot exists, show it as a dimmed backdrop instead
+        // of a solid dark background — mirrors HA v13.7.1 offline-frame fix.
+        const backdrop = this._lastGoodSrc ? (
+            <img
+                src={this._lastGoodSrc}
+                alt=""
+                aria-hidden="true"
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.25, filter: "blur(2px)" }}
+            />
+        ) : null;
         return (
-            <div style={styles.offline}>
-                <VideocamOff style={{ fontSize: 46, opacity: 0.7 }} />
-                <div style={styles.offlineName}>{this.state.cam.name || ""}</div>
-                <div style={styles.offlineLabel}>{Generic.t("Offline")}</div>
+            <div style={{ ...styles.offline, position: "relative", overflow: "hidden" }}>
+                {backdrop}
+                <VideocamOff style={{ fontSize: 46, opacity: 0.7, position: "relative" }} />
+                <div style={{ ...styles.offlineName, position: "relative" }}>{this.state.cam.name || ""}</div>
+                <div style={{ ...styles.offlineLabel, position: "relative" }}>{Generic.t("Offline")}</div>
             </div>
         );
     }
@@ -1554,16 +1617,10 @@ class BoschCamera extends Generic {
     }
 
     _lastEventLabel() {
-        const t = this.state.cam.lastEventAt;
-        if (!t) return "";
-        try {
-            const d = new Date(t);
-            const timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-            const type = this.state.cam.lastEventType ? `${Generic.t(this.state.cam.lastEventType)} ` : "";
-            return `${type}${timeStr}`;
-        } catch {
-            return "";
-        }
+        // W4b: delegate to the shared helper so BoschCamera + BoschOverview never diverge.
+        return formatLastEventLabel(this.state.cam.lastEventAt, this.state.cam.lastEventType, k =>
+            Generic.t(k),
+        );
     }
 
     // ── render: pill bar ─────────────────────────────────────────────────────
@@ -2015,14 +2072,24 @@ class BoschCamera extends Generic {
         // the closest available — the HA snapshot-default needs a snapshot clock the
         // widget doesn't track). 2026-06-15 (parity HA v13.5.17 #17).
         const lastEvt = this._lastEventLabel();
+        // W1: show last-good snapshot as a dimmed backdrop (mirrors HA v13.7.1 privacy fix).
+        const backdrop = this._lastGoodSrc ? (
+            <img
+                src={this._lastGoodSrc}
+                alt=""
+                aria-hidden="true"
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.2, filter: "blur(3px)" }}
+            />
+        ) : null;
         return (
-            <div style={{ ...mediaStyle, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, background: "radial-gradient(circle at 50% 40%, #20203a, #0b0b10)" }}>
-                <VisibilityOff style={{ fontSize: 46, color: "#8a8ad0", opacity: 0.85 }} />
-                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", color: "#8a8ad0" }}>
+            <div style={{ ...mediaStyle, position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, background: "radial-gradient(circle at 50% 40%, #20203a, #0b0b10)" }}>
+                {backdrop}
+                <VisibilityOff style={{ fontSize: 46, color: "#8a8ad0", opacity: 0.85, position: "relative" }} />
+                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", color: "#8a8ad0", position: "relative" }}>
                     {Generic.t("Privacy mode")}
                 </div>
                 {lastEvt ? (
-                    <div style={{ fontSize: 11, fontWeight: 500, color: "rgba(138,138,208,.8)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 500, color: "rgba(138,138,208,.8)", position: "relative" }}>
                         {Generic.t("Last event")}: {lastEvt}
                     </div>
                 ) : null}

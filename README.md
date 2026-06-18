@@ -719,6 +719,14 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.7.0 (2026-06-18)
+Cross-version round porting the latest Home Assistant integration features and fixes.
+
+- **Daily event counters (new):** per-camera `events_today`, `movement_count` and `audio_count` datapoints, derived from the cloud event list and bucketed by **UTC** day (mirrors the HA sensors; UTC avoids the mis-count around local midnight). Refreshed on every poll so they roll over at UTC midnight without needing a new event.
+- **BoschOverview widget — live stream + status:** the expanded (click-to-enlarge) overlay now plays live **WebRTC/HLS** via go2rtc (grid tiles stay snapshot so the camera's ~3-session limit is respected), with a snapshot fallback on stream error. Added a cloud **maintenance banner** above the grid and a **last-event timestamp** badge per tile.
+- **Widget reliability:** per-camera volume/mute localStorage keys (multiple cameras no longer overwrite each other's volume); a second tile of the *same* camera auto-mutes the first (different cameras stay independent); offline/privacy tiles now show the last good frame as a dimmed backdrop instead of a black box.
+- **Backend fixes:** concurrent snapshot triggers for the same camera are coalesced onto one session/fetch (no double-open); a camera stays online during an active cloud-maintenance window while it is still locally streaming, instead of being flipped offline by the maintenance-related snapshot failures.
+
 ### 1.6.1 (2026-06-16)
 - **FCM push reliability:** the motion-event safety-net poll is no longer suppressed after a failed cloud fetch. A transient cloud hiccup during a push used to stamp the defer-timestamp *before* the fetch succeeded, keeping the safety poll quiet for up to 5 minutes and delaying motion detection. The defer-timestamp now advances only after a definitive response (+3 regression tests). Cross-version of the Home Assistant integration's event-poll fix.
 
