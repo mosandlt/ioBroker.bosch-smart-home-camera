@@ -719,6 +719,11 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.7.2 (2026-06-19)
+Cross-version port of the Home Assistant v13.7.4 fix.
+
+- **Picture-in-Picture freeze after a tab switch (fix):** with the live WebRTC stream floating in Picture-in-Picture (vis-2 widget overlay), switching to another browser tab for a while could freeze the floating window; returning to the tab resumed the in-page video but the floating window stayed frozen. A hidden tab heavily throttles the player's periodic stall check, and the underlying go2rtc WebRTC stream can quietly die in the background. The player now detects a freeze without that throttled timer — it watches for presented video frames (which keep flowing to a Picture-in-Picture window even while the tab is hidden) and listens for the WebRTC track going silent or the connection failing, then reconnects into the **same** floating window automatically with no interaction. The reconnect reuses the existing video element so Picture-in-Picture picks the stream straight back up.
+
 ### 1.7.1 (2026-06-18)
 - **Daily counters now bucket by local date (fix):** `events_today`, `movement_count` and `audio_count` were bucketed by UTC day, but Bosch event timestamps carry an explicit timezone offset (e.g. `+02:00[Europe/Berlin]`) — so events in the hours around local midnight were counted on the wrong day and the counters rolled over at UTC midnight instead of local midnight. They now bucket by each event's local calendar date, matching the Home Assistant integration (issue #34). `last_motion_at` and event freshness were already correct.
 

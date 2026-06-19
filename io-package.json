@@ -1,289 +1,289 @@
 {
-  "common": {
-    "name": "bosch-smart-home-camera",
-    "version": "1.7.1",
-    "news": {
-      "1.7.1": {
-        "en": "Daily counters (events_today/movement_count/audio_count) now bucket by each event's LOCAL date instead of UTC. Bosch timestamps carry a timezone offset, so the old UTC bucketing mis-counted near local midnight; counters roll over at local midnight.",
-        "de": "Die Tageszähler (events_today/movement_count/audio_count) gruppieren jetzt nach dem LOKALEN Datum statt nach UTC. Bosch-Zeitstempel haben einen Zeitzonen-Offset; die alte UTC-Gruppierung zählte nahe Mitternacht falsch. Zähler setzen um lokale Mitternacht zurück.",
-        "ru": "Ежедневные счетчики (events_today/movement_count/audio_count) теперь группируются по ЛОКАЛЬНОЙ дате каждого события, а не по всемирному координированному времени. Временные метки Bosch содержат смещение часового пояса, поэтому старая группировка UTC неправильно учитывалась около полуночи по местному времени; счетчики переворачиваются в полночь по местному времени.",
-        "pt": "Os contadores diários (events_today/movement_count/audio_count) agora são agrupados pela data LOCAL de cada evento em vez de UTC. Os carimbos de data e hora da Bosch carregam um deslocamento de fuso horário, portanto, o antigo intervalo UTC foi contado incorretamente perto da meia-noite local; os contadores rolam à meia-noite local.",
-        "nl": "Dagelijkse tellers (events_today/movement_count/audio_count) zijn nu gesegmenteerd op de LOKALE datum van elke gebeurtenis in plaats van op UTC. Bosch-tijdstempels hebben een tijdzoneafwijking, zodat de oude UTC-bucket rond lokale middernacht verkeerd werd geteld; de tellers lopen rond middernacht rond.",
-        "fr": "Les compteurs quotidiens (events_today/movement_count/audio_count) sont désormais regroupés par date LOCALE de chaque événement au lieu de UTC. Les horodatages Bosch comportent un décalage de fuseau horaire, de sorte que l'ancien regroupement UTC était mal compté vers minuit local ; les compteurs s'inversent à minuit local.",
-        "it": "I contatori giornalieri (events_today/movement_count/audio_count) ora vengono suddivisi in base alla data LOCALE di ciascun evento anziché a UTC. I timestamp Bosch portano un offset del fuso orario, quindi il vecchio bucket UTC veniva conteggiato erroneamente vicino alla mezzanotte locale; i contatori si spostano alla mezzanotte locale.",
-        "es": "Los contadores diarios (events_today/movement_count/audio_count) ahora se agrupan según la fecha LOCAL de cada evento en lugar de UTC. Las marcas de tiempo de Bosch llevan un desplazamiento de zona horaria, por lo que el antiguo agrupamiento UTC contaba mal cerca de la medianoche local; los contadores se dan vuelta a la medianoche local.",
-        "pl": "Liczniki dzienne (events_today/movement_count/audio_count) są teraz grupowane według LOKALNEJ daty każdego wydarzenia, a nie czasu UTC. Sygnatury czasowe firmy Bosch zawierają przesunięcie strefy czasowej, więc stare grupowanie UTC błędnie zliczyło blisko lokalnej północy; liczniki przechodzą o lokalnej północy.",
-        "uk": "Щоденні лічильники (events_today/movement_count/audio_count) тепер групуються за МІСЦЕВОЮ датою кожної події замість UTC. Часові мітки Bosch містять зміщення часового поясу, тому старе розбиття UTC неправильно враховувалося близько місцевої опівночі; лічильники перевертаються опівночі.",
-        "zh-cn": "每日计数器 (events_today/movement_count/audio_count) 现在按每个事件的本地日期而不是 UTC 进行存储。博世时间戳带有时区偏移量，因此旧的 UTC 分桶在当地午夜附近会被错误计数；计数器在当地午夜翻转。"
-      },
-      "1.7.0": {
-        "en": "Daily event counters (events_today/movement/audio, UTC). BoschOverview widget: live WebRTC/HLS in expanded view + maintenance banner + last-event badge. Per-camera volume; same-camera auto-mute; offline last-frame. Fixes: snapshot coalescing; stays online during cloud maintenance.",
-        "de": "Tages-Ereigniszähler (events_today/movement/audio, UTC). BoschOverview-Widget: Live-WebRTC/HLS in Großansicht + Wartungs-Banner + Letztes-Ereignis-Badge. Lautstärke pro Kamera; Auto-Stumm bei gleicher Kamera; Offline letztes Bild. Fixes: Snapshot-Coalescing; online bei Cloud-Wartung.",
-        "ru": "Счетчики ежедневных событий (events_today/movement/audio, UTC). Виджет BoschOverview: Live WebRTC/HLS в развернутом виде + баннер обслуживания + значок последнего события. Объем каждой камеры; автоматическое отключение звука на той же камере; оффлайн последний кадр. Исправления: объединение снимков; остается онлайн во время обслуживания облака.",
-        "pt": "Contadores de eventos diários (events_today/movement/audio, UTC). Widget BoschOverview: WebRTC/HLS ao vivo em visualização expandida + banner de manutenção + crachá do último evento. Volume por câmera; mudo automático da mesma câmera; offline last-frame. Correções: coalescência de instantâneos; permanece on-line durante a manutenção da nuvem.",
-        "nl": "Dagelijkse gebeurtenistellers (events_today/movement/audio, UTC). BoschOverview-widget: live WebRTC/HLS in uitgebreide weergave + onderhoudsbanner + badge van het laatste evenement. Volume per camera; automatisch dempen van dezelfde camera; offline last-frame. Oplossingen: samenvoegen van momentopnamen; blijft online tijdens cloudonderhoud.",
-        "fr": "Compteurs d'événements quotidiens (events_today/movement/audio, UTC). Widget BoschOverview : WebRTC/HLS en direct en vue étendue + bannière de maintenance + badge du dernier événement. Volume par caméra ; mise en sourdine automatique de la même caméra ; dernière image hors ligne. Correctifs : fusion d'instantanés ; reste en ligne pendant la maintenance du cloud.",
-        "it": "Contatori di eventi giornalieri (events_today/movement/audio, UTC). Widget BoschOverview: WebRTC/HLS live in visualizzazione espansa + banner di manutenzione + badge ultimo evento. Volume per fotocamera; silenziamento automatico della stessa fotocamera; ultimo fotogramma offline. Correzioni: coalescenza degli snapshot; rimane online durante la manutenzione del cloud.",
-        "es": "Contadores de eventos diarios (events_today/movement/audio, UTC). Widget BoschOverview: WebRTC/HLS en vivo en vista ampliada + banner de mantenimiento + insignia del último evento. Volumen por cámara; silencio automático en la misma cámara; último fotograma sin conexión. Correcciones: fusión de instantáneas; permanece en línea durante el mantenimiento de la nube.",
-        "pl": "Codzienne liczniki zdarzeń (events_today/movement/audio, UTC). Widget BoschOverview: WebRTC/HLS na żywo w widoku rozszerzonym + baner konserwacji + plakietka ostatniego wydarzenia. Głośność na kamerę; automatyczne wyciszenie tej samej kamery; ostatnia klatka w trybie offline. Poprawki: łączenie migawek; pozostaje online podczas konserwacji chmury.",
-        "uk": "Щоденні лічильники подій (events_today/movement/audio, UTC). Віджет BoschOverview: Live WebRTC/HLS у розгорнутому вигляді + банер обслуговування + значок останньої події. Обсяг на камеру; автоматичне відключення звуку тієї ж камери; офлайн останній кадр. Виправлення: об'єднання знімків; залишається онлайн під час обслуговування хмари.",
-        "zh-cn": "每日事件计数器（events_today/movement/audio，UTC）。 BoschOverview 小部件：扩展视图中的实时 WebRTC/HLS + 维护横幅 + 最后事件徽章。每个摄像机的音量；同机自动静音；离线最后一帧。修复：快照合并；云维护期间保持在线。"
-      },
-      "1.6.1": {
-        "en": "FCM push reliability: the safety-net event poll is no longer suppressed after a failed cloud fetch, so motion detection recovers on the next tick instead of staying quiet for up to 5 minutes after a brief cloud hiccup.",
-        "de": "FCM-Push-Zuverlässigkeit: Der Sicherheits-Poll für Events wird nach einem fehlgeschlagenen Cloud-Abruf nicht mehr unterdrückt — die Bewegungserkennung erholt sich beim nächsten Durchlauf, statt nach einem kurzen Cloud-Aussetzer bis zu 5 Minuten stumm zu bleiben.",
-        "ru": "Надежность push-уведомлений FCM: опрос событий сети безопасности больше не подавляется после неудачной выборки облака, поэтому обнаружение движения восстанавливается на следующем такте, а не остается тихим в течение 5 минут после кратковременного сбоя в облаке.",
-        "pt": "Confiabilidade de push do FCM: a pesquisa de eventos da rede de segurança não é mais suprimida após uma falha na busca da nuvem, portanto, a detecção de movimento se recupera no próximo tick, em vez de permanecer silenciosa por até 5 minutos após um breve soluço na nuvem.",
-        "nl": "FCM-pushbetrouwbaarheid: de vangnet-gebeurtenispoll wordt niet langer onderdrukt na een mislukte cloud-ophaalactie, zodat de bewegingsdetectie zich herstelt bij de volgende tik in plaats van tot 5 minuten stil te blijven na een korte cloud-hik.",
-        "fr": "Fiabilité du push FCM : l'interrogation des événements du filet de sécurité n'est plus supprimée après un échec de récupération dans le cloud, de sorte que la détection de mouvement récupère au prochain tick au lieu de rester silencieuse pendant 5 minutes maximum après un bref hoquet dans le cloud.",
-        "it": "Affidabilità push FCM: il sondaggio degli eventi della rete di sicurezza non viene più soppresso dopo un recupero del cloud non riuscito, quindi il rilevamento del movimento viene ripristinato al tick successivo invece di rimanere silenzioso fino a 5 minuti dopo un breve singhiozzo del cloud.",
-        "es": "Fiabilidad de inserción de FCM: la encuesta de eventos de la red de seguridad ya no se suprime después de una búsqueda fallida de la nube, por lo que la detección de movimiento se recupera en el siguiente tic en lugar de permanecer en silencio durante hasta 5 minutos después de un breve problema en la nube.",
-        "pl": "Niezawodność wypychania FCM: ankieta dotycząca zdarzeń sieci bezpieczeństwa nie jest już tłumiona po nieudanym pobraniu chmury, więc wykrywanie ruchu zostaje wznowione przy następnym taktowaniu, zamiast pozostawać cicho przez maksymalnie 5 minut po krótkim przerwaniu w chmurze.",
-        "uk": "Надійність FCM push: опитування подій мережі безпеки більше не пригнічується після невдалої вибірки хмари, тому виявлення руху відновлюється на наступному тику, а не залишається тихим до 5 хвилин після короткої хмарної гикавки.",
-        "zh-cn": "FCM 推送可靠性：云获取失败后，安全网事件轮询不再受到抑制，因此运动检测会在下一个滴答声中恢复，而不是在短暂的云中断后保持安静长达 5 分钟。"
-      },
-      "1.6.0": {
-        "en": "Cross-platform widget and adapter reliability round. iOS Picture-in-Picture now works (WebKit fallback); the volume control is reachable by touch; audio recovers after Android background/doze. Fixed a PiP listener leak and a mute-state conflict on reconnect. The motion-event safety-net poll now survives a push reconnect, and shutdown-time timer warnings are gone.",
-        "de": "Plattformübergreifende Zuverlässigkeitsrunde für Widget und Adapter. iOS Picture-in-Picture funktioniert jetzt (WebKit-Fallback); die Lautstärke ist per Touch erreichbar; Audio erholt sich nach Android-Hintergrund/Doze. PiP-Listener-Leck und Mute-Konflikt beim Reconnect behoben. Der Bewegungs-Sicherheitspoll überlebt jetzt einen Push-Reconnect, Timer-Warnungen beim Herunterfahren sind weg.",
-        "ru": "Кроссплатформенная надёжность виджета и адаптера. iOS Picture-in-Picture теперь работает (WebKit-фолбэк); регулятор громкости доступен касанием; аудио восстанавливается после фона/сна Android. Исправлены утечка PiP-слушателя и конфликт mute при реконнекте. Опрос безопасности движений выдерживает push-реконнект; предупреждения таймера выключения устранены.",
-        "pt": "Widget multiplataforma e fiabilidade do adaptador. iOS Picture-in-Picture funciona agora (fallback WebKit); volume acessível por toque; áudio recupera após fundo/soneca Android. Corrigidos vazamento de listener PiP e conflito de mudo ao reconectar. O poll de segurança de movimento sobrevive a uma reconexão push; avisos de timer de encerramento eliminados.",
-        "nl": "Platformoverschrijdende widget- en adapterbetrouwbaarheid. iOS Picture-in-Picture werkt nu (WebKit-fallback); volume bereikbaar via aanraking; audio herstelt na Android-achtergrond/slaapstand. PiP-listener-lek en mute-conflict bij herverbinding opgelost. De veiligheidspeiling voor bewegingsgebeurtenissen overleeft push-herverbinding; timerwaarschuwingen bij afsluiten zijn weg.",
-        "fr": "Fiabilité multiplateforme du widget et de l'adaptateur. iOS Picture-in-Picture fonctionne (fallback WebKit); volume accessible au toucher; audio récupère après arrière-plan/veille Android. Fuite d'écouteur PiP et conflit muet à la reconnexion corrigés. Le sondage de sécurité de mouvement survit à une reconnexion push; alertes du minuteur d'arrêt supprimées.",
-        "it": "Affidabilità multipiattaforma di widget e adattatore. iOS Picture-in-Picture funziona ora (fallback WebKit); volume accessibile al tocco; audio si ripristina dopo sfondo/sonnellino Android. Corretti perdita listener PiP e conflitto mute alla riconnessione. Il sondaggio di sicurezza movimento sopravvive a riconnessione push; avvisi timer spegnimento eliminati.",
-        "es": "Fiabilidad multiplataforma de widget y adaptador. iOS Picture-in-Picture funciona ahora (respaldo WebKit); volumen accesible al tacto; audio se recupera tras fondo/suspensión Android. Corregidos fuga de listener PiP y conflicto de silencio al reconectar. El sondeo de seguridad de movimiento sobrevive a reconexión push; avisos del temporizador de apagado eliminados.",
-        "pl": "Wieloplatformowa niezawodność widżetu i adaptera. iOS PiP działa teraz (fallback WebKit); głośność dostępna dotykowo; dźwięk wraca po tle/uśpieniu Android. Naprawiono wyciek słuchacza PiP i konflikt wyciszenia przy ponownym połączeniu. Odpytywanie bezpieczeństwa ruchu przetrwa push-reconnect; ostrzeżenia timera wyłączania zniknęły.",
-        "uk": "Кросплатформна надійність віджета та адаптера. iOS Picture-in-Picture тепер працює (WebKit-фолбек); гучність доступна дотиком; аудіо відновлюється після фону/сну Android. Виправлено витік слухача PiP та конфлікт mute при реконекті. Опитування безпеки руху виживає push-реконект; попередження таймера вимкнення усунено.",
-        "zh-cn": "跨平台小部件和适配器可靠性回合。 iOS 画中画现在可以使用（WebKit 后备）；音量控制可通过触摸进行； Android 后台/打瞌睡后音频恢复。修复了画中画侦听器泄漏和重新连接时的静音状态冲突。运动事件安全网轮询现在可以在推送重新连接后继续存在，并且关闭时间计时器警告也消失了。"
-      },
-      "1.5.7": {
-        "en": "Cross-version parity with HA v13.5.17: live sound survives an auto-reconnect; stream recovers on tab return / bfcache; audio & PiP buttons hide when idle; corner-flicker fixed; ICE 'disconnected' no longer forces premature HLS; maintenance banner dismissable; privacy placeholder shows last-event time.",
-        "de": "Cross-Version-Parität zu HA v13.5.17: Live-Ton übersteht Auto-Reconnect; Stream erholt sich bei Tab-Rückkehr/bfcache; Audio- & PiP-Buttons aus wenn idle; Ecken-Flacker behoben; ICE 'disconnected' erzwingt kein vorzeitiges HLS; Wartungsbanner schließbar; Privacy zeigt Letztes-Ereignis-Zeit.",
-        "ru": "Паритет с HA v13.5.17: звук переживает авто-переподключение; поток восстанавливается при возврате вкладки/bfcache; кнопки звука и PiP скрыты в простое; исправлено мерцание углов; ICE 'disconnected' больше не вызывает преждевременный HLS; баннер обслуживания закрывается; приватность показывает время события.",
-        "pt": "Paridade com HA v13.5.17: o som sobrevive a uma reconexão automática; o stream recupera ao voltar à aba/bfcache; botões de áudio e PiP ocultos quando inativo; cintilação de cantos corrigida; ICE 'disconnected' já não força HLS prematuro; banner de manutenção dispensável; privacidade mostra a hora do último evento.",
-        "nl": "Pariteit met HA v13.5.17: geluid overleeft een auto-herverbinding; stream herstelt bij terugkeer naar tab/bfcache; audio- & PiP-knoppen verborgen bij inactief; hoekflikkering opgelost; ICE 'disconnected' forceert geen voortijdige HLS meer; onderhoudsbanner sluitbaar; privacy toont tijd laatste gebeurtenis.",
-        "fr": "Parité avec HA v13.5.17 : le son survit à une reconnexion automatique ; le flux récupère au retour d'onglet/bfcache ; boutons audio et PiP masqués à l'arrêt ; scintillement des coins corrigé ; ICE 'disconnected' ne force plus un HLS prématuré ; bannière de maintenance fermable ; confidentialité affiche l'heure du dernier événement.",
-        "it": "Parità con HA v13.5.17: l'audio sopravvive a una riconnessione automatica; lo stream si riprende al ritorno della scheda/bfcache; pulsanti audio e PiP nascosti quando inattivo; sfarfallio angoli risolto; ICE 'disconnected' non forza più un HLS prematuro; banner manutenzione chiudibile; privacy mostra l'ora dell'ultimo evento.",
-        "es": "Paridad con HA v13.5.17: el sonido sobrevive a una reconexión automática; el stream se recupera al volver a la pestaña/bfcache; botones de audio y PiP ocultos en reposo; parpadeo de esquinas corregido; ICE 'disconnected' ya no fuerza HLS prematuro; banner de mantenimiento descartable; privacidad muestra la hora del último evento.",
-        "pl": "Parytet z HA v13.5.17: dźwięk przetrwa auto-ponowne połączenie; strumień wraca po powrocie karty/bfcache; przyciski audio i PiP ukryte w bezczynności; naprawiono migotanie rogów; ICE 'disconnected' nie wymusza przedwczesnego HLS; baner konserwacji można zamknąć; prywatność pokazuje czas ostatniego zdarzenia.",
-        "uk": "Паритет з HA v13.5.17: звук переживає авто-перепідключення; потік відновлюється при поверненні вкладки/bfcache; кнопки звуку та PiP приховані в простої; виправлено мерехтіння кутів; ICE 'disconnected' більше не примушує передчасний HLS; банер обслуговування закривається; приватність показує час останньої події.",
-        "zh-cn": "与 HA v13.5.17 同步：声音在自动重连后保留；返回标签页/bfcache 时恢复流；空闲时隐藏音频和画中画按钮；修复边角闪烁；ICE 'disconnected' 不再强制过早回退 HLS；维护横幅可关闭；隐私占位显示最近事件时间。"
-      },
-      "1.5.6": {
-        "en": "Widget: Picture-in-Picture for the live WebRTC view. Float the stream in an always-on-top window that shows the camera name; while one camera floats, the PiP button on the others greys out (the browser allows only one PiP window). The window survives a stream reconnect. Hidden where the browser has no PiP support.",
-        "de": "Widget: Bild-im-Bild für die Live-WebRTC-Ansicht. Stream in einem immer-im-Vordergrund-Fenster mit Kameranamen; solange eine Kamera schwebt, wird der PiP-Button der anderen ausgegraut (der Browser erlaubt nur ein PiP-Fenster). Das Fenster übersteht einen Stream-Reconnect. Ausgeblendet wo der Browser kein PiP kann.",
-        "ru": "Виджет: «Картинка в картинке» для просмотра WebRTC в реальном времени. Перемещайте поток в постоянно расположенном окне, в котором отображается имя камеры; пока одна камера плавает, кнопка PiP на других становится серой (браузер допускает только одно окно PiP). Окно выдерживает повторное подключение потока. Скрыто там, где браузер не поддерживает PiP.",
-        "pt": "Widget: Picture-in-Picture para visualização WebRTC ao vivo. Flutue o stream em uma janela sempre visível que mostra o nome da câmera; enquanto uma câmera flutua, o botão PiP nas outras fica cinza (o navegador permite apenas uma janela PiP). A janela sobrevive a uma reconexão de fluxo. Oculto onde o navegador não tem suporte para PiP.",
-        "nl": "Widget: Picture-in-Picture voor de live WebRTC-weergave. Zweef de stream in een altijd zichtbaar venster waarin de cameranaam wordt weergegeven; terwijl één camera zweeft, wordt de PiP-knop op de andere grijs weergegeven (de browser staat slechts één PiP-venster toe). Het venster overleeft een hernieuwde stroomverbinding. Verborgen waar de browser geen PiP-ondersteuning heeft.",
-        "fr": "Widget : Picture-in-Picture pour la vue WebRTC en direct. Faites flotter le flux dans une fenêtre toujours visible qui affiche le nom de la caméra ; tandis qu'une caméra flotte, le bouton PiP des autres est grisé (le navigateur n'autorise qu'une seule fenêtre PiP). La fenêtre survit à une reconnexion de flux. Caché là où le navigateur ne prend pas en charge PiP.",
-        "it": "Widget: Picture-in-Picture per la visualizzazione WebRTC live. Visualizza lo streaming in una finestra sempre in primo piano che mostra il nome della telecamera; mentre una telecamera fluttua, il pulsante PiP sulle altre diventa grigio (il browser consente solo una finestra PiP). La finestra sopravvive alla riconnessione del flusso. Nascosto dove il browser non ha supporto PiP.",
-        "es": "Widget: Imagen en imagen para la vista WebRTC en vivo. Haga flotar la transmisión en una ventana siempre visible que muestra el nombre de la cámara; Mientras una cámara flota, el botón PiP de las demás se vuelve gris (el navegador solo permite una ventana PiP). La ventana sobrevive a una reconexión de transmisión. Oculto donde el navegador no admite PiP.",
-        "pl": "Widget: Obraz w obrazie do podglądu na żywo WebRTC. Wyświetlaj strumień w zawsze widocznym na górze oknie, które pokazuje nazwę kamery; gdy jedna kamera unosi się w powietrzu, przycisk PiP na pozostałych jest szary (przeglądarka umożliwia tylko jedno okno PiP). Okno przetrwa ponowne połączenie strumienia. Ukryty tam, gdzie przeglądarka nie obsługuje PiP.",
-        "uk": "Віджет: Картинка в картинці для перегляду WebRTC у реальному часі. Переміщайте потік у вікно, що завжди знаходиться зверху, у якому відображається назва камери; поки одна камера плаває, кнопки PiP на інших неактивні (браузер дозволяє лише одне вікно PiP). Вікно переживає повторне підключення потоку. Приховано, якщо браузер не підтримує PiP.",
-        "zh-cn": "小部件：实时 WebRTC 视图的画中画。将流浮动在显示摄像机名称的始终位于顶部的窗口中；当一台摄像机浮动时，其他摄像机上的画中画按钮会变灰（浏览器只允许一个画中画窗口）。该窗口在流重新连接后仍然存在。隐藏在浏览器不支持画中画的地方。"
-      },
-      "1.5.5": {
-        "en": "Settings page reorganised into clear tabs (Connection, RTSP / Stream, Events, API requests, MQTT). The always-on RTSP endpoint option moved to the RTSP / Stream tab, next to the other recorder settings. Polished the German translations of the stream settings. Internal: simultaneous recorder connections to the always-on endpoint now share one Bosch session instead of racing to open several.",
-        "de": "Einstellungsseite in klare Tabs aufgeteilt (Verbindung, RTSP / Stream, Ereignisse, API-Anfragen, MQTT). Die Option für den dauerhaft erreichbaren RTSP-Endpunkt liegt jetzt im Tab RTSP / Stream bei den anderen Recorder-Einstellungen. Deutsche Übersetzungen der Stream-Einstellungen überarbeitet. Intern: gleichzeitige Recorder-Verbindungen teilen sich nun eine Bosch-Sitzung.",
-        "ru": "Страница настроек разбита на понятные вкладки (Соединение, RTSP / Stream, События, Запросы API, MQTT). Опция постоянно доступного RTSP-эндпоинта перемещена на вкладку RTSP / Stream рядом с другими настройками рекордеров. Улучшены немецкие переводы настроек потока. Внутри: одновременные подключения рекордеров теперь используют одну сессию Bosch.",
-        "pt": "Página de configurações reorganizada em abas claras (Conexão, RTSP / Stream, Eventos, Pedidos de API, MQTT). A opção de endpoint RTSP sempre disponível foi movida para a aba RTSP / Stream, junto às outras configurações de gravadores. Traduções alemãs das configurações de stream revisadas. Interno: conexões simultâneas de gravadores agora compartilham uma sessão Bosch.",
-        "nl": "Instellingenpagina opnieuw ingedeeld in duidelijke tabbladen (Verbinding, RTSP / Stream, Gebeurtenissen, API-verzoeken, MQTT). De optie voor het altijd-bereikbare RTSP-eindpunt staat nu op het tabblad RTSP / Stream, naast de andere recorderinstellingen. Duitse vertalingen van de streaminstellingen verbeterd. Intern: gelijktijdige recorderverbindingen delen nu één Bosch-sessie.",
-        "fr": "Page de paramètres réorganisée en onglets clairs (Connexion, RTSP / Stream, Événements, Requêtes API, MQTT). L'option de point de terminaison RTSP toujours disponible déplacée vers l'onglet RTSP / Stream. Traductions allemandes des réglages de flux peaufinées. Interne : les connexions simultanées d'enregistreurs partagent désormais une seule session Bosch.",
-        "it": "Pagina delle impostazioni riorganizzata in schede chiare (Connessione, RTSP / Stream, Eventi, Richieste API, MQTT). L'opzione dell'endpoint RTSP sempre disponibile spostata nella scheda RTSP / Stream. Migliorate le traduzioni tedesche delle impostazioni di stream. Interno: connessioni simultanee dei registratori ora condividono una sola sessione Bosch.",
-        "es": "Página de ajustes reorganizada en pestañas claras (Conexión, RTSP / Stream, Eventos, Solicitudes de API, MQTT). La opción del punto final RTSP siempre disponible se movió a la pestaña RTSP / Stream, junto a los demás ajustes de grabadores. Mejoradas las traducciones alemanas de los ajustes de transmisión. Interno: las conexiones simultáneas de grabadores ahora comparten una sola sesión de Bosch.",
-        "pl": "Strona ustawień podzielona na czytelne karty (Połączenie, RTSP / Stream, Zdarzenia, Żądania API, MQTT). Opcja zawsze dostępnego punktu końcowego RTSP przeniesiona na kartę RTSP / Stream, obok innych ustawień rejestratorów. Dopracowano niemieckie tłumaczenia ustawień strumienia. Wewnętrznie: jednoczesne połączenia rejestratorów dzielą teraz jedną sesję Bosch.",
-        "uk": "Сторінку налаштувань поділено на зрозумілі вкладки (З'єднання, RTSP / Stream, Події, Запити API, MQTT). Опцію постійно доступного RTSP-кінцевого пункту перенесено на вкладку RTSP / Stream. Покращено німецькі переклади налаштувань потоку. Внутрішньо: одночасні підключення рекордерів тепер спільно використовують одну сесію Bosch.",
-        "zh-cn": "设置页面重新组织为清晰的选项卡（连接、RTSP / Stream、事件、API 请求、MQTT）。常驻 RTSP 端点选项移至 RTSP / Stream 选项卡，与其他录像机设置相邻。改进了流设置的德语翻译。内部：录像机的并发连接现在共享一个 Bosch 会话，而不是竞相打开多个会话。"
-      }
+    "common": {
+        "name": "bosch-smart-home-camera",
+        "version": "1.7.2",
+        "news": {
+            "1.7.2": {
+                "en": "Live WebRTC player: a frozen Picture-in-Picture window after switching browser tabs now recovers automatically. The player detects a background freeze via presented-frame and WebRTC track/connection events (not a throttled timer) and reconnects into the same floating window with no interaction.",
+                "de": "Live-WebRTC-Player: Ein eingefrorenes Bild-im-Bild-Fenster nach einem Browser-Tab-Wechsel wird jetzt automatisch wiederhergestellt. Der Player erkennt das Einfrieren im Hintergrund über Frame- und WebRTC-Track/Verbindungs-Ereignisse statt über einen gedrosselten Timer und verbindet sich im selben Fenster neu.",
+                "ru": "Live WebRTC-плеер: зависшее окно «картинка в картинке» после переключения вкладок браузера теперь восстанавливается автоматически. Плеер обнаруживает зависание фона с помощью представленного кадра и событий отслеживания/соединения WebRTC (а не регулируемого таймера) и повторно подключается к тому же плавающему окну без какого-либо взаимодействия.",
+                "pt": "Player WebRTC ao vivo: uma janela Picture-in-Picture congelada após alternar as guias do navegador agora se recupera automaticamente. O player detecta um congelamento de fundo por meio de eventos de quadro apresentado e de rastreamento/conexão WebRTC (não um temporizador acelerado) e se reconecta na mesma janela flutuante sem interação.",
+                "nl": "Live WebRTC-speler: een bevroren Picture-in-Picture-venster na het wisselen van browsertabblad wordt nu automatisch hersteld. De speler detecteert een achtergrondbevriezing via gepresenteerde frame- en WebRTC-track-/verbindingsgebeurtenissen (geen gesmoorde timer) en maakt opnieuw verbinding met hetzelfde zwevende venster zonder enige interactie.",
+                "fr": "Lecteur WebRTC en direct : une fenêtre Picture-in-Picture gelée après avoir changé d'onglet du navigateur est désormais automatiquement récupérée. Le lecteur détecte un gel en arrière-plan via l'image présentée et les événements de piste/connexion WebRTC (et non une minuterie limitée) et se reconnecte à la même fenêtre flottante sans interaction.",
+                "it": "Lettore WebRTC live: una finestra Picture-in-Picture bloccata dopo aver cambiato scheda del browser ora si ripristina automaticamente. Il lettore rileva un blocco dello sfondo tramite eventi di tracciamento/connessione WebRTC e frame presentati (non un timer limitato) e si riconnette alla stessa finestra mobile senza interazione.",
+                "es": "Reproductor WebRTC en vivo: una ventana Imagen en imagen congelada después de cambiar de pestaña del navegador ahora se recupera automáticamente. El reproductor detecta una congelación de fondo a través del cuadro presentado y eventos de seguimiento/conexión WebRTC (no un temporizador acelerado) y se vuelve a conectar a la misma ventana flotante sin interacción.",
+                "pl": "Odtwarzacz WebRTC na żywo: zamrożone okno obrazu w obrazie po przełączeniu kart przeglądarki odtwarza się teraz automatycznie. Odtwarzacz wykrywa zawieszenie w tle poprzez prezentowaną klatkę i zdarzenia śledzenia/połączenia WebRTC (nie przez zegar ograniczający przepustowość) i ponownie łączy się z tym samym pływającym oknem bez interakcji.",
+                "uk": "Живий плеєр WebRTC: зависле вікно «Картинка в картинці» після перемикання вкладок браузера тепер відновлюється автоматично. Програвач виявляє фонове зависання за допомогою представленого кадру та подій доріжки/з’єднання WebRTC (а не придушеного таймера) і повторно підключається до того самого плаваючого вікна без взаємодії.",
+                "zh-cn": "Live WebRTC 播放器：切换浏览器选项卡后冻结的画中画窗口现在可以自动恢复。播放器通过呈现帧和 WebRTC 跟踪/连接事件（不是节流计时器）检测到背景冻结，并重新连接到同一浮动窗口，无需交互。"
+            },
+            "1.7.1": {
+                "en": "Daily counters (events_today/movement_count/audio_count) now bucket by each event's LOCAL date instead of UTC. Bosch timestamps carry a timezone offset, so the old UTC bucketing mis-counted near local midnight; counters roll over at local midnight.",
+                "de": "Die Tageszähler (events_today/movement_count/audio_count) gruppieren jetzt nach dem LOKALEN Datum statt nach UTC. Bosch-Zeitstempel haben einen Zeitzonen-Offset; die alte UTC-Gruppierung zählte nahe Mitternacht falsch. Zähler setzen um lokale Mitternacht zurück.",
+                "ru": "Ежедневные счетчики (events_today/movement_count/audio_count) теперь группируются по ЛОКАЛЬНОЙ дате каждого события, а не по всемирному координированному времени. Временные метки Bosch содержат смещение часового пояса, поэтому старая группировка UTC неправильно учитывалась около полуночи по местному времени; счетчики переворачиваются в полночь по местному времени.",
+                "pt": "Os contadores diários (events_today/movement_count/audio_count) agora são agrupados pela data LOCAL de cada evento em vez de UTC. Os carimbos de data e hora da Bosch carregam um deslocamento de fuso horário, portanto, o antigo intervalo UTC foi contado incorretamente perto da meia-noite local; os contadores rolam à meia-noite local.",
+                "nl": "Dagelijkse tellers (events_today/movement_count/audio_count) zijn nu gesegmenteerd op de LOKALE datum van elke gebeurtenis in plaats van op UTC. Bosch-tijdstempels hebben een tijdzoneafwijking, zodat de oude UTC-bucket rond lokale middernacht verkeerd werd geteld; de tellers lopen rond middernacht rond.",
+                "fr": "Les compteurs quotidiens (events_today/movement_count/audio_count) sont désormais regroupés par date LOCALE de chaque événement au lieu de UTC. Les horodatages Bosch comportent un décalage de fuseau horaire, de sorte que l'ancien regroupement UTC était mal compté vers minuit local ; les compteurs s'inversent à minuit local.",
+                "it": "I contatori giornalieri (events_today/movement_count/audio_count) ora vengono suddivisi in base alla data LOCALE di ciascun evento anziché a UTC. I timestamp Bosch portano un offset del fuso orario, quindi il vecchio bucket UTC veniva conteggiato erroneamente vicino alla mezzanotte locale; i contatori si spostano alla mezzanotte locale.",
+                "es": "Los contadores diarios (events_today/movement_count/audio_count) ahora se agrupan según la fecha LOCAL de cada evento en lugar de UTC. Las marcas de tiempo de Bosch llevan un desplazamiento de zona horaria, por lo que el antiguo agrupamiento UTC contaba mal cerca de la medianoche local; los contadores se dan vuelta a la medianoche local.",
+                "pl": "Liczniki dzienne (events_today/movement_count/audio_count) są teraz grupowane według LOKALNEJ daty każdego wydarzenia, a nie czasu UTC. Sygnatury czasowe firmy Bosch zawierają przesunięcie strefy czasowej, więc stare grupowanie UTC błędnie zliczyło blisko lokalnej północy; liczniki przechodzą o lokalnej północy.",
+                "uk": "Щоденні лічильники (events_today/movement_count/audio_count) тепер групуються за МІСЦЕВОЮ датою кожної події замість UTC. Часові мітки Bosch містять зміщення часового поясу, тому старе розбиття UTC неправильно враховувалося близько місцевої опівночі; лічильники перевертаються опівночі.",
+                "zh-cn": "每日计数器 (events_today/movement_count/audio_count) 现在按每个事件的本地日期而不是 UTC 进行存储。博世时间戳带有时区偏移量，因此旧的 UTC 分桶在当地午夜附近会被错误计数；计数器在当地午夜翻转。"
+            },
+            "1.7.0": {
+                "en": "Daily event counters (events_today/movement/audio, UTC). BoschOverview widget: live WebRTC/HLS in expanded view + maintenance banner + last-event badge. Per-camera volume; same-camera auto-mute; offline last-frame. Fixes: snapshot coalescing; stays online during cloud maintenance.",
+                "de": "Tages-Ereigniszähler (events_today/movement/audio, UTC). BoschOverview-Widget: Live-WebRTC/HLS in Großansicht + Wartungs-Banner + Letztes-Ereignis-Badge. Lautstärke pro Kamera; Auto-Stumm bei gleicher Kamera; Offline letztes Bild. Fixes: Snapshot-Coalescing; online bei Cloud-Wartung.",
+                "ru": "Счетчики ежедневных событий (events_today/movement/audio, UTC). Виджет BoschOverview: Live WebRTC/HLS в развернутом виде + баннер обслуживания + значок последнего события. Объем каждой камеры; автоматическое отключение звука на той же камере; оффлайн последний кадр. Исправления: объединение снимков; остается онлайн во время обслуживания облака.",
+                "pt": "Contadores de eventos diários (events_today/movement/audio, UTC). Widget BoschOverview: WebRTC/HLS ao vivo em visualização expandida + banner de manutenção + crachá do último evento. Volume por câmera; mudo automático da mesma câmera; offline last-frame. Correções: coalescência de instantâneos; permanece on-line durante a manutenção da nuvem.",
+                "nl": "Dagelijkse gebeurtenistellers (events_today/movement/audio, UTC). BoschOverview-widget: live WebRTC/HLS in uitgebreide weergave + onderhoudsbanner + badge van het laatste evenement. Volume per camera; automatisch dempen van dezelfde camera; offline last-frame. Oplossingen: samenvoegen van momentopnamen; blijft online tijdens cloudonderhoud.",
+                "fr": "Compteurs d'événements quotidiens (events_today/movement/audio, UTC). Widget BoschOverview : WebRTC/HLS en direct en vue étendue + bannière de maintenance + badge du dernier événement. Volume par caméra ; mise en sourdine automatique de la même caméra ; dernière image hors ligne. Correctifs : fusion d'instantanés ; reste en ligne pendant la maintenance du cloud.",
+                "it": "Contatori di eventi giornalieri (events_today/movement/audio, UTC). Widget BoschOverview: WebRTC/HLS live in visualizzazione espansa + banner di manutenzione + badge ultimo evento. Volume per fotocamera; silenziamento automatico della stessa fotocamera; ultimo fotogramma offline. Correzioni: coalescenza degli snapshot; rimane online durante la manutenzione del cloud.",
+                "es": "Contadores de eventos diarios (events_today/movement/audio, UTC). Widget BoschOverview: WebRTC/HLS en vivo en vista ampliada + banner de mantenimiento + insignia del último evento. Volumen por cámara; silencio automático en la misma cámara; último fotograma sin conexión. Correcciones: fusión de instantáneas; permanece en línea durante el mantenimiento de la nube.",
+                "pl": "Codzienne liczniki zdarzeń (events_today/movement/audio, UTC). Widget BoschOverview: WebRTC/HLS na żywo w widoku rozszerzonym + baner konserwacji + plakietka ostatniego wydarzenia. Głośność na kamerę; automatyczne wyciszenie tej samej kamery; ostatnia klatka w trybie offline. Poprawki: łączenie migawek; pozostaje online podczas konserwacji chmury.",
+                "uk": "Щоденні лічильники подій (events_today/movement/audio, UTC). Віджет BoschOverview: Live WebRTC/HLS у розгорнутому вигляді + банер обслуговування + значок останньої події. Обсяг на камеру; автоматичне відключення звуку тієї ж камери; офлайн останній кадр. Виправлення: об'єднання знімків; залишається онлайн під час обслуговування хмари.",
+                "zh-cn": "每日事件计数器（events_today/movement/audio，UTC）。 BoschOverview 小部件：扩展视图中的实时 WebRTC/HLS + 维护横幅 + 最后事件徽章。每个摄像机的音量；同机自动静音；离线最后一帧。修复：快照合并；云维护期间保持在线。"
+            },
+            "1.6.1": {
+                "en": "FCM push reliability: the safety-net event poll is no longer suppressed after a failed cloud fetch, so motion detection recovers on the next tick instead of staying quiet for up to 5 minutes after a brief cloud hiccup.",
+                "de": "FCM-Push-Zuverlässigkeit: Der Sicherheits-Poll für Events wird nach einem fehlgeschlagenen Cloud-Abruf nicht mehr unterdrückt — die Bewegungserkennung erholt sich beim nächsten Durchlauf, statt nach einem kurzen Cloud-Aussetzer bis zu 5 Minuten stumm zu bleiben.",
+                "ru": "Надежность push-уведомлений FCM: опрос событий сети безопасности больше не подавляется после неудачной выборки облака, поэтому обнаружение движения восстанавливается на следующем такте, а не остается тихим в течение 5 минут после кратковременного сбоя в облаке.",
+                "pt": "Confiabilidade de push do FCM: a pesquisa de eventos da rede de segurança não é mais suprimida após uma falha na busca da nuvem, portanto, a detecção de movimento se recupera no próximo tick, em vez de permanecer silenciosa por até 5 minutos após um breve soluço na nuvem.",
+                "nl": "FCM-pushbetrouwbaarheid: de vangnet-gebeurtenispoll wordt niet langer onderdrukt na een mislukte cloud-ophaalactie, zodat de bewegingsdetectie zich herstelt bij de volgende tik in plaats van tot 5 minuten stil te blijven na een korte cloud-hik.",
+                "fr": "Fiabilité du push FCM : l'interrogation des événements du filet de sécurité n'est plus supprimée après un échec de récupération dans le cloud, de sorte que la détection de mouvement récupère au prochain tick au lieu de rester silencieuse pendant 5 minutes maximum après un bref hoquet dans le cloud.",
+                "it": "Affidabilità push FCM: il sondaggio degli eventi della rete di sicurezza non viene più soppresso dopo un recupero del cloud non riuscito, quindi il rilevamento del movimento viene ripristinato al tick successivo invece di rimanere silenzioso fino a 5 minuti dopo un breve singhiozzo del cloud.",
+                "es": "Fiabilidad de inserción de FCM: la encuesta de eventos de la red de seguridad ya no se suprime después de una búsqueda fallida de la nube, por lo que la detección de movimiento se recupera en el siguiente tic en lugar de permanecer en silencio durante hasta 5 minutos después de un breve problema en la nube.",
+                "pl": "Niezawodność wypychania FCM: ankieta dotycząca zdarzeń sieci bezpieczeństwa nie jest już tłumiona po nieudanym pobraniu chmury, więc wykrywanie ruchu zostaje wznowione przy następnym taktowaniu, zamiast pozostawać cicho przez maksymalnie 5 minut po krótkim przerwaniu w chmurze.",
+                "uk": "Надійність FCM push: опитування подій мережі безпеки більше не пригнічується після невдалої вибірки хмари, тому виявлення руху відновлюється на наступному тику, а не залишається тихим до 5 хвилин після короткої хмарної гикавки.",
+                "zh-cn": "FCM 推送可靠性：云获取失败后，安全网事件轮询不再受到抑制，因此运动检测会在下一个滴答声中恢复，而不是在短暂的云中断后保持安静长达 5 分钟。"
+            },
+            "1.6.0": {
+                "en": "Cross-platform widget and adapter reliability round. iOS Picture-in-Picture now works (WebKit fallback); the volume control is reachable by touch; audio recovers after Android background/doze. Fixed a PiP listener leak and a mute-state conflict on reconnect. The motion-event safety-net poll now survives a push reconnect, and shutdown-time timer warnings are gone.",
+                "de": "Plattformübergreifende Zuverlässigkeitsrunde für Widget und Adapter. iOS Picture-in-Picture funktioniert jetzt (WebKit-Fallback); die Lautstärke ist per Touch erreichbar; Audio erholt sich nach Android-Hintergrund/Doze. PiP-Listener-Leck und Mute-Konflikt beim Reconnect behoben. Der Bewegungs-Sicherheitspoll überlebt jetzt einen Push-Reconnect, Timer-Warnungen beim Herunterfahren sind weg.",
+                "ru": "Кроссплатформенная надёжность виджета и адаптера. iOS Picture-in-Picture теперь работает (WebKit-фолбэк); регулятор громкости доступен касанием; аудио восстанавливается после фона/сна Android. Исправлены утечка PiP-слушателя и конфликт mute при реконнекте. Опрос безопасности движений выдерживает push-реконнект; предупреждения таймера выключения устранены.",
+                "pt": "Widget multiplataforma e fiabilidade do adaptador. iOS Picture-in-Picture funciona agora (fallback WebKit); volume acessível por toque; áudio recupera após fundo/soneca Android. Corrigidos vazamento de listener PiP e conflito de mudo ao reconectar. O poll de segurança de movimento sobrevive a uma reconexão push; avisos de timer de encerramento eliminados.",
+                "nl": "Platformoverschrijdende widget- en adapterbetrouwbaarheid. iOS Picture-in-Picture werkt nu (WebKit-fallback); volume bereikbaar via aanraking; audio herstelt na Android-achtergrond/slaapstand. PiP-listener-lek en mute-conflict bij herverbinding opgelost. De veiligheidspeiling voor bewegingsgebeurtenissen overleeft push-herverbinding; timerwaarschuwingen bij afsluiten zijn weg.",
+                "fr": "Fiabilité multiplateforme du widget et de l'adaptateur. iOS Picture-in-Picture fonctionne (fallback WebKit); volume accessible au toucher; audio récupère après arrière-plan/veille Android. Fuite d'écouteur PiP et conflit muet à la reconnexion corrigés. Le sondage de sécurité de mouvement survit à une reconnexion push; alertes du minuteur d'arrêt supprimées.",
+                "it": "Affidabilità multipiattaforma di widget e adattatore. iOS Picture-in-Picture funziona ora (fallback WebKit); volume accessibile al tocco; audio si ripristina dopo sfondo/sonnellino Android. Corretti perdita listener PiP e conflitto mute alla riconnessione. Il sondaggio di sicurezza movimento sopravvive a riconnessione push; avvisi timer spegnimento eliminati.",
+                "es": "Fiabilidad multiplataforma de widget y adaptador. iOS Picture-in-Picture funciona ahora (respaldo WebKit); volumen accesible al tacto; audio se recupera tras fondo/suspensión Android. Corregidos fuga de listener PiP y conflicto de silencio al reconectar. El sondeo de seguridad de movimiento sobrevive a reconexión push; avisos del temporizador de apagado eliminados.",
+                "pl": "Wieloplatformowa niezawodność widżetu i adaptera. iOS PiP działa teraz (fallback WebKit); głośność dostępna dotykowo; dźwięk wraca po tle/uśpieniu Android. Naprawiono wyciek słuchacza PiP i konflikt wyciszenia przy ponownym połączeniu. Odpytywanie bezpieczeństwa ruchu przetrwa push-reconnect; ostrzeżenia timera wyłączania zniknęły.",
+                "uk": "Кросплатформна надійність віджета та адаптера. iOS Picture-in-Picture тепер працює (WebKit-фолбек); гучність доступна дотиком; аудіо відновлюється після фону/сну Android. Виправлено витік слухача PiP та конфлікт mute при реконекті. Опитування безпеки руху виживає push-реконект; попередження таймера вимкнення усунено.",
+                "zh-cn": "跨平台小部件和适配器可靠性回合。 iOS 画中画现在可以使用（WebKit 后备）；音量控制可通过触摸进行； Android 后台/打瞌睡后音频恢复。修复了画中画侦听器泄漏和重新连接时的静音状态冲突。运动事件安全网轮询现在可以在推送重新连接后继续存在，并且关闭时间计时器警告也消失了。"
+            },
+            "1.5.7": {
+                "en": "Cross-version parity with HA v13.5.17: live sound survives an auto-reconnect; stream recovers on tab return / bfcache; audio & PiP buttons hide when idle; corner-flicker fixed; ICE 'disconnected' no longer forces premature HLS; maintenance banner dismissable; privacy placeholder shows last-event time.",
+                "de": "Cross-Version-Parität zu HA v13.5.17: Live-Ton übersteht Auto-Reconnect; Stream erholt sich bei Tab-Rückkehr/bfcache; Audio- & PiP-Buttons aus wenn idle; Ecken-Flacker behoben; ICE 'disconnected' erzwingt kein vorzeitiges HLS; Wartungsbanner schließbar; Privacy zeigt Letztes-Ereignis-Zeit.",
+                "ru": "Паритет с HA v13.5.17: звук переживает авто-переподключение; поток восстанавливается при возврате вкладки/bfcache; кнопки звука и PiP скрыты в простое; исправлено мерцание углов; ICE 'disconnected' больше не вызывает преждевременный HLS; баннер обслуживания закрывается; приватность показывает время события.",
+                "pt": "Paridade com HA v13.5.17: o som sobrevive a uma reconexão automática; o stream recupera ao voltar à aba/bfcache; botões de áudio e PiP ocultos quando inativo; cintilação de cantos corrigida; ICE 'disconnected' já não força HLS prematuro; banner de manutenção dispensável; privacidade mostra a hora do último evento.",
+                "nl": "Pariteit met HA v13.5.17: geluid overleeft een auto-herverbinding; stream herstelt bij terugkeer naar tab/bfcache; audio- & PiP-knoppen verborgen bij inactief; hoekflikkering opgelost; ICE 'disconnected' forceert geen voortijdige HLS meer; onderhoudsbanner sluitbaar; privacy toont tijd laatste gebeurtenis.",
+                "fr": "Parité avec HA v13.5.17 : le son survit à une reconnexion automatique ; le flux récupère au retour d'onglet/bfcache ; boutons audio et PiP masqués à l'arrêt ; scintillement des coins corrigé ; ICE 'disconnected' ne force plus un HLS prématuré ; bannière de maintenance fermable ; confidentialité affiche l'heure du dernier événement.",
+                "it": "Parità con HA v13.5.17: l'audio sopravvive a una riconnessione automatica; lo stream si riprende al ritorno della scheda/bfcache; pulsanti audio e PiP nascosti quando inattivo; sfarfallio angoli risolto; ICE 'disconnected' non forza più un HLS prematuro; banner manutenzione chiudibile; privacy mostra l'ora dell'ultimo evento.",
+                "es": "Paridad con HA v13.5.17: el sonido sobrevive a una reconexión automática; el stream se recupera al volver a la pestaña/bfcache; botones de audio y PiP ocultos en reposo; parpadeo de esquinas corregido; ICE 'disconnected' ya no fuerza HLS prematuro; banner de mantenimiento descartable; privacidad muestra la hora del último evento.",
+                "pl": "Parytet z HA v13.5.17: dźwięk przetrwa auto-ponowne połączenie; strumień wraca po powrocie karty/bfcache; przyciski audio i PiP ukryte w bezczynności; naprawiono migotanie rogów; ICE 'disconnected' nie wymusza przedwczesnego HLS; baner konserwacji można zamknąć; prywatność pokazuje czas ostatniego zdarzenia.",
+                "uk": "Паритет з HA v13.5.17: звук переживає авто-перепідключення; потік відновлюється при поверненні вкладки/bfcache; кнопки звуку та PiP приховані в простої; виправлено мерехтіння кутів; ICE 'disconnected' більше не примушує передчасний HLS; банер обслуговування закривається; приватність показує час останньої події.",
+                "zh-cn": "与 HA v13.5.17 同步：声音在自动重连后保留；返回标签页/bfcache 时恢复流；空闲时隐藏音频和画中画按钮；修复边角闪烁；ICE 'disconnected' 不再强制过早回退 HLS；维护横幅可关闭；隐私占位显示最近事件时间。"
+            },
+            "1.5.6": {
+                "en": "Widget: Picture-in-Picture for the live WebRTC view. Float the stream in an always-on-top window that shows the camera name; while one camera floats, the PiP button on the others greys out (the browser allows only one PiP window). The window survives a stream reconnect. Hidden where the browser has no PiP support.",
+                "de": "Widget: Bild-im-Bild für die Live-WebRTC-Ansicht. Stream in einem immer-im-Vordergrund-Fenster mit Kameranamen; solange eine Kamera schwebt, wird der PiP-Button der anderen ausgegraut (der Browser erlaubt nur ein PiP-Fenster). Das Fenster übersteht einen Stream-Reconnect. Ausgeblendet wo der Browser kein PiP kann.",
+                "ru": "Виджет: «Картинка в картинке» для просмотра WebRTC в реальном времени. Перемещайте поток в постоянно расположенном окне, в котором отображается имя камеры; пока одна камера плавает, кнопка PiP на других становится серой (браузер допускает только одно окно PiP). Окно выдерживает повторное подключение потока. Скрыто там, где браузер не поддерживает PiP.",
+                "pt": "Widget: Picture-in-Picture para visualização WebRTC ao vivo. Flutue o stream em uma janela sempre visível que mostra o nome da câmera; enquanto uma câmera flutua, o botão PiP nas outras fica cinza (o navegador permite apenas uma janela PiP). A janela sobrevive a uma reconexão de fluxo. Oculto onde o navegador não tem suporte para PiP.",
+                "nl": "Widget: Picture-in-Picture voor de live WebRTC-weergave. Zweef de stream in een altijd zichtbaar venster waarin de cameranaam wordt weergegeven; terwijl één camera zweeft, wordt de PiP-knop op de andere grijs weergegeven (de browser staat slechts één PiP-venster toe). Het venster overleeft een hernieuwde stroomverbinding. Verborgen waar de browser geen PiP-ondersteuning heeft.",
+                "fr": "Widget : Picture-in-Picture pour la vue WebRTC en direct. Faites flotter le flux dans une fenêtre toujours visible qui affiche le nom de la caméra ; tandis qu'une caméra flotte, le bouton PiP des autres est grisé (le navigateur n'autorise qu'une seule fenêtre PiP). La fenêtre survit à une reconnexion de flux. Caché là où le navigateur ne prend pas en charge PiP.",
+                "it": "Widget: Picture-in-Picture per la visualizzazione WebRTC live. Visualizza lo streaming in una finestra sempre in primo piano che mostra il nome della telecamera; mentre una telecamera fluttua, il pulsante PiP sulle altre diventa grigio (il browser consente solo una finestra PiP). La finestra sopravvive alla riconnessione del flusso. Nascosto dove il browser non ha supporto PiP.",
+                "es": "Widget: Imagen en imagen para la vista WebRTC en vivo. Haga flotar la transmisión en una ventana siempre visible que muestra el nombre de la cámara; Mientras una cámara flota, el botón PiP de las demás se vuelve gris (el navegador solo permite una ventana PiP). La ventana sobrevive a una reconexión de transmisión. Oculto donde el navegador no admite PiP.",
+                "pl": "Widget: Obraz w obrazie do podglądu na żywo WebRTC. Wyświetlaj strumień w zawsze widocznym na górze oknie, które pokazuje nazwę kamery; gdy jedna kamera unosi się w powietrzu, przycisk PiP na pozostałych jest szary (przeglądarka umożliwia tylko jedno okno PiP). Okno przetrwa ponowne połączenie strumienia. Ukryty tam, gdzie przeglądarka nie obsługuje PiP.",
+                "uk": "Віджет: Картинка в картинці для перегляду WebRTC у реальному часі. Переміщайте потік у вікно, що завжди знаходиться зверху, у якому відображається назва камери; поки одна камера плаває, кнопки PiP на інших неактивні (браузер дозволяє лише одне вікно PiP). Вікно переживає повторне підключення потоку. Приховано, якщо браузер не підтримує PiP.",
+                "zh-cn": "小部件：实时 WebRTC 视图的画中画。将流浮动在显示摄像机名称的始终位于顶部的窗口中；当一台摄像机浮动时，其他摄像机上的画中画按钮会变灰（浏览器只允许一个画中画窗口）。该窗口在流重新连接后仍然存在。隐藏在浏览器不支持画中画的地方。"
+            }
+        },
+        "titleLang": {
+            "en": "Bosch Smart Home Camera",
+            "de": "Bosch Smart Home Kamera",
+            "ru": "Камера Bosch Smart Home",
+            "pt": "Câmera Bosch Smart Home",
+            "nl": "Bosch Smart Home Camera",
+            "fr": "Caméra Bosch Smart Home",
+            "it": "Telecamera Bosch Smart Home",
+            "es": "Cámara Bosch Smart Home",
+            "pl": "Kamera Bosch Smart Home",
+            "uk": "Камера Bosch Smart Home",
+            "zh-cn": "博世智能家居摄像头"
+        },
+        "desc": {
+            "en": "Bosch Smart Home Camera (Eyes/360/Gen2) cloud-API integration",
+            "de": "Bosch Smart Home Kamera (Eyes/360/Gen2) Cloud-API-Integration",
+            "ru": "Интеграция облачного API камеры Bosch Smart Home (Eyes/360/Gen2)",
+            "pt": "Integração de API em nuvem da câmera Bosch Smart Home (Eyes/360/Gen2)",
+            "nl": "Bosch Smart Home Camera (Eyes/360/Gen2) cloud-API integratie",
+            "fr": "Intégration API cloud de la caméra Bosch Smart Home (Eyes/360/Gen2)",
+            "it": "Integrazione API cloud della telecamera Bosch Smart Home (Eyes/360/Gen2)",
+            "es": "Integración de API en la nube de la cámara Bosch Smart Home (Eyes/360/Gen2)",
+            "pl": "Integracja API chmury kamery Bosch Smart Home (Eyes/360/Gen2)",
+            "uk": "Інтеграція хмарного API камери Bosch Smart Home (Eyes/360/Gen2)",
+            "zh-cn": "博世智能家居摄像头（Eyes/360/Gen2）云API集成"
+        },
+        "authors": [
+            "mosandlt <10558666+mosandlt@users.noreply.github.com>"
+        ],
+        "keywords": [
+            "bosch",
+            "camera",
+            "eyes",
+            "smart-home",
+            "rtsp",
+            "fcm",
+            "cloud"
+        ],
+        "licenseInformation": {
+            "type": "free",
+            "license": "MIT"
+        },
+        "platform": "Javascript/Node.js",
+        "icon": "bosch-camera.png",
+        "enabled": true,
+        "extIcon": "https://raw.githubusercontent.com/mosandlt/ioBroker.bosch-smart-home-camera/main/admin/bosch-camera.png",
+        "readme": "https://github.com/mosandlt/ioBroker.bosch-smart-home-camera#readme",
+        "loglevel": "info",
+        "mode": "daemon",
+        "type": "multimedia",
+        "connectionType": "cloud",
+        "dataSource": "push",
+        "tier": 3,
+        "compact": true,
+        "messagebox": true,
+        "adminUI": {
+            "config": "json"
+        },
+        "dependencies": [
+            {
+                "js-controller": ">=6.0.11"
+            }
+        ],
+        "globalDependencies": [
+            {
+                "admin": ">=7.6.20"
+            }
+        ],
+        "visWidgets": {
+            "vis2BoschCameraWidgets": {
+                "name": "vis2BoschCameraWidgets",
+                "url": "bosch-smart-home-camera/customWidgets.js",
+                "bundlerType": "module",
+                "i18n": "component",
+                "version": "0.2.1",
+                "components": [
+                    "BoschCamera",
+                    "BoschOverview"
+                ]
+            }
+        }
     },
-    "titleLang": {
-      "en": "Bosch Smart Home Camera",
-      "de": "Bosch Smart Home Kamera",
-      "ru": "Камера Bosch Smart Home",
-      "pt": "Câmera Bosch Smart Home",
-      "nl": "Bosch Smart Home Camera",
-      "fr": "Caméra Bosch Smart Home",
-      "it": "Telecamera Bosch Smart Home",
-      "es": "Cámara Bosch Smart Home",
-      "pl": "Kamera Bosch Smart Home",
-      "uk": "Камера Bosch Smart Home",
-      "zh-cn": "博世智能家居摄像头"
-    },
-    "desc": {
-      "en": "Bosch Smart Home Camera (Eyes/360/Gen2) cloud-API integration",
-      "de": "Bosch Smart Home Kamera (Eyes/360/Gen2) Cloud-API-Integration",
-      "ru": "Интеграция облачного API камеры Bosch Smart Home (Eyes/360/Gen2)",
-      "pt": "Integração de API em nuvem da câmera Bosch Smart Home (Eyes/360/Gen2)",
-      "nl": "Bosch Smart Home Camera (Eyes/360/Gen2) cloud-API integratie",
-      "fr": "Intégration API cloud de la caméra Bosch Smart Home (Eyes/360/Gen2)",
-      "it": "Integrazione API cloud della telecamera Bosch Smart Home (Eyes/360/Gen2)",
-      "es": "Integración de API en la nube de la cámara Bosch Smart Home (Eyes/360/Gen2)",
-      "pl": "Integracja API chmury kamery Bosch Smart Home (Eyes/360/Gen2)",
-      "uk": "Інтеграція хмарного API камери Bosch Smart Home (Eyes/360/Gen2)",
-      "zh-cn": "博世智能家居摄像头（Eyes/360/Gen2）云API集成"
-    },
-    "authors": [
-      "mosandlt <10558666+mosandlt@users.noreply.github.com>"
+    "encryptedNative": [
+        "mqtt_password"
     ],
-    "keywords": [
-      "bosch",
-      "camera",
-      "eyes",
-      "smart-home",
-      "rtsp",
-      "fcm",
-      "cloud"
+    "protectedNative": [
+        "mqtt_password"
     ],
-    "licenseInformation": {
-      "type": "free",
-      "license": "MIT"
+    "native": {
+        "redirect_url": "",
+        "region": "EU",
+        "use_mjpeg_snapshot": true,
+        "mqtt_password": ""
     },
-    "platform": "Javascript/Node.js",
-    "icon": "bosch-camera.png",
-    "enabled": true,
-    "extIcon": "https://raw.githubusercontent.com/mosandlt/ioBroker.bosch-smart-home-camera/main/admin/bosch-camera.png",
-    "readme": "https://github.com/mosandlt/ioBroker.bosch-smart-home-camera#readme",
-    "loglevel": "info",
-    "mode": "daemon",
-    "type": "multimedia",
-    "connectionType": "cloud",
-    "dataSource": "push",
-    "tier": 3,
-    "compact": true,
-    "messagebox": true,
-    "adminUI": {
-      "config": "json"
-    },
-    "dependencies": [
-      {
-        "js-controller": ">=6.0.11"
-      }
+    "instanceObjects": [
+        {
+            "_id": "info",
+            "type": "channel",
+            "common": {
+                "name": "Information"
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.connection",
+            "type": "state",
+            "common": {
+                "role": "indicator.connected",
+                "name": "Device or service connected",
+                "type": "boolean",
+                "read": true,
+                "write": false,
+                "def": false
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.access_token",
+            "type": "state",
+            "common": {
+                "role": "text",
+                "name": "Encrypted Bosch SingleKey ID access token (AES via ioBroker system secret — never plaintext from v0.6.0)",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": ""
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.refresh_token",
+            "type": "state",
+            "common": {
+                "role": "text",
+                "name": "Encrypted Bosch SingleKey ID refresh token (AES via ioBroker system secret — never plaintext from v0.6.0)",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": ""
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.token_expires_at",
+            "type": "state",
+            "common": {
+                "role": "value.time",
+                "name": "Access token expiration timestamp (epoch ms)",
+                "type": "number",
+                "read": true,
+                "write": false,
+                "def": 0
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.fcm_creds",
+            "type": "state",
+            "common": {
+                "role": "json",
+                "name": "Persisted FCM credentials (ECDH key + ACG creds) so a restart does not re-register against Bosch CBS / Google FCM",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": ""
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.fcm_active",
+            "type": "state",
+            "common": {
+                "role": "text",
+                "name": "FCM push listener status: healthy / stub / error / stopped",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": "stub"
+            },
+            "native": {}
+        },
+        {
+            "_id": "cameras",
+            "type": "device",
+            "common": {
+                "name": "Bosch cameras"
+            },
+            "native": {}
+        }
     ],
-    "globalDependencies": [
-      {
-        "admin": ">=7.6.20"
-      }
-    ],
-    "visWidgets": {
-      "vis2BoschCameraWidgets": {
-        "name": "vis2BoschCameraWidgets",
-        "url": "bosch-smart-home-camera/customWidgets.js",
-        "bundlerType": "module",
-        "i18n": "component",
-        "version": "0.2.0",
-        "components": [
-          "BoschCamera",
-          "BoschOverview"
-        ]
-      }
-    }
-  },
-  "encryptedNative": [
-    "mqtt_password"
-  ],
-  "protectedNative": [
-    "mqtt_password"
-  ],
-  "native": {
-    "redirect_url": "",
-    "region": "EU",
-    "use_mjpeg_snapshot": true,
-    "mqtt_password": ""
-  },
-  "instanceObjects": [
-    {
-      "_id": "info",
-      "type": "channel",
-      "common": {
-        "name": "Information"
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.connection",
-      "type": "state",
-      "common": {
-        "role": "indicator.connected",
-        "name": "Device or service connected",
-        "type": "boolean",
-        "read": true,
-        "write": false,
-        "def": false
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.access_token",
-      "type": "state",
-      "common": {
-        "role": "text",
-        "name": "Encrypted Bosch SingleKey ID access token (AES via ioBroker system secret — never plaintext from v0.6.0)",
-        "type": "string",
-        "read": true,
-        "write": false,
-        "def": ""
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.refresh_token",
-      "type": "state",
-      "common": {
-        "role": "text",
-        "name": "Encrypted Bosch SingleKey ID refresh token (AES via ioBroker system secret — never plaintext from v0.6.0)",
-        "type": "string",
-        "read": true,
-        "write": false,
-        "def": ""
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.token_expires_at",
-      "type": "state",
-      "common": {
-        "role": "value.time",
-        "name": "Access token expiration timestamp (epoch ms)",
-        "type": "number",
-        "read": true,
-        "write": false,
-        "def": 0
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.fcm_creds",
-      "type": "state",
-      "common": {
-        "role": "json",
-        "name": "Persisted FCM credentials (ECDH key + ACG creds) so a restart does not re-register against Bosch CBS / Google FCM",
-        "type": "string",
-        "read": true,
-        "write": false,
-        "def": ""
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.fcm_active",
-      "type": "state",
-      "common": {
-        "role": "text",
-        "name": "FCM push listener status: healthy / stub / error / stopped",
-        "type": "string",
-        "read": true,
-        "write": false,
-        "def": "stub"
-      },
-      "native": {}
-    },
-    {
-      "_id": "cameras",
-      "type": "device",
-      "common": {
-        "name": "Bosch cameras"
-      },
-      "native": {}
-    }
-  ],
-  "objects": []
+    "objects": []
 }

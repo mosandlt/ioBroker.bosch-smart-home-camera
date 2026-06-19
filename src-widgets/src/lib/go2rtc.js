@@ -133,6 +133,10 @@ export class Go2rtcStream {
         this._iceTimer = null;
         this._hlsKeepalive = null;
         this._stallChecker = null;
+        // PiP-freeze-on-tab-switch recovery (parity HA v13.7.4 2026-06-19).
+        this._trackMuteTimer = null; // debounce for WebRTC video-track `mute`
+        this._rvfcHandle = null; // requestVideoFrameCallback handle
+        this._recovering = false; // true during an idempotent PiP-safe reconnect
     }
 
     // -----------------------------------------------------------------------
@@ -297,6 +301,36 @@ export class Go2rtcStream {
                 remoteStream.addTrack(evt.track);
                 if (videoEl.srcObject !== remoteStream) {
                     videoEl.srcObject = remoteStream;
+                    this._startRvfc(videoEl);
+                }
+                // Video-track liveness (PiP-freeze fix, parity HA v13.7.4). When
+                // go2rtc stops delivering media (background-tab WebSocket i/o
+                // timeout) Chrome fires `mute` on the remote track — an EVENT, so
+                // it arrives even while the tab is hidden and the stall-checker
+                // setInterval is throttled to ~1x/min. Debounce 6s (a transient
+                // keyframe gap mutes briefly then unmutes) then recover if still
+                // muted. This brings a frozen PiP window back without a tab switch.
+                if (evt.track.kind === "video") {
+                    evt.track.onunmute = () => {
+                        if (this._trackMuteTimer) {
+                            clearTimeout(this._trackMuteTimer);
+                            this._trackMuteTimer = null;
+                        }
+                    };
+                    evt.track.onmute = () => {
+                        if (this._stopping || !this._live) {
+                            return;
+                        }
+                        if (this._trackMuteTimer) {
+                            clearTimeout(this._trackMuteTimer);
+                        }
+                        this._trackMuteTimer = setTimeout(() => {
+                            this._trackMuteTimer = null;
+                            if (evt.track.muted && this._live && !this._stopping) {
+                                this._recover("webrtc video track muted >6s");
+                            }
+                        }, 6000);
+                    };
                 }
             };
 
@@ -308,6 +342,20 @@ export class Go2rtcStream {
             pc.oniceconnectionstatechange = () => {
                 if (pc.iceConnectionState === "failed") {
                     settle(reject, new Error("ICE state: failed"));
+                }
+            };
+
+            // Live-phase transport-failure recovery (parity HA v13.7.4). The
+            // listener above only settles the INITIAL connect; once the stream is
+            // live a `failed` aggregate connection state means the transport died
+            // (e.g. NAT rebinding after the tab slept) — recover PiP-safely.
+            // `disconnected` is transient and left to the track-mute debounce.
+            pc.onconnectionstatechange = () => {
+                if (this._pc !== pc || !this._live || this._stopping) {
+                    return;
+                }
+                if (pc.connectionState === "failed") {
+                    this._recover('webrtc connectionState "failed"');
                 }
             };
 
@@ -534,6 +582,11 @@ export class Go2rtcStream {
      */
     _detachVideoListeners() {
         this._stopStallChecker();
+        this._stopRvfc(this._videoEl);
+        if (this._trackMuteTimer) {
+            clearTimeout(this._trackMuteTimer);
+            this._trackMuteTimer = null;
+        }
         if (this._videoEl) {
             this._videoEl.removeEventListener("playing", this._onPlaying);
             this._videoEl.removeEventListener("pause", this._onPause);
@@ -549,14 +602,39 @@ export class Go2rtcStream {
      */
     _startStallChecker(videoEl) {
         this._stopStallChecker();
+        let lastTime = 0;
+        let stallCount = 0;
         this._stallChecker = setInterval(() => {
             if (this._stopping || !this._live || !videoEl) {
                 this._stopStallChecker();
                 return;
             }
-            if (videoEl.paused) {
-                videoEl.play().catch(() => {});
+            // Presented-frame freeze (rVFC, parity HA v13.7.4): _boschLastFrameAt
+            // comes from requestVideoFrameCallback, which keeps firing for a PiP
+            // window in a hidden tab and STOPS the instant frames freeze — a
+            // reliable, un-throttled freeze signal that currentTime polling (also
+            // throttled in a hidden tab) cannot give.
+            const frameFrozen =
+                videoEl._boschLastFrameAt != null &&
+                performance.now() - videoEl._boschLastFrameAt > 10000;
+            const frozen = videoEl.currentTime === lastTime;
+            const pausedWhileLive = videoEl.paused;
+            if (frozen || pausedWhileLive || frameFrozen) {
+                if (videoEl.paused) {
+                    videoEl.play().catch(() => {});
+                }
+                stallCount++;
+                // A presented-frame freeze is already a hard signal — escalate
+                // immediately instead of waiting out 3 polls a hidden tab stretches
+                // to minutes. (No iOS guard here: the vis-2 widget is desktop-vis.)
+                if (stallCount >= 3 || frameFrozen) {
+                    stallCount = 0;
+                    this._recover(frameFrozen ? "no presented frame >10s" : "stall checker ~15s");
+                }
+            } else {
+                stallCount = 0;
             }
+            lastTime = videoEl.currentTime;
         }, 5000);
     }
 
@@ -568,6 +646,84 @@ export class Go2rtcStream {
             clearInterval(this._stallChecker);
             this._stallChecker = null;
         }
+    }
+
+    /**
+     * rVFC liveness heartbeat: stamp _boschLastFrameAt on every PRESENTED frame.
+     * Re-arms itself while live; cancelled in _detachVideoListeners. The stall
+     * checker reads the timestamp to catch a freeze even in a hidden-tab PiP.
+     * 2026-06-19 (PiP-freeze fix, parity HA v13.7.4).
+     */
+    _startRvfc(videoEl) {
+        if (typeof videoEl.requestVideoFrameCallback !== "function") {
+            return;
+        }
+        this._stopRvfc(videoEl);
+        videoEl._boschLastFrameAt = performance.now();
+        const onFrame = () => {
+            videoEl._boschLastFrameAt = performance.now();
+            if (this._live && !this._stopping && videoEl.srcObject) {
+                this._rvfcHandle = videoEl.requestVideoFrameCallback(onFrame);
+            } else {
+                this._rvfcHandle = null;
+            }
+        };
+        this._rvfcHandle = videoEl.requestVideoFrameCallback(onFrame);
+    }
+
+    /**
+     *
+     */
+    _stopRvfc(videoEl) {
+        const el = videoEl || this._videoEl;
+        if (this._rvfcHandle != null && el && typeof el.cancelVideoFrameCallback === "function") {
+            try {
+                el.cancelVideoFrameCallback(this._rvfcHandle);
+            } catch {
+                /* ignore */
+            }
+        }
+        this._rvfcHandle = null;
+        if (el) {
+            el._boschLastFrameAt = null;
+        }
+    }
+
+    /**
+     * Idempotent, PiP-safe live-stream recovery. Called by the stall checker AND
+     * by the WebRTC track-`mute` / connection-`failed` handlers, which fire even
+     * while the tab is hidden (events, not throttled timers). Tears the dead
+     * WebRTC/HLS transport down but keeps the SAME <video> element (so any PiP
+     * window bound to it survives) and re-starts on it after a short delay — the
+     * fresh srcObject flows back into the floating window with no user gesture.
+     * Guarded by _recovering so the event path and the stall checker can't
+     * double-reconnect. 2026-06-19 (PiP-freeze fix, parity HA v13.7.4).
+     */
+    _recover(reason) {
+        if (this._stopping || this._recovering || !this._live || !this._videoEl) {
+            return;
+        }
+        console.warn(`[go2rtc] live recovery (${reason})`);
+        this._recovering = true;
+        const videoEl = this._videoEl;
+        const wantAudio = !videoEl.muted; // preserve the user's audio intent
+        // Internal teardown — NOT the public stop() (which would set _stopping and
+        // signal a permanent stop to the widget). Keep the <video> + its PiP window.
+        this._detachVideoListeners();
+        this._cleanupWebRTC();
+        this._cleanupHLS();
+        if (this._trackMuteTimer) {
+            clearTimeout(this._trackMuteTimer);
+            this._trackMuteTimer = null;
+        }
+        this._live = false;
+        setTimeout(() => {
+            this._recovering = false;
+            if (this._stopping || !this._videoEl) {
+                return;
+            }
+            this.start(videoEl, { wantAudio, armed: false }).catch(() => {});
+        }, 2000);
     }
 
     /**
