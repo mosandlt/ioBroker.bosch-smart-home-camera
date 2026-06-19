@@ -100,7 +100,7 @@ jobs:
             echo "already_published=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.npm_check.outputs.already_published == 'false'
-        uses: ioBroker/testing-action-deploy@v1
+        uses: ioBroker/testing-action-deploy@v1.5.0
         with:
           node-version: '24.x'
           github-token: ${{ secrets.GITHUB_TOKEN }}
