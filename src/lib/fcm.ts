@@ -612,6 +612,13 @@ export class FcmListener extends EventEmitter {
                     this.emit("error-logged", `CBS periodic re-register failed: ${msg}`);
                 });
             }, CBS_REREGISTER_INTERVAL_MS);
+            // Never let this 24 h timer keep the Node event loop alive: in
+            // production the adapter is long-lived (other handles hold it open)
+            // and stop() clears the timer anyway, but an un-unref'd interval
+            // makes the mocha unit-test process hang forever after the suite
+            // passes (the runner waits for the loop to drain). unref() lets the
+            // process exit cleanly while the timer still fires while running.
+            this._reregisterTimer.unref?.();
 
             return true;
         } catch (err: unknown) {
