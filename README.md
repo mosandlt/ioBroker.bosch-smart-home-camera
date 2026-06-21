@@ -719,6 +719,11 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.7.3 (2026-06-21)
+Cross-version port of the Home Assistant v13.7.5 fix.
+
+- **Picture-in-Picture freeze in a background tab (fix):** follow-up to 1.7.2. With the live stream floating in Picture-in-Picture and the browser tab left in the background, the floating window could still freeze for up to a minute before recovering, because Chrome throttles the player's periodic freeze-check timer to about once a minute in a hidden tab. The player now drives that check from a Web Worker, which runs on a separate thread Chrome does not throttle, so a frozen Picture-in-Picture stream is detected and reconnected in about ten seconds instead of up to a minute. The worker only acts on a Picture-in-Picture window you are actively watching (a plain hidden tab is left alone to conserve the camera session) and falls back cleanly to the existing timer where Web Workers are unavailable. Also hardens the freeze check so a slow reconnect's first frame can't briefly look frozen.
+
 ### 1.7.2 (2026-06-19)
 Cross-version port of the Home Assistant v13.7.4 fix.
 

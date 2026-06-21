@@ -137,6 +137,10 @@ export class Go2rtcStream {
         this._trackMuteTimer = null; // debounce for WebRTC video-track `mute`
         this._rvfcHandle = null; // requestVideoFrameCallback handle
         this._recovering = false; // true during an idempotent PiP-safe reconnect
+        // Background Web Worker heartbeat (parity HA v13.7.5 2026-06-21):
+        // fires every 5 s in a dedicated thread (not throttled by hidden-tab),
+        // so a frozen PiP is detected in ~10 s instead of ~60 s.
+        this._stallWorker = null;
     }
 
     // -----------------------------------------------------------------------
@@ -602,6 +606,7 @@ export class Go2rtcStream {
      */
     _startStallChecker(videoEl) {
         this._stopStallChecker();
+        this._startLiveStallWorker(); // background-thread heartbeat (parity HA v13.7.5)
         let lastTime = 0;
         let stallCount = 0;
         this._stallChecker = setInterval(() => {
@@ -646,6 +651,79 @@ export class Go2rtcStream {
             clearInterval(this._stallChecker);
             this._stallChecker = null;
         }
+        this._stopLiveStallWorker(); // always paired with start (parity HA v13.7.5)
+    }
+
+    /**
+     * Background Web Worker heartbeat (parity HA v13.7.5 2026-06-21).
+     * A dedicated Worker thread fires every 5 s regardless of hidden-tab throttling,
+     * reducing PiP-freeze detection from ~60 s (throttled setInterval) to ~10 s.
+     * Vis-2 is desktop-only → no iOS guard needed (desktop: document.hidden ok).
+     */
+    _startLiveStallWorker() {
+        this._stopLiveStallWorker();
+        if (typeof Worker !== "function") {
+            return;
+        }
+        try {
+            const src =
+                "let t=setInterval(function(){postMessage(0);},5000);" +
+                "onmessage=function(e){if(e.data==='stop'){clearInterval(t);close();}};";
+            const blob = new Blob([src], { type: "application/javascript" });
+            const url = URL.createObjectURL(blob);
+            this._stallWorker = new Worker(url);
+            URL.revokeObjectURL(url);
+            this._stallWorker.onmessage = () => this._liveStallTickFromWorker();
+            this._stallWorker.onerror = () => this._stopLiveStallWorker(); // degrade gracefully
+        } catch {
+            this._stallWorker = null;
+        }
+    }
+
+    /**
+     *
+     */
+    _stopLiveStallWorker() {
+        if (this._stallWorker) {
+            try {
+                this._stallWorker.postMessage("stop");
+            } catch {
+                /* ignore */
+            }
+            try {
+                this._stallWorker.terminate();
+            } catch {
+                /* ignore */
+            }
+            this._stallWorker = null;
+        }
+    }
+
+    /**
+     * Called by the Worker every ~5 s. Only acts when the tab is hidden AND this
+     * instance owns PiP AND rVFC reports frame-frozen — avoids unnecessary
+     * reconnects on normal background tabs without PiP.
+     */
+    _liveStallTickFromWorker() {
+        if (document.visibilityState !== "hidden") {
+            return; // visible tab — the setInterval stall checker handles it
+        }
+        if (!this._live || this._recovering || this._stopping) {
+            return;
+        }
+        const videoEl = this._videoEl;
+        if (!videoEl) {
+            return;
+        }
+        if (document.pictureInPictureElement !== videoEl) {
+            return; // hidden tab without PiP — conserve session, don't recover
+        }
+        const frameFrozen =
+            videoEl._boschLastFrameAt != null &&
+            performance.now() - videoEl._boschLastFrameAt > 10000;
+        if (frameFrozen) {
+            this._recover("no presented frame >10s (bg worker)");
+        }
     }
 
     /**
@@ -659,7 +737,11 @@ export class Go2rtcStream {
             return;
         }
         this._stopRvfc(videoEl);
-        videoEl._boschLastFrameAt = performance.now();
+        // Do NOT seed with performance.now() — leave null until the FIRST real
+        // frame arrives. This prevents a false-positive recovery loop when a
+        // reconnect takes >10 s to produce its first presented frame
+        // (parity HA v13.7.5 2026-06-21).
+        videoEl._boschLastFrameAt = null;
         const onFrame = () => {
             videoEl._boschLastFrameAt = performance.now();
             if (this._live && !this._stopping && videoEl.srcObject) {
