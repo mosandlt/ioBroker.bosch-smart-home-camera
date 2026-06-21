@@ -38,6 +38,14 @@ import { EventEmitter } from "node:events";
 import type { AxiosInstance } from "axios";
 import { FcmClient, createFcmECDH, generateFcmAuthSecret, registerToFCM } from "@aracna/fcm";
 export { CLOUD_API } from "./auth";
+/**
+ * How often (in ms) to re-register the FCM token with Bosch CBS while the
+ * MTalk socket remains alive. Bosch can drop the server-side device
+ * registration (TTL / FW upgrade / re-pair) without closing the socket,
+ * causing pushes to silently stop. A 24-hour periodic re-register keeps the
+ * registration fresh without hammering the CBS endpoint.
+ */
+export declare const CBS_REREGISTER_INTERVAL_MS: number;
 export declare const FCM_SENDER_ID = "404630424405";
 export declare const FCM_ANDROID_APP_ID = "1:404630424405:android:9e5b6b58e4c70075";
 /**
@@ -197,6 +205,8 @@ export declare class FcmListener extends EventEmitter {
     private _fcmToken;
     private _running;
     private _clientHandle;
+    /** Periodic CBS re-registration timer — cleared on stop(). */
+    private _reregisterTimer;
     /**
      *
      * @param httpClient

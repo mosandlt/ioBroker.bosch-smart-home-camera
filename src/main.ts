@@ -4933,6 +4933,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
             void this.setStateAsync("info.fcm_active", "error", true);
         });
 
+        // Non-fatal warnings from FCM internals (e.g. periodic CBS re-register failure).
+        // Logged as warn so the operator can see it without alarming the FCM state machine.
+        this._fcmListener.on("error-logged", (msg: string) => {
+            this.log.warn(`FCM: ${msg}`);
+        });
+
         // MTalk socket closed. The @aracna/fcm FcmClient does not auto-reconnect
         // (see src/lib/fcm.ts header comment), so we re-arm the listener here
         // with exponential backoff. Without this, a single transient MTalk

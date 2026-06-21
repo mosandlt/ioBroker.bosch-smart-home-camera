@@ -36,7 +36,7 @@
  * embedded in every Bosch Smart Camera APK, vendor-confirmed for OSS use (2026-04-20).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FcmListener = exports.FcmRegistrationError = exports.FcmCbsRegistrationError = exports.FCM_ANDROID_APP_ID = exports.FCM_SENDER_ID = exports.CLOUD_API = void 0;
+exports.FcmListener = exports.FcmRegistrationError = exports.FcmCbsRegistrationError = exports.FCM_ANDROID_APP_ID = exports.FCM_SENDER_ID = exports.CBS_REREGISTER_INTERVAL_MS = exports.CLOUD_API = void 0;
 const node_events_1 = require("node:events");
 const fcm_1 = require("@aracna/fcm");
 const core_1 = require("@aracna/core");
@@ -45,6 +45,14 @@ const auth_1 = require("./auth");
 var auth_2 = require("./auth");
 Object.defineProperty(exports, "CLOUD_API", { enumerable: true, get: function () { return auth_2.CLOUD_API; } });
 const CLOUD_API = auth_1.CLOUD_API; // local alias for use within this module
+/**
+ * How often (in ms) to re-register the FCM token with Bosch CBS while the
+ * MTalk socket remains alive. Bosch can drop the server-side device
+ * registration (TTL / FW upgrade / re-pair) without closing the socket,
+ * causing pushes to silently stop. A 24-hour periodic re-register keeps the
+ * registration fresh without hammering the CBS endpoint.
+ */
+exports.CBS_REREGISTER_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 h
 // @aracna/fcm routes its internal logging through @aracna/core's Logger. Silence
 // the request/class/function loggers — they print raw
 // "postAcgRegister -> ... PHONE_REGISTRATION_ERROR" lines straight to the console
@@ -137,6 +145,8 @@ class FcmListener extends node_events_1.EventEmitter {
     _fcmToken = null;
     _running = false;
     _clientHandle = null;
+    /** Periodic CBS re-registration timer — cleared on stop(). */
+    _reregisterTimer = null;
     /**
      *
      * @param httpClient
@@ -199,6 +209,11 @@ class FcmListener extends node_events_1.EventEmitter {
             return;
         }
         this._running = false;
+        // Clear the periodic CBS re-registration timer before tearing down
+        if (this._reregisterTimer !== null) {
+            clearInterval(this._reregisterTimer);
+            this._reregisterTimer = null;
+        }
         const client = this._clientHandle;
         this._clientHandle = null;
         this._fcmToken = null;
@@ -372,6 +387,25 @@ class FcmListener extends node_events_1.EventEmitter {
             }
             this._clientHandle = client;
             this._running = true;
+            // Periodic CBS re-registration: Bosch may drop the server-side device
+            // registration (TTL / FW upgrade / re-pair) while the MTalk socket stays
+            // healthy, causing pushes to silently stop. Re-register every 24 h as a
+            // preventive measure — errors are caught and logged so a transient CBS
+            // hiccup never crashes the listener.
+            // Guard: clear any stale timer first (defensive against double-start).
+            if (this._reregisterTimer !== null) {
+                clearInterval(this._reregisterTimer);
+                this._reregisterTimer = null;
+            }
+            this._reregisterTimer = setInterval(() => {
+                if (!this._running || this._fcmToken === null) {
+                    return;
+                }
+                this._registerWithCbs(this._fcmToken).catch((err) => {
+                    const msg = err instanceof Error ? err.message : String(err);
+                    this.emit("error-logged", `CBS periodic re-register failed: ${msg}`);
+                });
+            }, exports.CBS_REREGISTER_INTERVAL_MS);
             return true;
         }
         catch (err) {

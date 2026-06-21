@@ -1047,3 +1047,32 @@ describe("v1.0.3 regression — write-path clamp + full-body PUT", () => {
         expect(posState?.ack === true, "pan_position must not be acked on 444").to.equal(false);
     });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FCM "error-logged" event wiring to main adapter (v1.7.4 Fix B)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe("main adapter — FCM error-logged event wiring (v1.7.4)", () => {
+    it("FCM 'error-logged' event is forwarded to adapter.log.warn", async () => {
+        // Ensures that a non-fatal CBS re-registration failure (emitted as
+        // 'error-logged' by FcmListener) surfaces in the ioBroker log as a
+        // warn — not swallowed silently.
+        stubAxiosByUrl([
+            { match: "video_inputs", method: "get", status: 200, data: [CAM_GEN2_BODY] },
+        ]);
+        const { db, adapter, getFcmListener } = createAdapterWithMocks();
+        await bootWithTokens(db, adapter);
+        const fcmListener = getFcmListener();
+
+        const warnsBefore = getWarnCalls(adapter).length;
+        fcmListener.emit("error-logged", "CBS periodic re-register failed: HTTP 503");
+
+        await new Promise<void>((r) => setImmediate(r));
+
+        const newWarns = warnCallsSince(adapter, warnsBefore);
+        expect(
+            newWarns.some((w) => /CBS periodic re-register failed/.test(w)),
+            "error-logged must be forwarded to log.warn",
+        ).to.equal(true);
+    });
+});

@@ -55,6 +55,15 @@ import { CLOUD_API as _CLOUD_API_IMPORT } from "./auth";
 export { CLOUD_API } from "./auth";
 const CLOUD_API = _CLOUD_API_IMPORT; // local alias for use within this module
 
+/**
+ * How often (in ms) to re-register the FCM token with Bosch CBS while the
+ * MTalk socket remains alive. Bosch can drop the server-side device
+ * registration (TTL / FW upgrade / re-pair) without closing the socket,
+ * causing pushes to silently stop. A 24-hour periodic re-register keeps the
+ * registration fresh without hammering the CBS endpoint.
+ */
+export const CBS_REREGISTER_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 h
+
 // @aracna/fcm routes its internal logging through @aracna/core's Logger. Silence
 // the request/class/function loggers — they print raw
 // "postAcgRegister -> ... PHONE_REGISTRATION_ERROR" lines straight to the console
@@ -289,6 +298,8 @@ export class FcmListener extends EventEmitter {
     private _fcmToken: string | null = null;
     private _running = false;
     private _clientHandle: FcmClient | null = null;
+    /** Periodic CBS re-registration timer — cleared on stop(). */
+    private _reregisterTimer: ReturnType<typeof setInterval> | null = null;
 
     /**
      *
@@ -364,6 +375,11 @@ export class FcmListener extends EventEmitter {
             return;
         }
         this._running = false;
+        // Clear the periodic CBS re-registration timer before tearing down
+        if (this._reregisterTimer !== null) {
+            clearInterval(this._reregisterTimer);
+            this._reregisterTimer = null;
+        }
         const client = this._clientHandle;
         this._clientHandle = null;
         this._fcmToken = null;
@@ -576,6 +592,26 @@ export class FcmListener extends EventEmitter {
 
             this._clientHandle = client;
             this._running = true;
+
+            // Periodic CBS re-registration: Bosch may drop the server-side device
+            // registration (TTL / FW upgrade / re-pair) while the MTalk socket stays
+            // healthy, causing pushes to silently stop. Re-register every 24 h as a
+            // preventive measure — errors are caught and logged so a transient CBS
+            // hiccup never crashes the listener.
+            // Guard: clear any stale timer first (defensive against double-start).
+            if (this._reregisterTimer !== null) {
+                clearInterval(this._reregisterTimer);
+                this._reregisterTimer = null;
+            }
+            this._reregisterTimer = setInterval(() => {
+                if (!this._running || this._fcmToken === null) {
+                    return;
+                }
+                this._registerWithCbs(this._fcmToken).catch((err: unknown) => {
+                    const msg = err instanceof Error ? err.message : String(err);
+                    this.emit("error-logged", `CBS periodic re-register failed: ${msg}`);
+                });
+            }, CBS_REREGISTER_INTERVAL_MS);
 
             return true;
         } catch (err: unknown) {

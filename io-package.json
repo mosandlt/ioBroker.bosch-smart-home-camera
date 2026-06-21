@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "1.7.3",
+        "version": "1.7.4",
         "news": {
+            "1.7.4": {
+                "en": "FCM push reliability: the FCM device token is now re-registered with Bosch every 24 h while the MTalk socket stays alive. This prevents silent push loss when Bosch drops the server-side registration (TTL / firmware upgrade / re-pair) without closing the socket.",
+                "de": "FCM-Push-Zuverlässigkeit: Das FCM-Gerät wird nun alle 24 Stunden erneut bei Bosch registriert, solange der MTalk-Socket aktiv ist. Dadurch wird ein stiller Push-Ausfall verhindert, wenn Bosch die serverseitige Registrierung löscht (TTL / Firmware-Update / Neu-Koppelung), ohne den Socket zu schließen.",
+                "ru": "Надёжность push-уведомлений FCM: токен устройства FCM теперь перерегистрируется у Bosch каждые 24 ч, пока сокет MTalk активен. Это предотвращает тихую потерю push-уведомлений при удалении Bosch серверной регистрации (TTL / обновление прошивки / переподключение) без закрытия сокета.",
+                "pt": "Confiabilidade de push FCM: o token do dispositivo FCM é agora re-registado no Bosch a cada 24 h enquanto o socket MTalk estiver ativo. Isto evita perda silenciosa de pushes quando o Bosch remove o registo do lado do servidor (TTL / atualização de firmware / re-emparelhamento) sem fechar o socket.",
+                "nl": "FCM-pushbetrouwbaarheid: het FCM-apparaattoken wordt nu elke 24 uur opnieuw geregistreerd bij Bosch zolang de MTalk-socket actief is. Dit voorkomt stilzwijgend push-verlies wanneer Bosch de serverregistratie verwijdert (TTL / firmware-update / herverbinding) zonder de socket te sluiten.",
+                "fr": "Fiabilité des push FCM : le token d'appareil FCM est désormais ré-enregistré chez Bosch toutes les 24 h tant que le socket MTalk est actif. Cela évite la perte silencieuse des push quand Bosch supprime l'enregistrement côté serveur (TTL / mise à jour firmware / ré-appairage) sans fermer le socket.",
+                "it": "Affidabilità push FCM: il token dispositivo FCM viene ora ri-registrato presso Bosch ogni 24 h finché il socket MTalk è attivo. Questo previene la perdita silenziosa di push quando Bosch elimina la registrazione lato server (TTL / aggiornamento firmware / ri-associazione) senza chiudere il socket.",
+                "es": "Fiabilidad de push FCM: el token de dispositivo FCM se vuelve a registrar en Bosch cada 24 h mientras el socket MTalk esté activo. Esto evita la pérdida silenciosa de push cuando Bosch elimina el registro del lado servidor (TTL / actualización de firmware / re-emparejamiento) sin cerrar el socket.",
+                "pl": "Niezawodność push FCM: token urządzenia FCM jest teraz ponownie rejestrowany w Bosch co 24 h, gdy gniazdo MTalk jest aktywne. Zapobiega to cichej utracie push, gdy Bosch usuwa rejestrację po stronie serwera (TTL / aktualizacja oprogramowania / ponowne parowanie) bez zamykania gniazda.",
+                "uk": "Надійність FCM push: токен пристрою FCM тепер повторно реєструється у Bosch кожні 24 год, поки сокет MTalk активний. Це запобігає тихій втраті push, коли Bosch видаляє серверну реєстрацію (TTL / оновлення прошивки / повторне підключення) без закриття сокета.",
+                "zh-cn": "FCM 推送可靠性：只要 MTalk 套接字保持活跃，FCM 设备令牌现在每 24 小时向 Bosch 重新注册一次。当 Bosch 在不关闭套接字的情况下删除服务器端注册（TTL / 固件升级 / 重新配对）时，这可防止推送静默丢失。"
+            },
             "1.7.3": {
                 "en": "PiP freeze fix: a background Web Worker now detects a frozen Picture-in-Picture window within ~10 s (was ~60 s) when the browser tab is hidden. Also fixes a false-positive recovery loop that could occur when a reconnect took >10 s to produce its first frame.",
                 "de": "PiP-Freeze-Fix: Ein Hintergrund-Web-Worker erkennt ein eingefrorenes Bild-im-Bild-Fenster jetzt in ~10 s (vorher ~60 s), wenn der Browser-Tab verborgen ist. Außerdem wird eine Falsch-Positiv-Wiederherstellungsschleife behoben, die auftreten konnte, wenn ein Verbindungsaufbau für den ersten Frame >10 s benötigte.",
