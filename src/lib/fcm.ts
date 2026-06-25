@@ -271,6 +271,16 @@ export interface FcmDeps {
      *
      */
     FcmClient: typeof FcmClient;
+    /**
+     * Injectable timer — ioBroker adapter uses adapter.setInterval(); tests can
+     * inject a controllable mock. Default: globalThis.setInterval.
+     */
+    setInterval: (callback: () => void, delay: number) => unknown;
+    /**
+     * Injectable timer — ioBroker adapter uses adapter.clearInterval(); tests
+     * can inject a controllable mock. Default: globalThis.clearInterval.
+     */
+    clearInterval: (id: unknown) => void;
 }
 
 /** Default production deps — real @aracna/fcm functions. */
@@ -279,6 +289,9 @@ const DEFAULT_DEPS: FcmDeps = {
     createFcmECDH,
     generateFcmAuthSecret,
     FcmClient,
+    setInterval: (cb: () => void, ms: number) => globalThis.setInterval(cb, ms),
+    clearInterval: (id: unknown) =>
+        globalThis.clearInterval(id as ReturnType<typeof globalThis.setInterval>),
 };
 
 /**
@@ -299,7 +312,7 @@ export class FcmListener extends EventEmitter {
     private _running = false;
     private _clientHandle: FcmClient | null = null;
     /** Periodic CBS re-registration timer — cleared on stop(). */
-    private _reregisterTimer: ReturnType<typeof setInterval> | null = null;
+    private _reregisterTimer: unknown = null;
 
     /**
      *
@@ -377,7 +390,7 @@ export class FcmListener extends EventEmitter {
         this._running = false;
         // Clear the periodic CBS re-registration timer before tearing down
         if (this._reregisterTimer !== null) {
-            clearInterval(this._reregisterTimer);
+            this._deps.clearInterval(this._reregisterTimer);
             this._reregisterTimer = null;
         }
         const client = this._clientHandle;
@@ -600,10 +613,10 @@ export class FcmListener extends EventEmitter {
             // hiccup never crashes the listener.
             // Guard: clear any stale timer first (defensive against double-start).
             if (this._reregisterTimer !== null) {
-                clearInterval(this._reregisterTimer);
+                this._deps.clearInterval(this._reregisterTimer);
                 this._reregisterTimer = null;
             }
-            this._reregisterTimer = setInterval(() => {
+            this._reregisterTimer = this._deps.setInterval(() => {
                 if (!this._running || this._fcmToken === null) {
                     return;
                 }
@@ -618,7 +631,7 @@ export class FcmListener extends EventEmitter {
             // makes the mocha unit-test process hang forever after the suite
             // passes (the runner waits for the loop to drain). unref() lets the
             // process exit cleanly while the timer still fires while running.
-            this._reregisterTimer.unref?.();
+            (this._reregisterTimer as NodeJS.Timeout | null)?.unref?.();
 
             return true;
         } catch (err: unknown) {

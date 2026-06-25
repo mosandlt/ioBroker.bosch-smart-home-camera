@@ -719,6 +719,18 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.7.5 (2026-06-25)
+Cross-version port of Home Assistant v13.7.8–v13.7.9 WebRTC stability fixes.
+
+- **Stale-PC guard (fix):** after a WebRTC reconnect, late `mute` events from the old peer connection no longer trigger a new recovery — ending an endless loop where every reconnect caused another one.
+- **getStats freeze oracle (fix):** the player now checks `framesDecoded` via `getStats` every 5 s to catch a go2rtc silent stall or a Chrome 145 muted-background-pause that the existing frame-callback / stall timer may not see.
+- **Dead-track CGNAT detection → sticky HLS (fix):** when WebRTC connects but delivers zero decoded frames (bytes flowing = decoder stall; no bytes = CGNAT cut), the player escalates to HLS for the rest of the session instead of retrying WebRTC in an endless loop.
+- **iOS native-HLS 8s watchdog (fix):** Safari/iOS AVPlayer can hang at load with no self-recovery; a watchdog hard-reloads the element if `playing` does not fire within 8 s.
+- **Faster reconnect (improvement):** recovery restart delay reduced from 2000 ms to 1000 ms.
+
+### 1.7.4 (2026-06-23)
+FCM push reliability: periodic 24 h re-registration prevents silent push loss on long-lived sessions.
+
 ### 1.7.3 (2026-06-21)
 Cross-version port of the Home Assistant v13.7.5 fix.
 

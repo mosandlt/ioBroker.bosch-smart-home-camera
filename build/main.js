@@ -4335,8 +4335,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // back to a fresh registration if the state is empty, the ciphertext
         // is stale, or the JSON is malformed.
         const savedFcmCreds = await this._loadSavedFcmCredentials();
-        this._fcmListener = new fcm_1.FcmListener(this._httpClient, tokens.access_token, {
-            savedCredentials: savedFcmCreds ?? undefined,
+        this._fcmListener = new fcm_1.FcmListener(this._httpClient, tokens.access_token, { savedCredentials: savedFcmCreds ?? undefined }, {
+            setInterval: (cb, ms) => this.setInterval(cb, ms),
+            clearInterval: (id) => this.clearInterval(id),
         });
         // Silent push wake-up — Bosch sends no payload; fetch events from API
         this._fcmListener.on("push", () => {

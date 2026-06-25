@@ -192,6 +192,16 @@ export interface FcmDeps {
      *
      */
     FcmClient: typeof FcmClient;
+    /**
+     * Injectable timer — ioBroker adapter uses adapter.setInterval(); tests can
+     * inject a controllable mock. Default: globalThis.setInterval.
+     */
+    setInterval: (callback: () => void, delay: number) => unknown;
+    /**
+     * Injectable timer — ioBroker adapter uses adapter.clearInterval(); tests
+     * can inject a controllable mock. Default: globalThis.clearInterval.
+     */
+    clearInterval: (id: unknown) => void;
 }
 /**
  *

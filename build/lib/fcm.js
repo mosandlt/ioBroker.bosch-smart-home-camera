@@ -128,6 +128,8 @@ const DEFAULT_DEPS = {
     createFcmECDH: fcm_1.createFcmECDH,
     generateFcmAuthSecret: fcm_1.generateFcmAuthSecret,
     FcmClient: fcm_1.FcmClient,
+    setInterval: (cb, ms) => globalThis.setInterval(cb, ms),
+    clearInterval: (id) => globalThis.clearInterval(id),
 };
 /**
  *
@@ -211,7 +213,7 @@ class FcmListener extends node_events_1.EventEmitter {
         this._running = false;
         // Clear the periodic CBS re-registration timer before tearing down
         if (this._reregisterTimer !== null) {
-            clearInterval(this._reregisterTimer);
+            this._deps.clearInterval(this._reregisterTimer);
             this._reregisterTimer = null;
         }
         const client = this._clientHandle;
@@ -394,10 +396,10 @@ class FcmListener extends node_events_1.EventEmitter {
             // hiccup never crashes the listener.
             // Guard: clear any stale timer first (defensive against double-start).
             if (this._reregisterTimer !== null) {
-                clearInterval(this._reregisterTimer);
+                this._deps.clearInterval(this._reregisterTimer);
                 this._reregisterTimer = null;
             }
-            this._reregisterTimer = setInterval(() => {
+            this._reregisterTimer = this._deps.setInterval(() => {
                 if (!this._running || this._fcmToken === null) {
                     return;
                 }
@@ -412,7 +414,7 @@ class FcmListener extends node_events_1.EventEmitter {
             // makes the mocha unit-test process hang forever after the suite
             // passes (the runner waits for the loop to drain). unref() lets the
             // process exit cleanly while the timer still fires while running.
-            this._reregisterTimer.unref?.();
+            this._reregisterTimer?.unref?.();
             return true;
         }
         catch (err) {

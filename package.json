@@ -1,87 +1,87 @@
 {
-  "name": "iobroker.bosch-smart-home-camera",
-  "version": "1.7.4",
-  "description": "ioBroker adapter for Bosch Smart Home Cameras (Eyes Outdoor/Indoor, 360°, Gen2 Indoor II/Outdoor II)",
-  "author": {
-    "name": "mosandlt",
-    "email": "10558666+mosandlt@users.noreply.github.com"
-  },
-  "homepage": "https://github.com/mosandlt/ioBroker.bosch-smart-home-camera",
-  "license": "MIT",
-  "keywords": [
-    "ioBroker",
-    "iobroker",
-    "adapter",
-    "bosch",
-    "smart-home",
-    "camera"
-  ],
-  "main": "build/main.js",
-  "files": [
-    "build/**/*",
-    "admin/**/*",
-    "io-package.json",
-    "LICENSE",
-    "README.md",
-    ".releaseconfig.json",
-    "widgets/**/*"
-  ],
-  "engines": {
-    "node": ">=22"
-  },
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "build:widget": "npm --prefix src-widgets install --no-audit --no-fund && npm --prefix src-widgets run build && node scripts/copy-widget.js",
-    "watch": "tsc -p tsconfig.json --watch",
-    "test": "npm run test:js && npm run test:package",
-    "test:js": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\"}' mocha --config test/.mocharc.yml",
-    "test:package": "mocha test/package.js --exit",
-    "test:unit": "cross-env TS_NODE_TRANSPILE_ONLY=true \"TS_NODE_COMPILER_OPTIONS={\\\"module\\\":\\\"commonjs\\\"}\" mocha --config test/.mocharc.yml",
-    "test:fast": "cross-env TS_NODE_TRANSPILE_ONLY=true \"TS_NODE_COMPILER_OPTIONS={\\\"module\\\":\\\"commonjs\\\"}\" mocha --config test/.mocharc.yml --parallel --jobs 6 --exit",
-    "test:coverage": "npm run fix:c8-yargs && c8 --reporter=text --reporter=html --reporter=lcov npm run test:unit",
-    "test:coverage:check": "npm run fix:c8-yargs && c8 --reporter=text-summary --lines 80 --functions 78 --branches 70 npm run test:unit",
-    "lint": "eslint src/ --ext .ts",
-    "release": "release-script",
-    "fix:c8-yargs": "node -e \"const v=parseInt(process.version.slice(1));if(v>=26){try{const fs=require('fs'),p='node_modules/c8/node_modules/yargs/package.json';const pkg=JSON.parse(fs.readFileSync(p,'utf8'));if(pkg.type==='module'){delete pkg.type;fs.writeFileSync(p,JSON.stringify(pkg,null,2));console.log('fix:c8-yargs: patched c8 yargs for Node v26+ CJS compat');}}catch(e){/* c8 not installed yet */}}\""
-  },
-  "dependencies": {
-    "@aracna/core": "^1.5.0",
-    "@aracna/fcm": "^1.0.33",
-    "@iobroker/adapter-core": "^3.4.1",
-    "axios": "^1.17.0",
-    "axios-cookiejar-support": "^7.0.0",
-    "mqtt": "^5.15.1",
-    "tough-cookie": "^6.0.1"
-  },
-  "devDependencies": {
-    "@alcalzone/release-script": "^5.2.1",
-    "@alcalzone/release-script-plugin-iobroker": "^5.2.0",
-    "@alcalzone/release-script-plugin-license": "^5.2.0",
-    "@alcalzone/release-script-plugin-manual-review": "^5.2.0",
-    "@iobroker/adapter-dev": "^1.5.0",
-    "@iobroker/eslint-config": "^2.3.4",
-    "@iobroker/testing": "^5.2.2",
-    "@tsconfig/node22": "^22.0.5",
-    "@types/node": "^22.19.19",
-    "@types/tough-cookie": "^4.0.5",
-    "c8": "^11.0.0",
-    "cross-env": "^10.1.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^6.0.3",
-    "yargs": "^18.0.0"
-  },
-  "overrides": {
-    "serialize-javascript": "^7.0.5",
-    "esbuild": "^0.25.0",
-    "diff": "^8.0.3",
-    "form-data": "^4.0.6",
-    "ws": "^8.21.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/mosandlt/ioBroker.bosch-smart-home-camera.git"
-  },
-  "bugs": {
-    "url": "https://github.com/mosandlt/ioBroker.bosch-smart-home-camera/issues"
-  }
+    "name": "iobroker.bosch-smart-home-camera",
+    "version": "1.7.5",
+    "description": "ioBroker adapter for Bosch Smart Home Cameras (Eyes Outdoor/Indoor, 360°, Gen2 Indoor II/Outdoor II)",
+    "author": {
+        "name": "mosandlt",
+        "email": "10558666+mosandlt@users.noreply.github.com"
+    },
+    "homepage": "https://github.com/mosandlt/ioBroker.bosch-smart-home-camera",
+    "license": "MIT",
+    "keywords": [
+        "ioBroker",
+        "iobroker",
+        "adapter",
+        "bosch",
+        "smart-home",
+        "camera"
+    ],
+    "main": "build/main.js",
+    "files": [
+        "build/**/*",
+        "admin/**/*",
+        "io-package.json",
+        "LICENSE",
+        "README.md",
+        ".releaseconfig.json",
+        "widgets/**/*"
+    ],
+    "engines": {
+        "node": ">=22"
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "build:widget": "npm --prefix src-widgets install --no-audit --no-fund && npm --prefix src-widgets run build && node scripts/copy-widget.js",
+        "watch": "tsc -p tsconfig.json --watch",
+        "test": "npm run test:js && npm run test:package",
+        "test:js": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\"}' mocha --config test/.mocharc.yml",
+        "test:package": "mocha test/package.js --exit",
+        "test:unit": "cross-env TS_NODE_TRANSPILE_ONLY=true \"TS_NODE_COMPILER_OPTIONS={\\\"module\\\":\\\"commonjs\\\"}\" mocha --config test/.mocharc.yml",
+        "test:fast": "cross-env TS_NODE_TRANSPILE_ONLY=true \"TS_NODE_COMPILER_OPTIONS={\\\"module\\\":\\\"commonjs\\\"}\" mocha --config test/.mocharc.yml --parallel --jobs 6 --exit",
+        "test:coverage": "npm run fix:c8-yargs && c8 --reporter=text --reporter=html --reporter=lcov npm run test:unit",
+        "test:coverage:check": "npm run fix:c8-yargs && c8 --reporter=text-summary --lines 80 --functions 78 --branches 70 npm run test:unit",
+        "lint": "eslint src/ --ext .ts",
+        "release": "release-script",
+        "fix:c8-yargs": "node -e \"const v=parseInt(process.version.slice(1));if(v>=26){try{const fs=require('fs'),p='node_modules/c8/node_modules/yargs/package.json';const pkg=JSON.parse(fs.readFileSync(p,'utf8'));if(pkg.type==='module'){delete pkg.type;fs.writeFileSync(p,JSON.stringify(pkg,null,2));console.log('fix:c8-yargs: patched c8 yargs for Node v26+ CJS compat');}}catch(e){/* c8 not installed yet */}}\""
+    },
+    "dependencies": {
+        "@aracna/core": "^1.5.0",
+        "@aracna/fcm": "^1.0.33",
+        "@iobroker/adapter-core": "^3.4.1",
+        "axios": "^1.17.0",
+        "axios-cookiejar-support": "^7.0.0",
+        "mqtt": "^5.15.1",
+        "tough-cookie": "^6.0.1"
+    },
+    "devDependencies": {
+        "@alcalzone/release-script": "^5.2.1",
+        "@alcalzone/release-script-plugin-iobroker": "^5.2.0",
+        "@alcalzone/release-script-plugin-license": "^5.2.0",
+        "@alcalzone/release-script-plugin-manual-review": "^5.2.0",
+        "@iobroker/adapter-dev": "^1.5.0",
+        "@iobroker/eslint-config": "^2.3.4",
+        "@iobroker/testing": "^5.2.2",
+        "@tsconfig/node22": "^22.0.5",
+        "@types/node": "^22.19.19",
+        "@types/tough-cookie": "^4.0.5",
+        "c8": "^11.0.0",
+        "cross-env": "^10.1.0",
+        "ts-node": "^10.9.2",
+        "typescript": "^6.0.3",
+        "yargs": "^18.0.0"
+    },
+    "overrides": {
+        "serialize-javascript": "^7.0.5",
+        "esbuild": "^0.25.0",
+        "diff": "^8.0.3",
+        "form-data": "^4.0.6",
+        "ws": "^8.21.0"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mosandlt/ioBroker.bosch-smart-home-camera.git"
+    },
+    "bugs": {
+        "url": "https://github.com/mosandlt/ioBroker.bosch-smart-home-camera/issues"
+    }
 }

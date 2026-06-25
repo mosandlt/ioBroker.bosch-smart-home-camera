@@ -141,6 +141,18 @@ export class Go2rtcStream {
         // fires every 5 s in a dedicated thread (not throttled by hidden-tab),
         // so a frozen PiP is detected in ~10 s instead of ~60 s.
         this._stallWorker = null;
+        // Sticky HLS: once a dead WebRTC track is detected → skip WebRTC for this
+        // mount (parity HA v13.7.9 2026-06-23).
+        this._preferHlsThisSession = false;
+        // Dead-track watchdog state (parity HA v13.7.9 2026-06-23).
+        this._webrtcFirstFrameTimer = null;
+        this._webrtcStatsPrev = null;
+        this._webrtcDeadPolls = 0;
+        this._nativeHlsLoadTimer = null;
+        // getStats freeze oracle state (parity HA v13.7.8 2026-06-22).
+        this._prevFramesDecoded = null;
+        this._framesDecodedSeenAt = 0;
+        this._statsCheckInFlight = false;
     }
 
     // -----------------------------------------------------------------------
@@ -172,6 +184,20 @@ export class Go2rtcStream {
 
         const webrtcTimeout = isRemoteSession() ? 2500 : 5000;
 
+        // Sticky HLS: dead-track watchdog escalated this session → skip WebRTC
+        // (parity HA v13.7.9 2026-06-23).
+        if (this._preferHlsThisSession) {
+            try {
+                await this._startHLS(videoEl, wantAudio, effectivelyArmed);
+            } catch (hlsErr) {
+                if (!this._stopping) {
+                    this._onPhase("error", null);
+                    this._onError(hlsErr);
+                }
+            }
+            return;
+        }
+
         try {
             await this._startWebRTC(videoEl, wantAudio, effectivelyArmed, webrtcTimeout);
         } catch (webrtcErr) {
@@ -202,6 +228,15 @@ export class Go2rtcStream {
         this._detachVideoListeners();
         this._cleanupWebRTC();
         this._cleanupHLS();
+        if (this._webrtcFirstFrameTimer) {
+            clearTimeout(this._webrtcFirstFrameTimer);
+            this._webrtcFirstFrameTimer = null;
+        }
+        if (this._nativeHlsLoadTimer) {
+            clearTimeout(this._nativeHlsLoadTimer);
+            this._nativeHlsLoadTimer = null;
+        }
+        this._preferHlsThisSession = false;
         if (this._videoEl) {
             this._videoEl.srcObject = null;
             this._videoEl.src = "";
@@ -230,7 +265,9 @@ export class Go2rtcStream {
         // stolen), it cannot be resumed — null it out so the next gesture creates a
         // fresh one. 2026-06-15 fix (Android #2).
         if (_sharedAudioCtx && _sharedAudioCtx.state === "interrupted") {
-            try { _sharedAudioCtx.close(); } catch (_) {}
+            try {
+                _sharedAudioCtx.close();
+            } catch (_) {}
             _sharedAudioCtx = null;
         }
         if (!_sharedAudioCtx) {
@@ -244,14 +281,22 @@ export class Go2rtcStream {
         // resume() must be called in a synchronous user-gesture stack frame.
         // Log a warning (non-fatal) if the context remains suspended after resume —
         // this can happen on Android when the gesture budget is exhausted.
-        _sharedAudioCtx.resume().then(() => {
-            if (_sharedAudioCtx && _sharedAudioCtx.state !== "running") {
-                console.warn("[go2rtc] AudioContext resume did not reach 'running'; state:", _sharedAudioCtx.state);
-                // Null out so the NEXT gesture gets a fresh context.
-                try { _sharedAudioCtx.close(); } catch (_) {}
-                _sharedAudioCtx = null;
-            }
-        }).catch(() => {});
+        _sharedAudioCtx
+            .resume()
+            .then(() => {
+                if (_sharedAudioCtx && _sharedAudioCtx.state !== "running") {
+                    console.warn(
+                        "[go2rtc] AudioContext resume did not reach 'running'; state:",
+                        _sharedAudioCtx.state,
+                    );
+                    // Null out so the NEXT gesture gets a fresh context.
+                    try {
+                        _sharedAudioCtx.close();
+                    } catch (_) {}
+                    _sharedAudioCtx = null;
+                }
+            })
+            .catch(() => {});
     }
 
     // -----------------------------------------------------------------------
@@ -315,13 +360,21 @@ export class Go2rtcStream {
                 // keyframe gap mutes briefly then unmutes) then recover if still
                 // muted. This brings a frozen PiP window back without a tab switch.
                 if (evt.track.kind === "video") {
+                    // Arm dead-track watchdog (parity HA v13.7.9 2026-06-23).
+                    this._armWebrtcDeadTrackWatchdog(videoEl);
                     evt.track.onunmute = () => {
+                        if (this._pc !== pc) {
+                            return;
+                        } // stale-pc guard (parity HA v13.7.8 B1)
                         if (this._trackMuteTimer) {
                             clearTimeout(this._trackMuteTimer);
                             this._trackMuteTimer = null;
                         }
                     };
                     evt.track.onmute = () => {
+                        if (this._pc !== pc) {
+                            return;
+                        } // stale-pc guard (parity HA v13.7.8 B1)
                         if (this._stopping || !this._live) {
                             return;
                         }
@@ -330,6 +383,9 @@ export class Go2rtcStream {
                         }
                         this._trackMuteTimer = setTimeout(() => {
                             this._trackMuteTimer = null;
+                            if (this._pc !== pc) {
+                                return;
+                            } // stale-pc guard inside timeout
                             if (evt.track.muted && this._live && !this._stopping) {
                                 this._recover("webrtc video track muted >6s");
                             }
@@ -430,6 +486,10 @@ export class Go2rtcStream {
      */
     _cleanupWebRTC() {
         clearTimeout(this._iceTimer);
+        if (this._webrtcFirstFrameTimer) {
+            clearTimeout(this._webrtcFirstFrameTimer);
+            this._webrtcFirstFrameTimer = null;
+        }
         if (this._pc) {
             try {
                 this._pc.close();
@@ -501,6 +561,9 @@ export class Go2rtcStream {
             videoEl.src = hlsUrl;
             this._attachVideoListeners(videoEl, wantAudio, armed, () => {});
             videoEl.load();
+            // 8s watchdog: iOS AVPlayer can hang in loadstart with no self-recovery
+            // (parity HA v13.7.9 2026-06-23).
+            this._armNativeHlsLoadWatchdog(videoEl, hlsUrl);
             try {
                 await videoEl.play();
             } catch {
@@ -591,6 +654,14 @@ export class Go2rtcStream {
             clearTimeout(this._trackMuteTimer);
             this._trackMuteTimer = null;
         }
+        if (this._webrtcFirstFrameTimer) {
+            clearTimeout(this._webrtcFirstFrameTimer);
+            this._webrtcFirstFrameTimer = null;
+        }
+        if (this._nativeHlsLoadTimer) {
+            clearTimeout(this._nativeHlsLoadTimer);
+            this._nativeHlsLoadTimer = null;
+        }
         if (this._videoEl) {
             this._videoEl.removeEventListener("playing", this._onPlaying);
             this._videoEl.removeEventListener("pause", this._onPause);
@@ -639,6 +710,16 @@ export class Go2rtcStream {
             } else {
                 stallCount = 0;
             }
+            // getStats freeze oracle: catches go2rtc silent-stall + Chrome 145
+            // muted-background-pause when rVFC/currentTime may not report it
+            // (parity HA v13.7.8 2026-06-22).
+            this._checkWebrtcFreeze()
+                .then((isFrozen) => {
+                    if (isFrozen && this._live && !this._stopping && !this._recovering) {
+                        this._recover("getStats: framesDecoded frozen >10s");
+                    }
+                })
+                .catch(() => {});
             lastTime = videoEl.currentTime;
         }, 5000);
     }
@@ -805,7 +886,7 @@ export class Go2rtcStream {
                 return;
             }
             this.start(videoEl, { wantAudio, armed: false }).catch(() => {});
-        }, 2000);
+        }, 1000); // 2000→1000ms: faster recovery after stall (parity HA v13.7.8 B4)
     }
 
     /**
@@ -838,5 +919,248 @@ export class Go2rtcStream {
      */
     _handlePlaying() {
         // Bound version reassigned per start() call — handled in _attachVideoListeners.
+    }
+
+    // -----------------------------------------------------------------------
+    // getStats freeze oracle (parity HA v13.7.8 2026-06-22)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Returns true when framesDecoded has not advanced for >10s on a live WebRTC
+     * stream — catches go2rtc silent-stall + Chrome 145 muted-background-pause.
+     * Single-flight; never throws.
+     *
+     * @returns {Promise<boolean>}
+     */
+    async _checkWebrtcFreeze() {
+        if (this._transport !== "webrtc") {
+            return false;
+        }
+        const pc = this._pc;
+        if (!pc || typeof pc.getStats !== "function") {
+            return false;
+        }
+        if (this._statsCheckInFlight) {
+            return false;
+        }
+        this._statsCheckInFlight = true;
+        try {
+            const stats = await pc.getStats();
+            let framesDecoded = null;
+            stats.forEach((r) => {
+                if (
+                    r.type === "inbound-rtp" &&
+                    (r.kind === "video" || r.mediaType === "video") &&
+                    typeof r.framesDecoded === "number" &&
+                    (framesDecoded == null || r.framesDecoded > framesDecoded)
+                ) {
+                    // Highest framesDecoded: RTX inbound-rtp can be kind:"video" with
+                    // permanently-0 framesDecoded → false-positive if iterated last.
+                    framesDecoded = r.framesDecoded;
+                }
+            });
+            if (framesDecoded == null) {
+                return false;
+            }
+            const now = performance.now();
+            if (this._prevFramesDecoded == null || framesDecoded > this._prevFramesDecoded) {
+                this._prevFramesDecoded = framesDecoded;
+                this._framesDecodedSeenAt = now;
+                return false;
+            }
+            return this._framesDecodedSeenAt > 0 && now - this._framesDecodedSeenAt > 10000;
+        } catch {
+            return false;
+        } finally {
+            this._statsCheckInFlight = false;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Dead-track watchdog (parity HA v13.7.9 2026-06-23)
+    // -----------------------------------------------------------------------
+
+    /**
+     * One getStats snapshot: highest framesDecoded + matching bytesReceived from
+     * video inbound-rtp reports. null = no video report available.
+     *
+     * @returns {Promise<{frames:number,bytes:number}|null>}
+     */
+    async _webrtcStatsSnapshot() {
+        const pc = this._pc;
+        if (!pc || typeof pc.getStats !== "function") {
+            return null;
+        }
+        try {
+            const stats = await pc.getStats();
+            let frames = null,
+                bytes = 0;
+            stats.forEach((r) => {
+                if (
+                    r.type === "inbound-rtp" &&
+                    (r.kind === "video" || r.mediaType === "video") &&
+                    typeof r.framesDecoded === "number" &&
+                    (frames == null || r.framesDecoded > frames)
+                ) {
+                    frames = r.framesDecoded;
+                    bytes = typeof r.bytesReceived === "number" ? r.bytesReceived : 0;
+                }
+            });
+            if (frames == null) {
+                return null;
+            }
+            return { frames, bytes };
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Watchdog for the connected-but-zero-frames WebRTC failure (CGNAT / decoder
+     * stall). Polls getStats after first video track; if RTP never arrives or arrives
+     * but never decodes AND no real frame was presented, escalates to sticky HLS.
+     *
+     * @param {HTMLVideoElement} video
+     */
+    _armWebrtcDeadTrackWatchdog(video) {
+        if (this._webrtcFirstFrameTimer) {
+            clearTimeout(this._webrtcFirstFrameTimer);
+            this._webrtcFirstFrameTimer = null;
+        }
+        this._webrtcStatsPrev = null;
+        this._webrtcDeadPolls = 0;
+        const FIRST_POLL_MS = 2500;
+        const POLL_MS = 2000;
+        const MAX_MS = 9000;
+        const startedAt = performance.now();
+        const poll = async () => {
+            this._webrtcFirstFrameTimer = null;
+            if (this._stopping || !this._live) {
+                return;
+            }
+            if (this._transport !== "webrtc") {
+                return;
+            } // already on HLS
+            if (this._recovering) {
+                return;
+            }
+            // Backgrounded mid-connect: avoid thread-suspend false positive.
+            if (document.visibilityState !== "visible") {
+                this._webrtcFirstFrameTimer = setTimeout(poll, POLL_MS);
+                return;
+            }
+            // A real presented frame = unambiguously alive.
+            if (video._boschLastFrameAt != null) {
+                return;
+            }
+            const snap = await this._webrtcStatsSnapshot();
+            if (this._stopping || !this._live || this._transport !== "webrtc") {
+                return;
+            } // raced
+            const pastDeadline = performance.now() - startedAt >= MAX_MS;
+            if (snap == null) {
+                // AMBIGUOUS: getStats-less browser on healthy stream looks the same as
+                // dead — never fall back on this alone (would wrongly drop WebRTC).
+                if (pastDeadline) {
+                    return;
+                }
+                this._webrtcFirstFrameTimer = setTimeout(poll, POLL_MS);
+                return;
+            }
+            if (snap.frames > 0) {
+                return;
+            } // decoder producing frames → alive
+            if (this._webrtcStatsPrev != null) {
+                const dBytes = snap.bytes - this._webrtcStatsPrev.bytes;
+                if (dBytes <= 0) {
+                    this._forceHlsFallback("no RTP bytes (CGNAT cut)");
+                    return;
+                }
+                this._webrtcDeadPolls++;
+                if (this._webrtcDeadPolls >= 2) {
+                    this._forceHlsFallback("bytes flowing but 0 frames decoded");
+                    return;
+                }
+            }
+            this._webrtcStatsPrev = snap;
+            if (pastDeadline) {
+                this._forceHlsFallback("0 frames decoded within deadline");
+                return;
+            }
+            this._webrtcFirstFrameTimer = setTimeout(poll, POLL_MS);
+        };
+        this._webrtcFirstFrameTimer = setTimeout(poll, FIRST_POLL_MS);
+    }
+
+    /**
+     * Escalate dead WebRTC transport to sticky HLS for this session mount.
+     *
+     * @param {string} reason
+     */
+    _forceHlsFallback(reason) {
+        if (this._stopping || !this._live) {
+            return;
+        }
+        if (this._recovering) {
+            return;
+        }
+        if (this._preferHlsThisSession) {
+            return;
+        } // already escalated
+        console.warn(`[go2rtc] WebRTC dead — switching to HLS (${reason})`);
+        this._preferHlsThisSession = true;
+        this._recover("dead webrtc track → HLS");
+    }
+
+    // -----------------------------------------------------------------------
+    // Native HLS 8s load watchdog (parity HA v13.7.9 2026-06-23)
+    // -----------------------------------------------------------------------
+
+    /**
+     * iOS AVPlayer can hang at loadstart/waiting with no self-recovery. If no
+     * `playing` fires within 8s, hard-reload the element once.
+     *
+     * @param {HTMLVideoElement} video
+     * @param {string} url
+     */
+    _armNativeHlsLoadWatchdog(video, url) {
+        if (this._nativeHlsLoadTimer) {
+            clearTimeout(this._nativeHlsLoadTimer);
+            this._nativeHlsLoadTimer = null;
+        }
+        // Keep ref so the timeout handler can remove it even if "playing" never fired.
+        const onPlaying = () => {
+            if (this._nativeHlsLoadTimer) {
+                clearTimeout(this._nativeHlsLoadTimer);
+                this._nativeHlsLoadTimer = null;
+            }
+        };
+        video.addEventListener("playing", onPlaying, { once: true });
+        this._nativeHlsLoadTimer = setTimeout(() => {
+            this._nativeHlsLoadTimer = null;
+            // Remove listener in case "playing" never fired (avoids accumulation across
+            // recovery cycles — verify-agent finding 2026-06-25).
+            video.removeEventListener("playing", onPlaying);
+            if (this._stopping || !this._live) {
+                return;
+            }
+            const v = this._videoEl;
+            if (!v) {
+                return;
+            }
+            if (!v.paused && v.currentTime > 0) {
+                return;
+            }
+            console.warn("[go2rtc] native HLS stalled at load (>8s) — hard reload");
+            try {
+                v.removeAttribute("src");
+                v.load();
+                v.src = url;
+                v.load();
+                Promise.resolve(v.play()).catch(() => {});
+            } catch {
+                /* element raced away */
+            }
+        }, 8000);
     }
 }
