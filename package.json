@@ -39,6 +39,7 @@
         "test:unit": "cross-env TS_NODE_TRANSPILE_ONLY=true \"TS_NODE_COMPILER_OPTIONS={\\\"module\\\":\\\"commonjs\\\"}\" mocha --config test/.mocharc.yml",
         "test:fast": "cross-env TS_NODE_TRANSPILE_ONLY=true \"TS_NODE_COMPILER_OPTIONS={\\\"module\\\":\\\"commonjs\\\"}\" mocha --config test/.mocharc.yml --parallel --jobs 6 --exit",
         "test:coverage": "npm run fix:c8-yargs && c8 --reporter=text --reporter=html --reporter=lcov npm run test:unit",
+        "test:integration": "mocha test/integration.js --timeout 300000 --exit",
         "test:coverage:check": "npm run fix:c8-yargs && c8 --reporter=text-summary --lines 80 --functions 78 --branches 70 npm run test:unit",
         "lint": "eslint src/ --ext .ts",
         "release": "release-script",

@@ -4,4 +4,6 @@ require:
 spec:
     - "test/**/*.ts"
     - "test/**/*.js"
+ignore:
+    - "test/integration.js"
 timeout: 60000
