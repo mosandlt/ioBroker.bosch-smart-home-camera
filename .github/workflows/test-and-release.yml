@@ -34,7 +34,7 @@ jobs:
     if: contains(github.event.head_commit.message, '[skip ci]') == false
     runs-on: ubuntu-latest
     steps:
-      - uses: ioBroker/testing-action-check@v2.0.0
+      - uses: ioBroker/testing-action-check@v2
         with:
           node-version: '24.x'
           lint: true
@@ -85,7 +85,7 @@ jobs:
         node-version: [22.x, 24.x]
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - uses: ioBroker/testing-action-adapter@v1.1.2
+      - uses: ioBroker/testing-action-adapter@v1
         with:
           node-version: ${{ matrix.node-version }}
           os: ${{ matrix.os }}
@@ -119,7 +119,7 @@ jobs:
             echo "already_published=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.npm_check.outputs.already_published == 'false'
-        uses: ioBroker/testing-action-deploy@v1.5.0
+        uses: ioBroker/testing-action-deploy@v1
         with:
           node-version: '24.x'
           github-token: ${{ secrets.GITHUB_TOKEN }}
