@@ -60,14 +60,28 @@ jobs:
       - run: npm ci
       - run: npm run test:coverage:check
 
+  # Verify TypeScript compiles cleanly (catches errors not exercised by tests)
+  build:
+    needs: check-and-lint
+    if: contains(github.event.head_commit.message, '[skip ci]') == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
   # Runs adapter tests on all supported node versions and OSes
   adapter-tests:
-    needs: check-and-lint
+    needs: [check-and-lint, build]
     if: contains(github.event.head_commit.message, '[skip ci]') == false
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        node-version: [22.x, 24.x]
+        node-version: [20.x, 22.x, 24.x]
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: ioBroker/testing-action-adapter@v1
@@ -81,7 +95,7 @@ jobs:
   # action exchanges the GitHub OIDC token for a short-lived publish token
   # at runtime. id-token: write is required for that exchange.
   deploy:
-    needs: [check-and-lint, adapter-tests, coverage-check, i18n-check]
+    needs: [check-and-lint, build, adapter-tests, coverage-check, i18n-check]
     if: |
       contains(github.event.head_commit.message, '[skip ci]') == false &&
       github.event_name == 'push' &&
