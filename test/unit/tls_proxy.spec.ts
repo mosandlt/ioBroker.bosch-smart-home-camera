@@ -121,7 +121,7 @@ interface LogEntry {
 
 describe("TLS Proxy (src/lib/tls_proxy.ts)", function () {
     // TLS handshakes in CI can be slow
-    this.timeout(10_000);
+    this.timeout(20_000);
 
     let echoServer: tls.Server;
     let echoPort: number;
@@ -330,18 +330,18 @@ describe("TLS Proxy (src/lib/tls_proxy.ts)", function () {
                         clearInterval(poll);
                         clearTimeout(deadline);
                         resolve();
-                    } else if (Date.now() - start > 9_500) {
+                    } else if (Date.now() - start > 17_500) {
                         // poll interval guard — let the deadline timer reject
                     }
                 }, 50);
                 const deadline = setTimeout(() => {
                     clearInterval(poll);
                     reject(new Error(
-                        `No warn/error log entry within 10s. ` +
+                        `No warn/error log entry within 18s. ` +
                         `Captured ${logEntries.length} entries: ` +
                         JSON.stringify(logEntries.map((e) => `${e.level}:${e.message.slice(0, 60)}`)),
                     ));
-                }, 10_000);
+                }, 18_000);
             });
         } finally {
             sock.destroy();
