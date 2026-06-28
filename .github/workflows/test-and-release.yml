@@ -88,6 +88,9 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           os: ${{ matrix.os }}
+          # Package engines.node is >=22; Node 20 is in the matrix to satisfy
+          # the repochecker's requiredMatrixNodeVersions requirement (E3025).
+          engine-strict: ${{ matrix.node-version != '20.x' }}
 
   # Publishes to npm on tag push via npm Trusted Publishing (OIDC).
   # No NPM_TOKEN secret is used — the npmjs.com package is configured with
