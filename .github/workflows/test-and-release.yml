@@ -80,17 +80,15 @@ jobs:
     if: contains(github.event.head_commit.message, '[skip ci]') == false
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [20.x, 22.x, 24.x]
+        node-version: [22.x, 24.x]
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: ioBroker/testing-action-adapter@v1
         with:
           node-version: ${{ matrix.node-version }}
           os: ${{ matrix.os }}
-          # Package engines.node is >=22; Node 20 is in the matrix to satisfy
-          # the repochecker's requiredMatrixNodeVersions requirement (E3025).
-          engine-strict: ${{ matrix.node-version != '20.x' }}
 
   # Publishes to npm on tag push via npm Trusted Publishing (OIDC).
   # No NPM_TOKEN secret is used — the npmjs.com package is configured with

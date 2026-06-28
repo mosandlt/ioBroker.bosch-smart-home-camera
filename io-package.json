@@ -4,17 +4,17 @@
         "version": "1.7.6",
         "news": {
             "1.7.6": {
-                "en": "CI: add integration test harness (@iobroker/testing), build job, Node 20 matrix entry, coverage gate (≥80%), i18n E5606 gate. No functional changes.",
-                "de": "CI: Integration-Test-Harness (@iobroker/testing), Build-Job, Node-20-Matrix, Coverage-Gate (≥80 %), i18n-E5606-Gate hinzugefügt. Keine funktionalen Änderungen.",
-                "ru": "CI: добавлен обвязка интеграционных тестов (@iobroker/testing), задание сборки, узел 20 в матрице, покрытие ≥80 %, i18n E5606. Функциональных изменений нет.",
-                "pt": "CI: adicionado harness de testes de integração (@iobroker/testing), job de build, Node 20 na matriz, cobertura ≥80 %, gate i18n E5606. Sem alterações funcionais.",
-                "nl": "CI: integratietestharnas (@iobroker/testing), build-taak, Node 20 in matrix, dekking ≥80 %, i18n E5606-gate toegevoegd. Geen functionele wijzigingen.",
-                "fr": "CI : ajout du harnais de tests d'intégration (@iobroker/testing), tâche build, Node 20 dans la matrice, couverture ≥80 %, gate i18n E5606. Aucune modification fonctionnelle.",
-                "it": "CI: aggiunto test harness integrazione (@iobroker/testing), job build, Node 20 in matrice, copertura ≥80 %, gate i18n E5606. Nessuna modifica funzionale.",
-                "es": "CI: añadido harness de pruebas de integración (@iobroker/testing), trabajo build, Node 20 en matriz, cobertura ≥80 %, gate i18n E5606. Sin cambios funcionales.",
-                "pl": "CI: dodano harness testów integracyjnych (@iobroker/testing), zadanie build, Node 20 w matrycy, pokrycie ≥80 %, gate i18n E5606. Brak zmian funkcjonalnych.",
-                "uk": "CI: додано harness інтеграційних тестів (@iobroker/testing), завдання build, Node 20 в матриці, покриття ≥80 %, gate i18n E5606. Без функціональних змін.",
-                "zh-cn": "CI：添加集成测试框架（@iobroker/testing）、构建任务、Node 20 矩阵条目、覆盖率门（≥80 %）、i18n E5606 门。无功能变更。"
+                "en": "CI: integration test harness (@iobroker/testing), build job, Node 22/24 matrix, coverage gate (≥80%), i18n E5606 gate. No functional changes.",
+                "de": "CI: Integration-Test-Harness (@iobroker/testing), Build-Job, Node-22/24-Matrix, Coverage-Gate (≥80 %), i18n-E5606-Gate. Keine funktionalen Änderungen.",
+                "ru": "CI: обвязка интеграционных тестов (@iobroker/testing), задание сборки, матрица Node 22/24, покрытие ≥80 %, i18n E5606. Функциональных изменений нет.",
+                "pt": "CI: harness de testes de integração (@iobroker/testing), job de build, matriz Node 22/24, cobertura ≥80 %, gate i18n E5606. Sem alterações funcionais.",
+                "nl": "CI: integratietestharnas (@iobroker/testing), build-taak, Node 22/24 matrix, dekking ≥80 %, i18n E5606-gate. Geen functionele wijzigingen.",
+                "fr": "CI : harnais de tests d'intégration (@iobroker/testing), tâche build, matrice Node 22/24, couverture ≥80 %, gate i18n E5606. Aucune modification fonctionnelle.",
+                "it": "CI: test harness integrazione (@iobroker/testing), job build, matrice Node 22/24, copertura ≥80 %, gate i18n E5606. Nessuna modifica funzionale.",
+                "es": "CI: harness de pruebas de integración (@iobroker/testing), trabajo build, matriz Node 22/24, cobertura ≥80 %, gate i18n E5606. Sin cambios funcionales.",
+                "pl": "CI: harness testów integracyjnych (@iobroker/testing), zadanie build, matryca Node 22/24, pokrycie ≥80 %, gate i18n E5606. Brak zmian funkcjonalnych.",
+                "uk": "CI: harness інтеграційних тестів (@iobroker/testing), завдання build, матриця Node 22/24, покриття ≥80 %, gate i18n E5606. Без функціональних змін.",
+                "zh-cn": "CI：集成测试框架（@iobroker/testing）、构建任务、Node 22/24 矩阵、覆盖率门（≥80 %）、i18n E5606 门。无功能变更。"
             },
             "1.7.5": {
                 "en": "WebRTC: stale-PC guard prevents recovery loop; getStats freeze oracle; dead-track CGNAT detection → sticky HLS; iOS native-HLS 8s watchdog; 1000ms reconnect gap",
@@ -93,19 +93,6 @@
                 "pl": "Codzienne liczniki zdarzeń (events_today/movement/audio, UTC). Widget BoschOverview: WebRTC/HLS na żywo w widoku rozszerzonym + baner konserwacji + plakietka ostatniego wydarzenia. Głośność na kamerę; automatyczne wyciszenie tej samej kamery; ostatnia klatka w trybie offline. Poprawki: łączenie migawek; pozostaje online podczas konserwacji chmury.",
                 "uk": "Щоденні лічильники подій (events_today/movement/audio, UTC). Віджет BoschOverview: Live WebRTC/HLS у розгорнутому вигляді + банер обслуговування + значок останньої події. Обсяг на камеру; автоматичне відключення звуку тієї ж камери; офлайн останній кадр. Виправлення: об'єднання знімків; залишається онлайн під час обслуговування хмари.",
                 "zh-cn": "每日事件计数器（events_today/movement/audio，UTC）。 BoschOverview 小部件：扩展视图中的实时 WebRTC/HLS + 维护横幅 + 最后事件徽章。每个摄像机的音量；同机自动静音；离线最后一帧。修复：快照合并；云维护期间保持在线。"
-            },
-            "1.6.1": {
-                "en": "FCM push reliability: the safety-net event poll is no longer suppressed after a failed cloud fetch, so motion detection recovers on the next tick instead of staying quiet for up to 5 minutes after a brief cloud hiccup.",
-                "de": "FCM-Push-Zuverlässigkeit: Der Sicherheits-Poll für Events wird nach einem fehlgeschlagenen Cloud-Abruf nicht mehr unterdrückt — die Bewegungserkennung erholt sich beim nächsten Durchlauf, statt nach einem kurzen Cloud-Aussetzer bis zu 5 Minuten stumm zu bleiben.",
-                "ru": "Надежность push-уведомлений FCM: опрос событий сети безопасности больше не подавляется после неудачной выборки облака, поэтому обнаружение движения восстанавливается на следующем такте, а не остается тихим в течение 5 минут после кратковременного сбоя в облаке.",
-                "pt": "Confiabilidade de push do FCM: a pesquisa de eventos da rede de segurança não é mais suprimida após uma falha na busca da nuvem, portanto, a detecção de movimento se recupera no próximo tick, em vez de permanecer silenciosa por até 5 minutos após um breve soluço na nuvem.",
-                "nl": "FCM-pushbetrouwbaarheid: de vangnet-gebeurtenispoll wordt niet langer onderdrukt na een mislukte cloud-ophaalactie, zodat de bewegingsdetectie zich herstelt bij de volgende tik in plaats van tot 5 minuten stil te blijven na een korte cloud-hik.",
-                "fr": "Fiabilité du push FCM : l'interrogation des événements du filet de sécurité n'est plus supprimée après un échec de récupération dans le cloud, de sorte que la détection de mouvement récupère au prochain tick au lieu de rester silencieuse pendant 5 minutes maximum après un bref hoquet dans le cloud.",
-                "it": "Affidabilità push FCM: il sondaggio degli eventi della rete di sicurezza non viene più soppresso dopo un recupero del cloud non riuscito, quindi il rilevamento del movimento viene ripristinato al tick successivo invece di rimanere silenzioso fino a 5 minuti dopo un breve singhiozzo del cloud.",
-                "es": "Fiabilidad de inserción de FCM: la encuesta de eventos de la red de seguridad ya no se suprime después de una búsqueda fallida de la nube, por lo que la detección de movimiento se recupera en el siguiente tic en lugar de permanecer en silencio durante hasta 5 minutos después de un breve problema en la nube.",
-                "pl": "Niezawodność wypychania FCM: ankieta dotycząca zdarzeń sieci bezpieczeństwa nie jest już tłumiona po nieudanym pobraniu chmury, więc wykrywanie ruchu zostaje wznowione przy następnym taktowaniu, zamiast pozostawać cicho przez maksymalnie 5 minut po krótkim przerwaniu w chmurze.",
-                "uk": "Надійність FCM push: опитування подій мережі безпеки більше не пригнічується після невдалої вибірки хмари, тому виявлення руху відновлюється на наступному тику, а не залишається тихим до 5 хвилин після короткої хмарної гикавки.",
-                "zh-cn": "FCM 推送可靠性：云获取失败后，安全网事件轮询不再受到抑制，因此运动检测会在下一个滴答声中恢复，而不是在短暂的云中断后保持安静长达 5 分钟。"
             }
         },
         "titleLang": {

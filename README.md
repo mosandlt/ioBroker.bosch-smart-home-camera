@@ -719,6 +719,9 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.7.6 (2026-06-28)
+CI: integration test harness (@iobroker/testing), build job, Node 22/24 matrix, coverage gate (≥80%), i18n E5606 gate. No functional changes.
+
 ### 1.7.5 (2026-06-25)
 Cross-version port of Home Assistant v13.7.8–v13.7.9 WebRTC stability fixes.
 
