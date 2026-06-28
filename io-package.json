@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "1.7.5",
+        "version": "1.7.6",
         "news": {
+            "1.7.6": {
+                "en": "CI: add integration test harness (@iobroker/testing), build job, Node 20 matrix entry, coverage gate (≥80%), i18n E5606 gate. No functional changes.",
+                "de": "CI: Integration-Test-Harness (@iobroker/testing), Build-Job, Node-20-Matrix, Coverage-Gate (≥80 %), i18n-E5606-Gate hinzugefügt. Keine funktionalen Änderungen.",
+                "ru": "CI: добавлен обвязка интеграционных тестов (@iobroker/testing), задание сборки, узел 20 в матрице, покрытие ≥80 %, i18n E5606. Функциональных изменений нет.",
+                "pt": "CI: adicionado harness de testes de integração (@iobroker/testing), job de build, Node 20 na matriz, cobertura ≥80 %, gate i18n E5606. Sem alterações funcionais.",
+                "nl": "CI: integratietestharnas (@iobroker/testing), build-taak, Node 20 in matrix, dekking ≥80 %, i18n E5606-gate toegevoegd. Geen functionele wijzigingen.",
+                "fr": "CI : ajout du harnais de tests d'intégration (@iobroker/testing), tâche build, Node 20 dans la matrice, couverture ≥80 %, gate i18n E5606. Aucune modification fonctionnelle.",
+                "it": "CI: aggiunto test harness integrazione (@iobroker/testing), job build, Node 20 in matrice, copertura ≥80 %, gate i18n E5606. Nessuna modifica funzionale.",
+                "es": "CI: añadido harness de pruebas de integración (@iobroker/testing), trabajo build, Node 20 en matriz, cobertura ≥80 %, gate i18n E5606. Sin cambios funcionales.",
+                "pl": "CI: dodano harness testów integracyjnych (@iobroker/testing), zadanie build, Node 20 w matrycy, pokrycie ≥80 %, gate i18n E5606. Brak zmian funkcjonalnych.",
+                "uk": "CI: додано harness інтеграційних тестів (@iobroker/testing), завдання build, Node 20 в матриці, покриття ≥80 %, gate i18n E5606. Без функціональних змін.",
+                "zh-cn": "CI：添加集成测试框架（@iobroker/testing）、构建任务、Node 20 矩阵条目、覆盖率门（≥80 %）、i18n E5606 门。无功能变更。"
+            },
             "1.7.5": {
                 "en": "WebRTC: stale-PC guard prevents recovery loop; getStats freeze oracle; dead-track CGNAT detection → sticky HLS; iOS native-HLS 8s watchdog; 1000ms reconnect gap",
                 "de": "WebRTC: Stale-PC-Guard verhindert Recovery-Loop; getStats-Freeze-Oracle; CGNAT-Dead-Track-Erkennung → Sticky HLS; iOS-native-HLS-8-s-Watchdog; 1000-ms-Reconnect",
