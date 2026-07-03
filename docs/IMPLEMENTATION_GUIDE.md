@@ -121,7 +121,7 @@ Key differences from HA integration:
 Key field notes:
 - `mode: "daemon"` — runs continuously, auto-restarted by js-controller
 - `type: "multimedia"` — camera/stream adapters use this (not "hardware")
-- `connectionType: "cloud"` — Bosch primary path; set `"local"` if/when Bosch summer API ships
+- `connectionType: "cloud"` — the adapter is cloud-first; a `"local"` mode could be revisited if Bosch ever ships a local-network API
 - `dataSource: "push"` — FCM push, not polling (same as Ring adapter pattern)
 - `tier: 3` — community adapter (tier 1 = official ioBroker, tier 2 = well-known)
 - `native.*` — all fields accessible at runtime as `this.config.username` etc.
