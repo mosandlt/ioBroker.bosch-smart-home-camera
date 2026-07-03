@@ -95,7 +95,7 @@ The Bosch Smart Home Camera reverse-engineered API is exposed via four sibling p
 
 ## Supported Cameras
 
-All four current Bosch Smart Home cameras are supported.
+All four current [Bosch Smart Home](https://www.bosch-smarthome.com) cameras are supported.
 
 | Camera | Generation | Type | Codec / FW seen | Highlights |
 |---|---|---|---|---|
@@ -356,7 +356,7 @@ The adapter ships two built-in **VIS-2 widgets** (React / Module-Federation, bui
 
 ---
 
-#### Bosch Camera (Einzelkamera)
+#### Bosch Camera (single camera)
 
 **How to use:**
 
@@ -718,6 +718,9 @@ HA stays the **reference implementation** — features land there first; the Pyt
 ---
 
 ## Changelog
+
+### 1.7.7 (2026-07-03)
+ioBroker.repositories PR#5983 manual-review hardening (mcm1957, 2026-07-02): log/notification text is English-only now (was German, leaking untranslated into `this.log.*`); `mqtt_password` `protectedNative`/`encryptedNative` moved under `common` (previously declared at the JSON root, where ioBroker silently ignores it — the password was neither masked nor encrypted); external camera IDs are sanitized (ioBroker `FORBIDDEN_CHARS`) before use in object paths; removed the dead `region` config option (`EU`/`US` dropdown had no effect — `CLOUD_API` is, and remains, hardcoded); README now credits/links Bosch Smart Home; minor dead-code cleanup (`_maskCreds`, `_featureFlagsCache`, `EVENT_POLL_INTERVAL_MS`). New regression tests pin all of the above. No functional/behavioral change for existing installs beyond the language fix.
 
 ### 1.7.6 (2026-06-28)
 CI: integration test harness (@iobroker/testing), build job, Node 22/24 matrix, coverage gate (≥80%), i18n E5606 gate. No functional changes.

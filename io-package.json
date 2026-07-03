@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "1.7.6",
+        "version": "1.7.7",
         "news": {
+            "1.7.7": {
+                "en": "Repository review hardening: English-only log/notification text; mqtt_password protection moved under common (was ignored at JSON root); camera IDs sanitized for object paths; dead region option removed; README credits Bosch Smart Home.",
+                "de": "Repository-Review-Härtung: Log-/Benachrichtigungstexte nur noch Englisch; mqtt_password-Schutz unter common verschoben (vorher an JSON-Wurzel wirkungslos); Kamera-IDs für Objektpfade bereinigt; tote Region-Option entfernt; README verlinkt Bosch Smart Home.",
+                "ru": "Усиление проверки репозитория: текст журнала/уведомлений только на английском языке; защита mqtt_password перенесена в общий раздел (игнорировалась в корне JSON); идентификаторы камер очищены для траекторий объектов; удалена опция мертвой зоны; В README упоминается умный дом Bosch.",
+                "pt": "Proteção de revisão de repositório: texto de registro/notificação somente em inglês; proteção mqtt_password movida para comum (foi ignorada na raiz JSON); IDs de câmeras higienizados para caminhos de objetos; opção de região morta removida; README dá créditos à Bosch Smart Home.",
+                "nl": "Verharding van repositorybeoordeling: alleen Engelstalige log-/meldingstekst; mqtt_password-beveiliging verplaatst naar common (werd genegeerd in JSON-root); camera-ID's opgeschoond voor objectpaden; dode regio-optie verwijderd; README-credits Bosch Smart Home.",
+                "fr": "Renforcement de l'examen du référentiel : texte de journal/notification en anglais uniquement ; La protection mqtt_password a été déplacée sous commun (a été ignorée à la racine JSON) ; identifiants de caméra nettoyés pour les chemins d'objet ; option de région morte supprimée ; README crédite Bosch Smart Home.",
+                "it": "Rafforzamento della revisione del repository: testo di registro/notifica solo in inglese; la protezione mqtt_password è stata spostata in common (è stata ignorata nella root JSON); ID delle telecamere ripuliti per i percorsi degli oggetti; opzione regione morta rimossa; README crediti Bosch Smart Home.",
+                "es": "Fortalecimiento de la revisión del repositorio: texto de registro/notificación solo en inglés; la protección mqtt_password se movió a común (se ignoró en la raíz JSON); ID de cámara desinfectadas para las rutas de los objetos; se eliminó la opción de región muerta; README acredita Bosch Smart Home.",
+                "pl": "Udoskonalanie przeglądu repozytorium: tekst dziennika/powiadomienia tylko w języku angielskim; Ochrona mqtt_password przeniesiona do obszaru wspólnego (została zignorowana w katalogu głównym JSON); identyfikatory kamer oczyszczone pod kątem ścieżek obiektów; usunięto opcję martwego obszaru; README opisuje Bosch Smart Home.",
+                "uk": "Посилення перевірки репозиторію: текст журналу/повідомлення лише англійською мовою; захист mqtt_password переміщено під загальний (був проігнорований у корені JSON); дезінфіковані ідентифікатори камер для шляхів об’єктів; видалено опцію мертвої області; README кредитує Bosch Smart Home.",
+                "zh-cn": "存储库审查强化：纯英文日志/通知文本； mqtt_password 保护移至 common 下（在 JSON 根处被忽略）；针对对象路径清理相机 ID；删除了死区选项；自述文件归功于博世智能家居。"
+            },
             "1.7.6": {
                 "en": "CI: integration test harness (@iobroker/testing), build job, Node 22/24 matrix, coverage gate (≥80%), i18n E5606 gate. No functional changes.",
                 "de": "CI: Integration-Test-Harness (@iobroker/testing), Build-Job, Node-22/24-Matrix, Coverage-Gate (≥80 %), i18n-E5606-Gate. Keine funktionalen Änderungen.",
@@ -80,19 +93,6 @@
                 "pl": "Liczniki dzienne (events_today/movement_count/audio_count) są teraz grupowane według LOKALNEJ daty każdego wydarzenia, a nie czasu UTC. Sygnatury czasowe firmy Bosch zawierają przesunięcie strefy czasowej, więc stare grupowanie UTC błędnie zliczyło blisko lokalnej północy; liczniki przechodzą o lokalnej północy.",
                 "uk": "Щоденні лічильники (events_today/movement_count/audio_count) тепер групуються за МІСЦЕВОЮ датою кожної події замість UTC. Часові мітки Bosch містять зміщення часового поясу, тому старе розбиття UTC неправильно враховувалося близько місцевої опівночі; лічильники перевертаються опівночі.",
                 "zh-cn": "每日计数器 (events_today/movement_count/audio_count) 现在按每个事件的本地日期而不是 UTC 进行存储。博世时间戳带有时区偏移量，因此旧的 UTC 分桶在当地午夜附近会被错误计数；计数器在当地午夜翻转。"
-            },
-            "1.7.0": {
-                "en": "Daily event counters (events_today/movement/audio, UTC). BoschOverview widget: live WebRTC/HLS in expanded view + maintenance banner + last-event badge. Per-camera volume; same-camera auto-mute; offline last-frame. Fixes: snapshot coalescing; stays online during cloud maintenance.",
-                "de": "Tages-Ereigniszähler (events_today/movement/audio, UTC). BoschOverview-Widget: Live-WebRTC/HLS in Großansicht + Wartungs-Banner + Letztes-Ereignis-Badge. Lautstärke pro Kamera; Auto-Stumm bei gleicher Kamera; Offline letztes Bild. Fixes: Snapshot-Coalescing; online bei Cloud-Wartung.",
-                "ru": "Счетчики ежедневных событий (events_today/movement/audio, UTC). Виджет BoschOverview: Live WebRTC/HLS в развернутом виде + баннер обслуживания + значок последнего события. Объем каждой камеры; автоматическое отключение звука на той же камере; оффлайн последний кадр. Исправления: объединение снимков; остается онлайн во время обслуживания облака.",
-                "pt": "Contadores de eventos diários (events_today/movement/audio, UTC). Widget BoschOverview: WebRTC/HLS ao vivo em visualização expandida + banner de manutenção + crachá do último evento. Volume por câmera; mudo automático da mesma câmera; offline last-frame. Correções: coalescência de instantâneos; permanece on-line durante a manutenção da nuvem.",
-                "nl": "Dagelijkse gebeurtenistellers (events_today/movement/audio, UTC). BoschOverview-widget: live WebRTC/HLS in uitgebreide weergave + onderhoudsbanner + badge van het laatste evenement. Volume per camera; automatisch dempen van dezelfde camera; offline last-frame. Oplossingen: samenvoegen van momentopnamen; blijft online tijdens cloudonderhoud.",
-                "fr": "Compteurs d'événements quotidiens (events_today/movement/audio, UTC). Widget BoschOverview : WebRTC/HLS en direct en vue étendue + bannière de maintenance + badge du dernier événement. Volume par caméra ; mise en sourdine automatique de la même caméra ; dernière image hors ligne. Correctifs : fusion d'instantanés ; reste en ligne pendant la maintenance du cloud.",
-                "it": "Contatori di eventi giornalieri (events_today/movement/audio, UTC). Widget BoschOverview: WebRTC/HLS live in visualizzazione espansa + banner di manutenzione + badge ultimo evento. Volume per fotocamera; silenziamento automatico della stessa fotocamera; ultimo fotogramma offline. Correzioni: coalescenza degli snapshot; rimane online durante la manutenzione del cloud.",
-                "es": "Contadores de eventos diarios (events_today/movement/audio, UTC). Widget BoschOverview: WebRTC/HLS en vivo en vista ampliada + banner de mantenimiento + insignia del último evento. Volumen por cámara; silencio automático en la misma cámara; último fotograma sin conexión. Correcciones: fusión de instantáneas; permanece en línea durante el mantenimiento de la nube.",
-                "pl": "Codzienne liczniki zdarzeń (events_today/movement/audio, UTC). Widget BoschOverview: WebRTC/HLS na żywo w widoku rozszerzonym + baner konserwacji + plakietka ostatniego wydarzenia. Głośność na kamerę; automatyczne wyciszenie tej samej kamery; ostatnia klatka w trybie offline. Poprawki: łączenie migawek; pozostaje online podczas konserwacji chmury.",
-                "uk": "Щоденні лічильники подій (events_today/movement/audio, UTC). Віджет BoschOverview: Live WebRTC/HLS у розгорнутому вигляді + банер обслуговування + значок останньої події. Обсяг на камеру; автоматичне відключення звуку тієї ж камери; офлайн останній кадр. Виправлення: об'єднання знімків; залишається онлайн під час обслуговування хмари.",
-                "zh-cn": "每日事件计数器（events_today/movement/audio，UTC）。 BoschOverview 小部件：扩展视图中的实时 WebRTC/HLS + 维护横幅 + 最后事件徽章。每个摄像机的音量；同机自动静音；离线最后一帧。修复：快照合并；云维护期间保持在线。"
             }
         },
         "titleLang": {
@@ -175,17 +175,16 @@
                     "BoschOverview"
                 ]
             }
-        }
+        },
+        "encryptedNative": [
+            "mqtt_password"
+        ],
+        "protectedNative": [
+            "mqtt_password"
+        ]
     },
-    "encryptedNative": [
-        "mqtt_password"
-    ],
-    "protectedNative": [
-        "mqtt_password"
-    ],
     "native": {
         "redirect_url": "",
-        "region": "EU",
         "use_mjpeg_snapshot": true,
         "mqtt_password": ""
     },

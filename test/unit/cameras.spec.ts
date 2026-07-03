@@ -365,3 +365,57 @@ describe("fetchCameras() auth header", () => {
         }
     });
 });
+
+// ── id sanitization (ioBroker.repositories#5983 manual review, 2026-07-02) ────
+//
+// `cam.id` is interpolated straight into ioBroker object paths (`cameras.<id>.*`)
+// by main.ts. The Bosch API is expected to always return a well-formed UUID, but
+// nothing upstream validated that — a malformed id could have produced an
+// invalid/unintended object ID. Pin that ids get stripped of ioBroker
+// FORBIDDEN_CHARS + whitespace at the single point they enter the system.
+
+describe("fetchCameras() id sanitization", () => {
+    afterEach(() => {
+        restoreAxios();
+    });
+
+    it("strips ioBroker FORBIDDEN_CHARS from a malformed id", async () => {
+        stubAxiosSequence([
+            {
+                status: 200,
+                data: [{ id: 'AB*CD["EF]GH', title: "Weird ID Cam", hardwareVersion: "CAMERA_360" }],
+            },
+        ]);
+        const result = await fetchCameras(axios.create(), BEARER_TOKEN);
+        expect(result[0].id).to.equal("ABCDEFGH");
+    });
+
+    it("strips internal whitespace from a malformed id", async () => {
+        stubAxiosSequence([
+            {
+                status: 200,
+                data: [{ id: "AB CD\tEF\n", title: "Whitespace ID Cam", hardwareVersion: "CAMERA_360" }],
+            },
+        ]);
+        const result = await fetchCameras(axios.create(), BEARER_TOKEN);
+        expect(result[0].id).to.equal("ABCDEF");
+    });
+
+    it("id that is only forbidden chars sanitizes to empty and is skipped", async () => {
+        stubAxiosSequence([
+            {
+                status: 200,
+                data: [{ id: '["*]', title: "All Forbidden", hardwareVersion: "CAMERA_360" }, RAW_CAM_360],
+            },
+        ]);
+        const result = await fetchCameras(axios.create(), BEARER_TOKEN);
+        expect(result).to.have.lengthOf(1);
+        expect(result[0].id).to.equal(RAW_CAM_360.id);
+    });
+
+    it("well-formed UUID is left byte-identical (no-op on real Bosch data)", async () => {
+        stubAxiosSequence([{ status: 200, data: [RAW_CAM_OUTDOOR] }]);
+        const result = await fetchCameras(axios.create(), BEARER_TOKEN);
+        expect(result[0].id).to.equal(RAW_CAM_OUTDOOR.id);
+    });
+});

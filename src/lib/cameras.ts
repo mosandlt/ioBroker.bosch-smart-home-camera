@@ -156,6 +156,22 @@ export function detectGeneration(hardwareVersion: string): 1 | 2 {
 // ── Camera fetch ──────────────────────────────────────────────────────────────
 
 /**
+ * ioBroker's own forbidden-object-ID-character set (adapter.FORBIDDEN_CHARS),
+ * plus whitespace. `cam.id` becomes the `cameras.<id>.*` object-path segment
+ * for every camera DP, so it must be safe even if the Bosch API ever returns
+ * something other than a well-formed UUID.
+ */
+const FORBIDDEN_CHARS = /[\][*,;'"`<>\\?\s]/g;
+
+/**
+ * Strip ioBroker FORBIDDEN_CHARS + whitespace from an externally-sourced ID
+ * before it is used to build an ioBroker object ID.
+ */
+function sanitizeId(id: string): string {
+    return id.replace(FORBIDDEN_CHARS, "");
+}
+
+/**
  * Map a raw API camera object to a typed BoschCamera.
  * Returns null if the required `id` field is missing or empty.
  * Missing name/hardwareVersion/firmwareVersion fields get safe defaults.
@@ -164,7 +180,7 @@ export function detectGeneration(hardwareVersion: string): 1 | 2 {
  * @returns BoschCamera on success, null when the id is missing/empty
  */
 function mapCamera(raw: RawCameraItem): BoschCamera | null {
-    const id = typeof raw.id === "string" ? raw.id.trim() : "";
+    const id = typeof raw.id === "string" ? sanitizeId(raw.id.trim()) : "";
     if (!id) {
         return null;
     }

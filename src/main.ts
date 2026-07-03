@@ -29,7 +29,7 @@ import {
     exchangeCode,
     extractCode,
     refreshAccessToken,
-    createHttpClient,
+    createCloudHttpClient,
     RefreshTokenInvalidError,
     CLOUD_API,
     type TokenResult,
@@ -122,7 +122,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
     private _stateCache = new Map<string, unknown>();
 
     /** Axios instance shared across all HTTP calls. */
-    private _httpClient = createHttpClient();
+    private _httpClient = createCloudHttpClient();
 
     /** Live sessions keyed by camera ID. Re-opened when stale. */
     private _liveSessions = new Map<string, LiveSession>();
@@ -260,13 +260,6 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * regardless of FCM. Mirrors HA's 300 s healthy event interval.
      */
     private static readonly FCM_SAFETY_POLL_MS = 300_000;
-
-    /**
-     * Event-poll interval (ms) when FCM push is unavailable.
-     * v1.2.2: 60 s to match the Home Assistant integration's default
-     * `scan_interval` (60 s) — was 30 s.
-     */
-    private static readonly EVENT_POLL_INTERVAL_MS = 60_000;
 
     /**
      * v0.6.2: pending FCM auto-reconnect timer.
@@ -445,12 +438,6 @@ class BoschSmartHomeCamera extends utils.Adapter {
 
     /** Slow-tier runs every SLOW_TIER_THRESHOLD state-poll ticks (5 × 60s = 300s). */
     private static readonly SLOW_TIER_THRESHOLD = 5;
-
-    /**
-     * F13: cached cloud feature flags result. Null until first successful fetch.
-     * Account-level — one per adapter instance (not per camera).
-     */
-    private _featureFlagsCache: { display: string; raw: string } | null = null;
 
     /** v0.7.4: outage-ping throttle (ms). */
     private static readonly OUTAGE_PING_THROTTLE_MS = 30_000;
@@ -1353,12 +1340,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
         }
 
         const verbMap: Record<string, string> = {
-            scheduled: "geplant",
-            active: "läuft",
-            past: "beendet",
+            scheduled: "scheduled",
+            active: "in progress",
+            past: "ended",
         };
         const verb = verbMap[state] ?? state;
-        const title = `Bosch Cloud-Wartung ${verb}`;
+        const title = `Bosch Cloud Maintenance ${verb}`;
 
         let when = "";
         if (mw.scheduled_start !== null && mw.scheduled_end !== null) {
@@ -1368,7 +1355,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 // Format as Europe/Berlin (approximate: just use ISO local-time slices)
                 const fmt = (ms: number): string =>
                     new Date(ms)
-                        .toLocaleString("de-DE", {
+                        .toLocaleString("en-GB", {
                             timeZone: "Europe/Berlin",
                             hour: "2-digit",
                             minute: "2-digit",
@@ -1377,20 +1364,20 @@ class BoschSmartHomeCamera extends utils.Adapter {
                             month: "2-digit",
                         })
                         .replace(",", "");
-                when = `${fmt(startMs)}–${new Date(endMs).toLocaleString("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" })}`;
+                when = `${fmt(startMs)}–${new Date(endMs).toLocaleString("en-GB", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" })}`;
             } catch {
                 when = "";
             }
         }
 
-        const bodyParts: string[] = [mw.title || "Wartungsmeldung"];
+        const bodyParts: string[] = [mw.title || "Maintenance notice"];
         if (when) {
             bodyParts.push(when);
         }
         if (state === "active") {
-            bodyParts.push("Live-Bild und Snapshots ggf. eingeschränkt.");
+            bodyParts.push("Live view and snapshots may be limited.");
         } else if (state === "past") {
-            bodyParts.push("Cloud-Dienste sollten wieder normal funktionieren.");
+            bodyParts.push("Cloud services should be back to normal.");
         }
         if (mw.link) {
             bodyParts.push(mw.link);
@@ -4088,15 +4075,6 @@ class BoschSmartHomeCamera extends utils.Adapter {
         await this.upsertState(`cameras.${camId}.stream_path`, path);
     }
 
-    /**
-     * Replace `user:password@` with `***:***@` for log lines.
-     *
-     * @param url
-     */
-    private _maskCreds(url: string): string {
-        return url.replace(/(rtsp:\/\/)([^@/]+)@/, "$1***:***@");
-    }
-
     // ── PKCE browser-login helpers ──────────────────────────────────────────
 
     /**
@@ -6437,7 +6415,6 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * F13: fetch cloud feature flags from GET /v11/feature_flags.
      *
      * Account-level (not per-camera). Called on slow-tier ticks (≈ 300 s).
-     * Caches result in _featureFlagsCache; DPs updated only on change.
      * Best-effort — errors are silently ignored.
      *
      * @param token  Current access_token
@@ -6448,7 +6425,6 @@ class BoschSmartHomeCamera extends utils.Adapter {
             if (!result) {
                 return;
             }
-            this._featureFlagsCache = result;
             await Promise.all([
                 this.upsertState("cloud.feature_flags", result.display),
                 this.upsertState("cloud.feature_flags_raw", result.raw),
@@ -10113,13 +10089,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
         let title: string;
         let message: string;
         if (newStatus === "offline") {
-            title = `Bosch Kamera ${camName} offline`;
+            title = `Bosch camera ${camName} offline`;
             message =
-                `Bosch Kamera ${camName} ist offline. ` +
-                "Live-Bild und Snapshots sind bis zur Wiederverbindung nicht verfügbar.";
+                `Bosch camera ${camName} is offline. ` +
+                "Live view and snapshots are unavailable until it reconnects.";
         } else {
-            title = `Bosch Kamera ${camName} wieder online`;
-            message = `Bosch Kamera ${camName} ist wieder erreichbar.`;
+            title = `Bosch camera ${camName} back online`;
+            message = `Bosch camera ${camName} is reachable again.`;
         }
 
         this.log.info(`[camera-status] ${title}`);

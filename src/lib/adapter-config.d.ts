@@ -10,8 +10,6 @@ declare global {
              * Cleared by the adapter after successful token exchange.
              */
             redirect_url: string;
-            /** Cloud region: "EU" | "US" */
-            region: string;
             /**
              * Expose the per-camera TLS proxy to the LAN (bind 0.0.0.0).
              * Default false — proxy listens on 127.0.0.1 only.

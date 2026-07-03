@@ -931,65 +931,6 @@ describe("main_coverage_session — upsertSession sticky-port fallback", () => {
     });
 });
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Group 6: _maskCreds (L2874)
-// ═════════════════════════════════════════════════════════════════════════════
-
-describe("main_coverage_session — _maskCreds", () => {
-
-    let rig: AdapterRig;
-
-    before(async () => {
-        stubAxiosSequence([{ status: 200, data: CAMERAS_BODY }]);
-        rig = createRig();
-        await bootWithTokens(rig.db, rig.adapter);
-    });
-
-    after(() => {
-        restoreAxios();
-        sinon.restore();
-        delete require.cache[resolveBuildModule("live_session")];
-        delete require.cache[resolveBuildModule("tls_proxy")];
-        delete require.cache[resolveBuildModule("snapshot")];
-        delete require.cache[resolveBuildModule("session_watchdog")];
-        delete require.cache[MAIN_JS_PATH];
-    });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    function maskCreds(url: string): string {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return (rig.adapter as any)._maskCreds(url) as string;
-    }
-
-    it("replaces user:password@ in rtsp:// URL", () => {
-        const result = maskCreds("rtsp://admin:secret123@192.0.2.149:18030/rtsp_tunnel");
-        expect(result).to.equal("rtsp://***:***@192.0.2.149:18030/rtsp_tunnel");
-    });
-
-    it("replaces credentials with special chars", () => {
-        const result = maskCreds("rtsp://user%40name:p%40ss!w0rd@10.0.0.1:1234/path");
-        expect(result).to.equal("rtsp://***:***@10.0.0.1:1234/path");
-    });
-
-    it("returns URL unchanged when no credentials present", () => {
-        const plain = "rtsp://192.0.2.149:18030/rtsp_tunnel";
-        const result = maskCreds(plain);
-        expect(result).to.equal(plain, "URL without creds must be returned unchanged");
-    });
-
-    it("returns non-rtsp URL unchanged", () => {
-        const url = "https://example.com/path?q=1";
-        const result = maskCreds(url);
-        expect(result).to.equal(url, "non-rtsp URL must be returned unchanged");
-    });
-
-    it("masks only the credential segment, preserves query params", () => {
-        const url = "rtsp://admin:abc123@127.0.0.1:18030/rtsp_tunnel?inst=1&enableaudio=1";
-        const result = maskCreds(url);
-        expect(result).to.equal("rtsp://***:***@127.0.0.1:18030/rtsp_tunnel?inst=1&enableaudio=1");
-    });
-
-    it("returns empty string unchanged", () => {
-        expect(maskCreds("")).to.equal("");
-    });
-});
+// _maskCreds (formerly L2874) was removed 2026-07-02 (ioBroker.repositories#5983
+// manual review, dead-code finding): unused since v0.5.3 stopped embedding
+// Digest credentials in RTSP URLs (see _buildStreamUrl's doc comment).

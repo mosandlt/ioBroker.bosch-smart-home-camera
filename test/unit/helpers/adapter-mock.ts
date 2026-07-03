@@ -13,7 +13,6 @@ import { utils } from "@iobroker/testing";
 export interface BoschCameraAdapterConfig {
     username: string;
     password: string;
-    region: string;
     [key: string]: unknown;
 }
 
@@ -32,7 +31,6 @@ export function createAdapterMock(
     const config: BoschCameraAdapterConfig = {
         username: "test@example.com",
         password: "secret",
-        region: "EU",
         ...configOverrides,
     };
 

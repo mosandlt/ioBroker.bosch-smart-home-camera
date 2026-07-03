@@ -105,7 +105,6 @@ function createAdapter(configOverrides: Record<string, unknown> = {}): {
     factory({
         config: {
             redirect_url: "",
-            region: "EU",
             ...configOverrides,
         },
     });

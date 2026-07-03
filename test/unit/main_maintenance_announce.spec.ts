@@ -161,7 +161,7 @@ describe("_maybeAnnounceMaintenanceState", () => {
             title: string;
             state: string;
         };
-        expect(payload.title).to.include("geplant");
+        expect(payload.title).to.include("scheduled");
         expect(payload.state).to.equal("scheduled");
     });
 
@@ -173,7 +173,7 @@ describe("_maybeAnnounceMaintenanceState", () => {
         await announce(stub, mw, "active");
         const secondPayload = JSON.parse(stub._lastNotificationPayload) as { title: string };
         expect(stub._lastNotificationPayload).to.not.equal(firstPayload);
-        expect(secondPayload.title).to.include("läuft");
+        expect(secondPayload.title).to.include("in progress");
         expect(stub._maintenanceNotifiedKey).to.deep.equal([mw.link, "active"]);
     });
 
@@ -192,7 +192,7 @@ describe("_maybeAnnounceMaintenanceState", () => {
         await announce(stub, mw, "active");
         await announce(stub, mw, "past");
         const payload = JSON.parse(stub._lastNotificationPayload) as { title: string };
-        expect(payload.title).to.include("beendet");
+        expect(payload.title).to.include("ended");
         expect(stub._maintenanceNotifiedKey).to.deep.equal([mw.link, "past"]);
     });
 
@@ -226,9 +226,9 @@ describe("_maybeAnnounceMaintenanceState", () => {
         await announce(stub, mw, "past");
 
         expect(titles).to.have.length(3);
-        expect(titles[0]).to.include("geplant");
-        expect(titles[1]).to.include("läuft");
-        expect(titles[2]).to.include("beendet");
+        expect(titles[0]).to.include("scheduled");
+        expect(titles[1]).to.include("in progress");
+        expect(titles[2]).to.include("ended");
     });
 
     it("test_silent_when_not_camera_relevant", async () => {

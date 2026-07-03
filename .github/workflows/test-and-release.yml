@@ -46,6 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.0
       - run: python3 scripts/check-i18n.py
+      - run: python3 scripts/check-log-language.py
 
   # Coverage threshold gate (lines ≥80%, functions ≥80%, branches ≥70%)
   coverage-check:

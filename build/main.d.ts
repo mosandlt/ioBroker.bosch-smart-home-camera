@@ -139,12 +139,6 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private static readonly FCM_SAFETY_POLL_MS;
     /**
-     * Event-poll interval (ms) when FCM push is unavailable.
-     * v1.2.2: 60 s to match the Home Assistant integration's default
-     * `scan_interval` (60 s) — was 30 s.
-     */
-    private static readonly EVENT_POLL_INTERVAL_MS;
-    /**
      * v0.6.2: pending FCM auto-reconnect timer.
      * Armed on the listener's "disconnect" event and walks the backoff array
      * below. Cleared on successful reconnect, on unload, and re-armed on every
@@ -296,11 +290,6 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _diagPollTick;
     /** Slow-tier runs every SLOW_TIER_THRESHOLD state-poll ticks (5 × 60s = 300s). */
     private static readonly SLOW_TIER_THRESHOLD;
-    /**
-     * F13: cached cloud feature flags result. Null until first successful fetch.
-     * Account-level — one per adapter instance (not per camera).
-     */
-    private _featureFlagsCache;
     /** v0.7.4: outage-ping throttle (ms). */
     private static readonly OUTAGE_PING_THROTTLE_MS;
     /** v0.7.4: TCP-connect timeout for LAN-reachability probe (ms). */
@@ -758,12 +747,6 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _publishStreamParts;
     /**
-     * Replace `user:password@` with `***:***@` for log lines.
-     *
-     * @param url
-     */
-    private _maskCreds;
-    /**
      * Generate (or reuse) a PKCE pair, build the Bosch auth URL, and log it.
      *
      * The verifier is stored in info.pkce_verifier so it survives restarts —
@@ -1141,7 +1124,6 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * F13: fetch cloud feature flags from GET /v11/feature_flags.
      *
      * Account-level (not per-camera). Called on slow-tier ticks (≈ 300 s).
-     * Caches result in _featureFlagsCache; DPs updated only on change.
      * Best-effort — errors are silently ignored.
      *
      * @param token  Current access_token

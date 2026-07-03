@@ -100,22 +100,6 @@
           "lg": 12,
           "xl": 12,
           "trim": true
-        },
-        "region": {
-          "type": "select",
-          "label": "Region",
-          "help": "Bosch cloud region (EU for Europe)",
-          "default": "EU",
-          "options": [
-            { "label": "Europe (EU)", "value": "EU" },
-            { "label": "United States (US)", "value": "US" }
-          ],
-          "newLine": true,
-          "xs": 12,
-          "sm": 12,
-          "md": 4,
-          "lg": 4,
-          "xl": 4
         }
       }
     },
