@@ -49,7 +49,7 @@
         "@aracna/core": "^1.5.0",
         "@aracna/fcm": "^1.0.33",
         "@iobroker/adapter-core": "^3.4.1",
-        "axios": "^1.17.0",
+        "axios": "^1.18.1",
         "axios-cookiejar-support": "^7.0.0",
         "mqtt": "^5.15.1",
         "tough-cookie": "^6.0.1"
