@@ -59,7 +59,7 @@ test an adapter — plus coverage and a security layer.
 | **4. Security** | SAST, secrets, dependency CVEs | CodeQL (TS) · gitleaks · dependency-review · Dependabot | CI `codeql.yml` / `secret-scan.yml` / `dependency-review.yml` / `automerge-dependabot.yml` |
 | **5. Adapter integration** | Adapter actually starts under a real js-controller | `@iobroker/testing` integration test (matrix ubuntu/windows/macos) | CI `adapter-tests` — *currently the unit suite covers production code; runtime is verified by layer 7* |
 | **6. Catalogue gate** | 100+ checks required for the public ioBroker repo | `@iobroker/repochecker` | manual gate before every tag (IOBROKER_REPOCHECKER_FORCE_GATE) |
-| **7. Release smoke** | Adapter boots + discovers + write-paths work on a real instance | `iob` dev sandbox (Node 22), tail the log, zero errors | IOBROKER_RELEASE_SMOKE_LOOP — dev sandbox ONLY, never the productive instance |
+| **7. Release smoke** | Adapter boots + discovers + write-paths work on a real instance | `iob` dev sandbox (Node 24 — the sandbox's shebang is pinned to it; Node 26 breaks it), tail the log, zero errors | IOBROKER_RELEASE_SMOKE_LOOP — dev sandbox ONLY, never the productive instance |
 
 ## GitHub Actions workflows
 
@@ -103,4 +103,4 @@ gated by the repochecker. Summary (full rules in the project CLAUDE.md):
 8. Announce: ioBroker forum thread + GitHub Discussion.
 
 > **Scope:** all ioBroker testing runs on the dev sandbox
-> (`dev-environments/iobroker-test/`, Node 22), never the productive instance.
+> (`dev-environments/iobroker-test/`, Node 24), never the productive instance.
