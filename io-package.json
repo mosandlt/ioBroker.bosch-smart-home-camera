@@ -4,17 +4,17 @@
         "version": "1.7.7",
         "news": {
             "1.7.7": {
-                "en": "Repository review hardening: English-only log/notification text; mqtt_password protection moved under common (was ignored at JSON root); camera IDs sanitized for object paths; dead region option removed; README credits Bosch Smart Home.",
-                "de": "Repository-Review-Härtung: Log-/Benachrichtigungstexte nur noch Englisch; mqtt_password-Schutz unter common verschoben (vorher an JSON-Wurzel wirkungslos); Kamera-IDs für Objektpfade bereinigt; tote Region-Option entfernt; README verlinkt Bosch Smart Home.",
-                "ru": "Усиление проверки репозитория: текст журнала/уведомлений только на английском языке; защита mqtt_password перенесена в общий раздел (игнорировалась в корне JSON); идентификаторы камер очищены для траекторий объектов; удалена опция мертвой зоны; В README упоминается умный дом Bosch.",
-                "pt": "Proteção de revisão de repositório: texto de registro/notificação somente em inglês; proteção mqtt_password movida para comum (foi ignorada na raiz JSON); IDs de câmeras higienizados para caminhos de objetos; opção de região morta removida; README dá créditos à Bosch Smart Home.",
-                "nl": "Verharding van repositorybeoordeling: alleen Engelstalige log-/meldingstekst; mqtt_password-beveiliging verplaatst naar common (werd genegeerd in JSON-root); camera-ID's opgeschoond voor objectpaden; dode regio-optie verwijderd; README-credits Bosch Smart Home.",
-                "fr": "Renforcement de l'examen du référentiel : texte de journal/notification en anglais uniquement ; La protection mqtt_password a été déplacée sous commun (a été ignorée à la racine JSON) ; identifiants de caméra nettoyés pour les chemins d'objet ; option de région morte supprimée ; README crédite Bosch Smart Home.",
-                "it": "Rafforzamento della revisione del repository: testo di registro/notifica solo in inglese; la protezione mqtt_password è stata spostata in common (è stata ignorata nella root JSON); ID delle telecamere ripuliti per i percorsi degli oggetti; opzione regione morta rimossa; README crediti Bosch Smart Home.",
-                "es": "Fortalecimiento de la revisión del repositorio: texto de registro/notificación solo en inglés; la protección mqtt_password se movió a común (se ignoró en la raíz JSON); ID de cámara desinfectadas para las rutas de los objetos; se eliminó la opción de región muerta; README acredita Bosch Smart Home.",
-                "pl": "Udoskonalanie przeglądu repozytorium: tekst dziennika/powiadomienia tylko w języku angielskim; Ochrona mqtt_password przeniesiona do obszaru wspólnego (została zignorowana w katalogu głównym JSON); identyfikatory kamer oczyszczone pod kątem ścieżek obiektów; usunięto opcję martwego obszaru; README opisuje Bosch Smart Home.",
-                "uk": "Посилення перевірки репозиторію: текст журналу/повідомлення лише англійською мовою; захист mqtt_password переміщено під загальний (був проігнорований у корені JSON); дезінфіковані ідентифікатори камер для шляхів об’єктів; видалено опцію мертвої області; README кредитує Bosch Smart Home.",
-                "zh-cn": "存储库审查强化：纯英文日志/通知文本； mqtt_password 保护移至 common 下（在 JSON 根处被忽略）；针对对象路径清理相机 ID；删除了死区选项；自述文件归功于博世智能家居。"
+                "en": "Repository review hardening: English-only log/notification text; camera IDs sanitized for object paths; dead region option removed; README credits Bosch Smart Home; mqtt_password protection confirmed at io-package.json root.",
+                "de": "Repository-Review-Härtung: Log-/Benachrichtigungstexte nur noch Englisch; Kamera-IDs für Objektpfade bereinigt; tote Region-Option entfernt; README verlinkt Bosch Smart Home; mqtt_password-Schutz an io-package.json-Wurzel bestätigt.",
+                "ru": "Усиление проверки репозитория: текст журнала/уведомлений только на английском языке; идентификаторы камер очищены для траекторий объектов; удалена опция мертвой зоны; В README упоминается умный дом Bosch; Защита mqtt_password подтверждена в корне io-package.json.",
+                "pt": "Proteção de revisão de repositório: texto de registro/notificação somente em inglês; IDs de câmeras higienizados para caminhos de objetos; opção de região morta removida; README dá créditos à Bosch Smart Home; Proteção mqtt_password confirmada na raiz io-package.json.",
+                "nl": "Verharding van repositorybeoordeling: alleen Engelstalige log-/meldingstekst; camera-ID's opgeschoond voor objectpaden; dode regio-optie verwijderd; README-credits Bosch Smart Home; mqtt_password-beveiliging bevestigd op io-package.json root.",
+                "fr": "Renforcement de l'examen du référentiel : texte de journal/notification en anglais uniquement ; identifiants de caméra nettoyés pour les chemins d'objet ; option de région morte supprimée ; Crédits README Bosch Smart Home ; Protection mqtt_password confirmée à la racine io-package.json.",
+                "it": "Rafforzamento della revisione del repository: testo di registro/notifica solo in inglese; ID delle telecamere ripuliti per i percorsi degli oggetti; opzione regione morta rimossa; README crediti Bosch Smart Home; Protezione mqtt_password confermata nella root io-package.json.",
+                "es": "Fortalecimiento de la revisión del repositorio: texto de registro/notificación solo en inglés; ID de cámara desinfectadas para las rutas de los objetos; se eliminó la opción de región muerta; README acredita Bosch Smart Home; Protección mqtt_password confirmada en la raíz io-package.json.",
+                "pl": "Udoskonalanie przeglądu repozytorium: tekst dziennika/powiadomienia tylko w języku angielskim; identyfikatory kamer oczyszczone pod kątem ścieżek obiektów; usunięto opcję martwego obszaru; README opisuje Bosch Smart Home; Ochrona mqtt_password potwierdzona w katalogu głównym io-package.json.",
+                "uk": "Посилення перевірки репозиторію: текст журналу/повідомлення лише англійською мовою; дезінфіковані ідентифікатори камер для шляхів об’єктів; видалено опцію мертвої області; README кредити Bosch Smart Home; Захист mqtt_password підтверджено в корені io-package.json.",
+                "zh-cn": "存储库审查强化：纯英文日志/通知文本；针对对象路径清理相机 ID；删除了死区选项；自述文件归功于博世智能家居； mqtt_password 保护已在 io-package.json 根目录中确认。"
             },
             "1.7.6": {
                 "en": "CI: integration test harness (@iobroker/testing), build job, Node 22/24 matrix, coverage gate (≥80%), i18n E5606 gate. No functional changes.",
@@ -175,14 +175,14 @@
                     "BoschOverview"
                 ]
             }
-        },
-        "encryptedNative": [
-            "mqtt_password"
-        ],
-        "protectedNative": [
-            "mqtt_password"
-        ]
+        }
     },
+    "encryptedNative": [
+        "mqtt_password"
+    ],
+    "protectedNative": [
+        "mqtt_password"
+    ],
     "native": {
         "redirect_url": "",
         "use_mjpeg_snapshot": true,

@@ -1,12 +1,14 @@
 /**
  * Regression guard for ioBroker.repositories#5983 manual review (2026-07-02):
- * `mqtt_password` was declared as a password-type field in admin/jsonConfig.json
- * ("Stored encrypted in the ioBroker object store") but `protectedNative`/
- * `encryptedNative` lived at the JSON root instead of nested under `common`,
- * so ioBroker never actually masked or encrypted it.
+ * the review flagged `mqtt_password` as missing from `protectedNative`/
+ * `encryptedNative`. It was actually already present at the io-package.json
+ * root (the correct, schema-valid location — `@iobroker/repochecker`'s E1105
+ * check rejects these arrays if nested under `common`). A first attempt at
+ * this fix moved them under `common`, which passed the reviewer's literal
+ * wording but failed the real repochecker schema validation; reverted.
  *
- * Pins the fix: both arrays must exist under `common` (not the root) and
- * must list `mqtt_password`.
+ * Pins the correct state: both arrays live at the JSON root and list
+ * `mqtt_password`.
  */
 
 import { expect } from "chai";
@@ -20,20 +22,20 @@ const ioPackage = require(path.join(__dirname, "..", "..", "io-package.json")) a
 };
 
 describe("io-package.json secret protection", () => {
-    it("test_mqtt_password_is_protected_under_common", () => {
-        expect(ioPackage.common.protectedNative).to.be.an("array");
-        expect(ioPackage.common.protectedNative).to.include("mqtt_password");
+    it("test_mqtt_password_is_protected_at_root", () => {
+        expect(ioPackage.protectedNative).to.be.an("array");
+        expect(ioPackage.protectedNative).to.include("mqtt_password");
     });
 
-    it("test_mqtt_password_is_encrypted_under_common", () => {
-        expect(ioPackage.common.encryptedNative).to.be.an("array");
-        expect(ioPackage.common.encryptedNative).to.include("mqtt_password");
+    it("test_mqtt_password_is_encrypted_at_root", () => {
+        expect(ioPackage.encryptedNative).to.be.an("array");
+        expect(ioPackage.encryptedNative).to.include("mqtt_password");
     });
 
-    it("test_no_stray_root_level_native_protection_arrays", () => {
-        // Regression: these must NOT live at the JSON root — ioBroker only reads
-        // them from common.*, a root-level copy is silently ignored.
-        expect(ioPackage.protectedNative).to.equal(undefined);
-        expect(ioPackage.encryptedNative).to.equal(undefined);
+    it("test_no_stray_common_level_native_protection_arrays", () => {
+        // Regression: @iobroker/repochecker E1105 rejects these arrays if
+        // nested under common — they must stay at the JSON root.
+        expect(ioPackage.common.protectedNative).to.equal(undefined);
+        expect(ioPackage.common.encryptedNative).to.equal(undefined);
     });
 });
