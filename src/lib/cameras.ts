@@ -65,6 +65,14 @@ export interface BoschCamera {
      */
     featureLight?: boolean;
     /**
+     * Whether this camera reports `featureSupport.sound === true`
+     * ("Audio-Plus" Gen2 cams). Gates the glass-break + smoke/fire-alarm
+     * sound-detection DPs (`glass_break_detection`/`fire_alarm_detection`,
+     * shared `/audioDetectionConfig` endpoint). Mirrors HA v14.2.0
+     * BoschGlassBreakDetectionSwitch/BoschFireAlarmDetectionSwitch gating.
+     */
+    featureSound?: boolean;
+    /**
      * Maximum pan angle in degrees as reported by `featureSupport.panLimit`.
      * Non-zero only for the Gen1 360° Indoor camera (CAMERA_360).
      * Gates `pan_position` and `pan_preset` DPs.
@@ -191,10 +199,12 @@ function mapCamera(raw: RawCameraItem): BoschCamera | null {
     const privacyMode: "ON" | "OFF" | undefined =
         rawPrivacy === "ON" || rawPrivacy === "OFF" ? rawPrivacy : undefined;
     let featureLight: boolean | undefined;
+    let featureSound: boolean | undefined;
     let panLimit = 0;
     if (raw.featureSupport && typeof raw.featureSupport === "object") {
         const fs = raw.featureSupport as Record<string, unknown>;
         featureLight = typeof fs.light === "boolean" ? fs.light : undefined;
+        featureSound = typeof fs.sound === "boolean" ? fs.sound : undefined;
         panLimit = typeof fs.panLimit === "number" && fs.panLimit > 0 ? fs.panLimit : 0;
     }
     const numberOfUnreadEvents =
@@ -214,6 +224,7 @@ function mapCamera(raw: RawCameraItem): BoschCamera | null {
         online: false, // list endpoint does not include connection state
         privacyMode,
         featureLight,
+        featureSound,
         panLimit,
         numberOfUnreadEvents,
         notificationsEnabledStatus,

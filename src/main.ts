@@ -561,6 +561,24 @@ class BoschSmartHomeCamera extends utils.Adapter {
     // clobbers the other (mirrors _audioCache / _intrusionConfigCache).
     private _motionCache = new Map<string, Record<string, unknown>>();
 
+    // v1.7.x: audioDetectionConfig cache (Gen2 Audio-Plus, featureSupport.sound
+    // only). GET/PUT /v11/video_inputs/{id}/audioDetectionConfig →
+    // {detectGlassBreak, detectFireAlarm} (both bool). PUT requires the FULL
+    // body — glass_break_detection and fire_alarm_detection merge into this
+    // cached baseline so neither clobbers the other. Mirrors HA v14.2.0
+    // BoschGlassBreakDetectionSwitch/BoschFireAlarmDetectionSwitch.
+    private _audioDetectionCache = new Map<string, Record<string, unknown>>();
+
+    // v1.7.x: per-camera write serializer for _audioDetectionCache. Two
+    // independent DPs (glass_break_detection / fire_alarm_detection) share
+    // ONE endpoint+cache — without serialization, a concurrent toggle of
+    // both fields can interleave GET→merge→PUT and the second write's PUT
+    // (built from a stale cached snapshot) clobbers the first write's field
+    // back to its old value. Mirrors the HA v14.2.0 bug-hunt fix (per-camera
+    // asyncio.Lock + merge-only-own-key) for switch.py/light.py. See
+    // `_withCameraLock`.
+    private _audioDetectionLocks = new Map<string, Promise<unknown>>();
+
     /**
      * Whether a continuous live RTSP stream is active per camera ID.
      * Default: false (no livestream on adapter start — Bosch counts every
@@ -2660,6 +2678,40 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         read: true,
                         write: true,
                         def: 5,
+                    },
+                    native: {},
+                });
+            }
+
+            // v1.7.x: glass-break + smoke/fire-alarm sound detection — Gen2
+            // Audio-Plus cams only (featureSupport.sound). Shared PUT
+            // /audioDetectionConfig (full-body merge via _audioDetectionCache,
+            // serialized per-camera via _audioDetectionLocks so concurrent
+            // writes to both DPs can't clobber each other — see
+            // _handleAudioDetectionWrite). Mirrors HA v14.2.0
+            // BoschGlassBreakDetectionSwitch/BoschFireAlarmDetectionSwitch.
+            if (cam.generation >= 2 && cam.featureSound === true) {
+                await this.setObjectNotExistsAsync(`${prefix}.glass_break_detection`, {
+                    type: "state",
+                    common: {
+                        name: "Glass-break sound detection (Gen2 Audio-Plus)",
+                        role: "switch",
+                        type: "boolean",
+                        read: true,
+                        write: true,
+                        def: false,
+                    },
+                    native: {},
+                });
+                await this.setObjectNotExistsAsync(`${prefix}.fire_alarm_detection`, {
+                    type: "state",
+                    common: {
+                        name: "Smoke/fire-alarm sound detection (Gen2 Audio-Plus)",
+                        role: "switch",
+                        type: "boolean",
+                        read: true,
+                        write: true,
+                        def: false,
                     },
                     native: {},
                 });
@@ -5621,6 +5673,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
             await this._pollManagementReads(token, cam);
         }
 
+        // v1.7.x: glass-break + smoke/fire-alarm sound detection config —
+        // Gen2 Audio-Plus only (featureSupport.sound). Rarely changes, so it
+        // rides the slow tier alongside the other management-tier reads.
+        if (doSlowTier && cam.generation >= 2 && cam.featureSound === true) {
+            await this._pollAudioDetectionConfig(token, cam.id);
+        }
+
         // v0.9.1: unread_events_count — sourced from GET /v11/events (count of
         // isRead=false events). The listing's `cam.numberOfUnreadEvents` field
         // was found unreliable in live testing 2026-05-28 (reported 0 while
@@ -5873,6 +5932,53 @@ class BoschSmartHomeCamera extends utils.Adapter {
         } catch (err: unknown) {
             this.log.debug(
                 `Notifications poll for ${camId.slice(0, 8)} failed: ` +
+                    `${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
+    }
+
+    // ── v1.7.x audio-detection (glass-break/fire-alarm) poll ───────────────
+
+    /**
+     * v1.7.x: fetch audioDetectionConfig and mirror detectGlassBreak +
+     * detectFireAlarm into their DPs. Also seeds `_audioDetectionCache` so
+     * the write handler has a full baseline body to merge into (Bosch's
+     * PUT requires the FULL body, same as intrusionDetectionConfig/audio).
+     * Gen2 Audio-Plus only (featureSupport.sound) — caller gates the call.
+     *
+     * @param token Current access_token
+     * @param camId Camera UUID
+     */
+    private async _pollAudioDetectionConfig(token: string, camId: string): Promise<void> {
+        try {
+            const url = `${CLOUD_API}/v11/video_inputs/${camId}/audioDetectionConfig`;
+            const resp = await this._httpClient.get<unknown>(url, {
+                headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 404 || s === 443,
+            });
+            if (resp.status === 404 || resp.status === 443 || !resp.data) {
+                return;
+            }
+            const data = resp.data as Record<string, unknown>;
+            this._audioDetectionCache.set(camId, { ...data });
+            const writes: Promise<void>[] = [];
+            if (typeof data.detectGlassBreak === "boolean") {
+                writes.push(
+                    this.upsertState(
+                        `cameras.${camId}.glass_break_detection`,
+                        data.detectGlassBreak,
+                    ),
+                );
+            }
+            if (typeof data.detectFireAlarm === "boolean") {
+                writes.push(
+                    this.upsertState(`cameras.${camId}.fire_alarm_detection`, data.detectFireAlarm),
+                );
+            }
+            await Promise.all(writes);
+        } catch (err: unknown) {
+            this.log.debug(
+                `Audio-detection poll for ${camId.slice(0, 8)} failed: ` +
                     `${err instanceof Error ? err.message : String(err)}`,
             );
         }
@@ -6968,6 +7074,48 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     }
                     return; // already acked clamped value
                 }
+                case "glass_break_detection": {
+                    // v1.7.x: glass-break sound detection — shared
+                    // /audioDetectionConfig (Gen2 Audio-Plus only).
+                    const camGb = this._cameras.get(camId);
+                    if (!camGb || camGb.generation < 2 || camGb.featureSound !== true) {
+                        this.log.warn(
+                            `glass_break_detection write for ${camId.slice(0, 8)} ignored — Gen2 Audio-Plus only`,
+                        );
+                        return; // skip ack
+                    }
+                    if (
+                        !(await this._handleAudioDetectionWrite(
+                            camId,
+                            "detectGlassBreak",
+                            Boolean(state.val),
+                        ))
+                    ) {
+                        return; // skip ack — write rejected (privacy 443)
+                    }
+                    break;
+                }
+                case "fire_alarm_detection": {
+                    // v1.7.x: smoke/fire-alarm sound detection — shared
+                    // /audioDetectionConfig (Gen2 Audio-Plus only).
+                    const camFa = this._cameras.get(camId);
+                    if (!camFa || camFa.generation < 2 || camFa.featureSound !== true) {
+                        this.log.warn(
+                            `fire_alarm_detection write for ${camId.slice(0, 8)} ignored — Gen2 Audio-Plus only`,
+                        );
+                        return; // skip ack
+                    }
+                    if (
+                        !(await this._handleAudioDetectionWrite(
+                            camId,
+                            "detectFireAlarm",
+                            Boolean(state.val),
+                        ))
+                    ) {
+                        return; // skip ack — write rejected (privacy 443)
+                    }
+                    break;
+                }
                 case "pan_position": {
                     // v0.7.8: absolute pan position — Gen1 CAMERA_360 only (panLimit > 0)
                     const camPan = this._cameras.get(camId);
@@ -7834,6 +7982,113 @@ class BoschSmartHomeCamera extends utils.Adapter {
             `Notification type ${apiKey}=${on} for ${camId.slice(0, 8)} (HTTP ${resp.status})`,
         );
         return true;
+    }
+
+    // ── v1.7.x generic per-camera write lock ────────────────────────────────
+
+    /**
+     * v1.7.x: serialize writes to a shared per-camera cache-backed endpoint.
+     * Chains `fn` onto whatever promise is already queued for `camId` in
+     * `locks` so two concurrent GET→merge→PUT writes against the SAME cache
+     * (e.g. glass_break_detection + fire_alarm_detection both hitting
+     * /audioDetectionConfig) always run one-after-the-other instead of
+     * racing a lost update — the second call's GET-cache-read then sees the
+     * FIRST call's already-written result, not a stale snapshot.
+     *
+     * Mirrors the HA v14.2.0 bug-hunt fix (per-camera asyncio.Lock +
+     * merge-only-own-key) for switch.py/light.py concurrent writes.
+     *
+     * A prior rejection is swallowed for chaining purposes only — the
+     * original rejection is still returned/thrown to *this* caller via
+     * `run`; it just doesn't block the *next* queued write.
+     *
+     * @param locks the lock map to chain on (one map per shared endpoint)
+     * @param camId  Camera UUID — the serialization key
+     * @param fn     the GET→merge→PUT body to run exclusively for this camId
+     */
+    private async _withCameraLock<T>(
+        locks: Map<string, Promise<unknown>>,
+        camId: string,
+        fn: () => Promise<T>,
+    ): Promise<T> {
+        const prior = locks.get(camId) ?? Promise.resolve();
+        const run = prior.catch(() => undefined).then(fn);
+        locks.set(
+            camId,
+            run.catch(() => undefined),
+        );
+        return run;
+    }
+
+    // ── v1.7.x glass-break / fire-alarm sound detection write handler ──────
+
+    /**
+     * Write glass-break or fire-alarm sound detection to the Bosch cloud API.
+     * PUT /v11/video_inputs/{id}/audioDetectionConfig
+     * body: {detectGlassBreak, detectFireAlarm} — Bosch requires the FULL
+     * body (a partial PUT would silently reset the other field), so this
+     * GETs (or reuses the cached) baseline, merges the ONE changed field,
+     * and PUTs the full body — mirroring _handleAudioLevelWrite /
+     * _handleNotificationTypeWrite. Serialized per-camera via
+     * `_withCameraLock` + `_audioDetectionLocks` so a concurrent write to
+     * the OTHER field can't clobber this one with a stale snapshot.
+     * Gen2 Audio-Plus only (featureSupport.sound) — caller gates the call.
+     *
+     * @param camId  Camera UUID (must be Gen2 with featureSupport.sound)
+     * @param field  "detectGlassBreak" | "detectFireAlarm"
+     * @param on     true → enable detection for this field
+     * @returns false when the write was rejected (privacy mode, HTTP 443) —
+     *          caller should skip the optimistic ack
+     */
+    private async _handleAudioDetectionWrite(
+        camId: string,
+        field: "detectGlassBreak" | "detectFireAlarm",
+        on: boolean,
+    ): Promise<boolean> {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        return this._withCameraLock(this._audioDetectionLocks, camId, async () => {
+            const url = `${CLOUD_API}/v11/video_inputs/${camId}/audioDetectionConfig`;
+            const headers = {
+                Authorization: `Bearer ${this._currentAccessToken}`,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            };
+            let cfg: Record<string, unknown>;
+            const cached = this._audioDetectionCache.get(camId);
+            if (cached) {
+                cfg = { ...cached };
+            } else {
+                const getResp = await this._httpClient.get<unknown>(url, {
+                    headers,
+                    validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
+                });
+                if (getResp.status === 443) {
+                    this.log.warn(
+                        `${field} write for ${camId.slice(0, 8)} skipped — privacy mode (443)`,
+                    );
+                    return false;
+                }
+                cfg = (getResp.data as Record<string, unknown>) ?? {};
+            }
+            cfg[field] = on;
+            const resp = await this._httpClient.put<unknown>(url, cfg, {
+                headers,
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
+            });
+            if (resp.status === 443) {
+                this.log.warn(
+                    `${field} write for ${camId.slice(0, 8)} rejected — privacy mode (443)`,
+                );
+                return false;
+            }
+            this._audioDetectionCache.set(camId, { ...cfg });
+            this.log.info(
+                `Audio detection ${field}=${on} for ${camId.slice(0, 8)} (HTTP ${resp.status})`,
+            );
+            return true;
+        });
     }
 
     // ── v0.8.0 lens elevation write handler ────────────────────────────────

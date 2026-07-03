@@ -347,6 +347,8 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _ambientLightCache;
     private static readonly NOTIFY_TYPE_MAP;
     private _motionCache;
+    private _audioDetectionCache;
+    private _audioDetectionLocks;
     /**
      * Whether a continuous live RTSP stream is active per camera ID.
      * Default: false (no livestream on adapter start — Bosch counts every
@@ -997,6 +999,17 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _pollNotificationTypes;
     /**
+     * v1.7.x: fetch audioDetectionConfig and mirror detectGlassBreak +
+     * detectFireAlarm into their DPs. Also seeds `_audioDetectionCache` so
+     * the write handler has a full baseline body to merge into (Bosch's
+     * PUT requires the FULL body, same as intrusionDetectionConfig/audio).
+     * Gen2 Audio-Plus only (featureSupport.sound) — caller gates the call.
+     *
+     * @param token Current access_token
+     * @param camId Camera UUID
+     */
+    private _pollAudioDetectionConfig;
+    /**
      * v1.1.0: read the Batch-D toggle states and mirror them into DPs:
      *  - timestamp_overlay ← GET /timestamp.result (all cameras)
      *  - status_led ← GET /ledlights.state ("ON"/"OFF") (Gen2)
@@ -1311,6 +1324,46 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param on     desired value
      */
     private _handleNotificationTypeWrite;
+    /**
+     * v1.7.x: serialize writes to a shared per-camera cache-backed endpoint.
+     * Chains `fn` onto whatever promise is already queued for `camId` in
+     * `locks` so two concurrent GET→merge→PUT writes against the SAME cache
+     * (e.g. glass_break_detection + fire_alarm_detection both hitting
+     * /audioDetectionConfig) always run one-after-the-other instead of
+     * racing a lost update — the second call's GET-cache-read then sees the
+     * FIRST call's already-written result, not a stale snapshot.
+     *
+     * Mirrors the HA v14.2.0 bug-hunt fix (per-camera asyncio.Lock +
+     * merge-only-own-key) for switch.py/light.py concurrent writes.
+     *
+     * A prior rejection is swallowed for chaining purposes only — the
+     * original rejection is still returned/thrown to *this* caller via
+     * `run`; it just doesn't block the *next* queued write.
+     *
+     * @param locks the lock map to chain on (one map per shared endpoint)
+     * @param camId  Camera UUID — the serialization key
+     * @param fn     the GET→merge→PUT body to run exclusively for this camId
+     */
+    private _withCameraLock;
+    /**
+     * Write glass-break or fire-alarm sound detection to the Bosch cloud API.
+     * PUT /v11/video_inputs/{id}/audioDetectionConfig
+     * body: {detectGlassBreak, detectFireAlarm} — Bosch requires the FULL
+     * body (a partial PUT would silently reset the other field), so this
+     * GETs (or reuses the cached) baseline, merges the ONE changed field,
+     * and PUTs the full body — mirroring _handleAudioLevelWrite /
+     * _handleNotificationTypeWrite. Serialized per-camera via
+     * `_withCameraLock` + `_audioDetectionLocks` so a concurrent write to
+     * the OTHER field can't clobber this one with a stale snapshot.
+     * Gen2 Audio-Plus only (featureSupport.sound) — caller gates the call.
+     *
+     * @param camId  Camera UUID (must be Gen2 with featureSupport.sound)
+     * @param field  "detectGlassBreak" | "detectFireAlarm"
+     * @param on     true → enable detection for this field
+     * @returns false when the write was rejected (privacy mode, HTTP 443) —
+     *          caller should skip the optimistic ack
+     */
+    private _handleAudioDetectionWrite;
     /**
      * Set lens mounting height via PUT /v11/video_inputs/{id}/lens_elevation.
      * Gen2 only. Range clamped to 0.5–5.0 m.

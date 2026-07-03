@@ -60,6 +60,14 @@ export interface BoschCamera {
      */
     featureLight?: boolean;
     /**
+     * Whether this camera reports `featureSupport.sound === true`
+     * ("Audio-Plus" Gen2 cams). Gates the glass-break + smoke/fire-alarm
+     * sound-detection DPs (`glass_break_detection`/`fire_alarm_detection`,
+     * shared `/audioDetectionConfig` endpoint). Mirrors HA v14.2.0
+     * BoschGlassBreakDetectionSwitch/BoschFireAlarmDetectionSwitch gating.
+     */
+    featureSound?: boolean;
+    /**
      * Maximum pan angle in degrees as reported by `featureSupport.panLimit`.
      * Non-zero only for the Gen1 360° Indoor camera (CAMERA_360).
      * Gates `pan_position` and `pan_preset` DPs.

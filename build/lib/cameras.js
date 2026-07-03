@@ -121,10 +121,12 @@ function mapCamera(raw) {
     const rawPrivacy = typeof raw.privacyMode === "string" ? raw.privacyMode.toUpperCase() : "";
     const privacyMode = rawPrivacy === "ON" || rawPrivacy === "OFF" ? rawPrivacy : undefined;
     let featureLight;
+    let featureSound;
     let panLimit = 0;
     if (raw.featureSupport && typeof raw.featureSupport === "object") {
         const fs = raw.featureSupport;
         featureLight = typeof fs.light === "boolean" ? fs.light : undefined;
+        featureSound = typeof fs.sound === "boolean" ? fs.sound : undefined;
         panLimit = typeof fs.panLimit === "number" && fs.panLimit > 0 ? fs.panLimit : 0;
     }
     const numberOfUnreadEvents = typeof raw.numberOfUnreadEvents === "number" && raw.numberOfUnreadEvents >= 0
@@ -142,6 +144,7 @@ function mapCamera(raw) {
         online: false, // list endpoint does not include connection state
         privacyMode,
         featureLight,
+        featureSound,
         panLimit,
         numberOfUnreadEvents,
         notificationsEnabledStatus,

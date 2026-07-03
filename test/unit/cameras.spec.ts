@@ -158,6 +158,66 @@ describe("fetchCameras() happy path", () => {
     });
 });
 
+// ── featureSupport.sound → featureSound ────────────────────────────────────
+// v1.7.x: gates the glass-break/fire-alarm sound-detection DPs (Gen2
+// Audio-Plus only). Mirrors the existing featureSupport.light → featureLight
+// parsing.
+
+describe("fetchCameras() featureSupport.sound → featureSound", () => {
+    afterEach(() => {
+        restoreAxios();
+    });
+
+    it("featureSupport.sound === true → featureSound = true", async () => {
+        stubAxiosSequence([
+            {
+                status: 200,
+                data: [{ ...RAW_CAM_OUTDOOR, featureSupport: { sound: true, light: true } }],
+            },
+        ]);
+        const result = await fetchCameras(axios.create(), BEARER_TOKEN);
+        expect(result[0].featureSound).to.equal(true);
+        expect(result[0].featureLight).to.equal(true);
+    });
+
+    it("featureSupport.sound === false → featureSound = false", async () => {
+        stubAxiosSequence([
+            { status: 200, data: [{ ...RAW_CAM_INDOOR, featureSupport: { sound: false } }] },
+        ]);
+        const result = await fetchCameras(axios.create(), BEARER_TOKEN);
+        expect(result[0].featureSound).to.equal(false);
+    });
+
+    it("featureSupport missing entirely → featureSound = undefined", async () => {
+        stubAxiosSequence([{ status: 200, data: [RAW_CAM_OUTDOOR] }]);
+        const result = await fetchCameras(axios.create(), BEARER_TOKEN);
+        expect(result[0].featureSound).to.equal(undefined);
+    });
+
+    it("featureSupport.sound non-boolean (garbage) → featureSound = undefined", async () => {
+        stubAxiosSequence([
+            {
+                status: 200,
+                data: [{ ...RAW_CAM_OUTDOOR, featureSupport: { sound: "yes" } }],
+            },
+        ]);
+        const result = await fetchCameras(axios.create(), BEARER_TOKEN);
+        expect(result[0].featureSound).to.equal(undefined);
+    });
+
+    it("Gen1 camera with featureSupport.sound: true still maps generation=1 (hardwareVersion decides)", async () => {
+        stubAxiosSequence([
+            {
+                status: 200,
+                data: [{ ...RAW_CAM_360, featureSupport: { sound: true } }],
+            },
+        ]);
+        const result = await fetchCameras(axios.create(), BEARER_TOKEN);
+        expect(result[0].generation).to.equal(1);
+        expect(result[0].featureSound).to.equal(true);
+    });
+});
+
 // ── fetchCameras() — error classification ─────────────────────────────────────
 
 describe("fetchCameras() error classification", () => {
