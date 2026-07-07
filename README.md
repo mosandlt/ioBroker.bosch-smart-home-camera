@@ -719,6 +719,9 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.7.8 (2026-07-07)
+Docs-only release: repository-checker keyword fix (`package.json`/`io-package.json`, PR #46), refreshed sibling-repo version references in the "Related Projects" table, dev-sandbox Node version doc fix, devDependency bumps (`@types/node`, `@iobroker/adapter-react-v5`). No functional changes.
+
 ### 1.7.7 (2026-07-03)
 ioBroker.repositories PR#5983 manual-review hardening (mcm1957, 2026-07-02): log/notification text is English-only now (was German, leaking untranslated into `this.log.*`); external camera IDs are sanitized (ioBroker `FORBIDDEN_CHARS`) before use in object paths; removed the dead `region` config option (`EU`/`US` dropdown had no effect — `CLOUD_API` is, and remains, hardcoded); README now credits/links Bosch Smart Home; minor dead-code cleanup (`_maskCreds`, `_featureFlagsCache`, `EVENT_POLL_INTERVAL_MS`). `mqtt_password` `protectedNative`/`encryptedNative` confirmed correct at the io-package.json root (already in place; a first attempt moved them under `common`, which `@iobroker/repochecker`'s schema rejects — reverted before release). New regression tests pin all of the above. No functional/behavioral change for existing installs beyond the language fix.
 
