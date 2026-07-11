@@ -349,6 +349,8 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _motionCache;
     private _audioDetectionCache;
     private _audioDetectionLocks;
+    private _firmwareCache;
+    private _firmwareLocks;
     /**
      * Whether a continuous live RTSP stream is active per camera ID.
      * Default: false (no livestream on adapter start — Bosch counts every
@@ -1053,6 +1055,25 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      */
     private _pollManagementReads;
     /**
+     * v1.8.0: GET /v11/video_inputs/{id}/firmware → mirrors
+     * firmware_current_version / firmware_latest_version /
+     * firmware_update_available / firmware_updating, and refreshes
+     * `_firmwareCache` (consumed by `_handleFirmwareInstall`'s guard).
+     * Best-effort: tolerates 404/442/443/444, swallows network errors, never
+     * throws (same contract as `_pollCloudListDp`).
+     *
+     * Serialized via `_withCameraLock` + `_firmwareLocks` — bug-hunt round 2
+     * finding: without this, a poll landing WHILE `_handleFirmwareInstall`
+     * is in flight could write a fresher `_firmwareCache` entry that then
+     * gets clobbered when the install handler's own (now-stale) `fw` object
+     * is `.set()` back after its PUT resolves, silently losing the poll's
+     * update. Locking both onto the same per-camera queue fixes it.
+     *
+     * @param token Current access_token
+     * @param camId Camera UUID
+     */
+    private _pollFirmwareStatus;
+    /**
      * Helper for the array-returning management endpoints. GETs
      * /v11/video_inputs/{id}/{endpoint}; on a 2xx array response writes
      * `cameras.{id}.{dpBase}_count` (length) and `cameras.{id}.{dpBase}` (raw
@@ -1364,6 +1385,126 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      *          caller should skip the optimistic ack
      */
     private _handleAudioDetectionWrite;
+    /**
+     * Parse+validate a user-supplied JSON array of {x,y,w,h} zone/mask
+     * rectangles (each field a number in 0.0–1.0). Returns null (and logs a
+     * warning) on malformed input instead of throwing — a bad write should
+     * leave the DP un-acked, not crash the adapter.
+     *
+     * @param camId   Camera UUID (for the log message only)
+     * @param raw     Raw string value written to the DP
+     * @param dpLabel DP name for the log message (e.g. "motion_zones_set")
+     */
+    private _parseZoneArray;
+    /**
+     * POST /v11/video_inputs/{id}/{endpoint} with a raw JSON array body —
+     * shared by motion_zones_set and privacy_masks_set (identical shape).
+     * 443 = privacy mode active blocks the write (Bosch-documented, mirrors
+     * the read-side 443 tolerance in `_pollCloudListDp`).
+     *
+     * @param camId    Camera UUID
+     * @param endpoint "motion_sensitive_areas" | "privacy_masks"
+     * @param zones    Validated zone/mask array
+     * @param dpLabel  DP name for log messages
+     */
+    private _postZoneArray;
+    /**
+     * v1.8.0: write motion-sensitive zones. POST
+     * /v11/video_inputs/{id}/motion_sensitive_areas with a raw JSON array of
+     * {x,y,w,h} (0.0-1.0); `[]` clears all zones. Mirrors HA
+     * services.py set_motion_zones.
+     *
+     * @param camId Camera UUID
+     * @param raw   Raw JSON string written to motion_zones_set
+     */
+    private _handleMotionZonesWrite;
+    /**
+     * v1.8.0: write privacy masks. POST /v11/video_inputs/{id}/privacy_masks
+     * with a raw JSON array of {x,y,w,h} (0.0-1.0); `[]` clears all masks.
+     * Mirrors HA services.py set_privacy_masks.
+     *
+     * @param camId Camera UUID
+     * @param raw   Raw JSON string written to privacy_masks_set
+     */
+    private _handlePrivacyMasksWrite;
+    /**
+     * v1.8.0: create an automation rule. POST /v11/video_inputs/{id}/rules
+     * body {id:null, name, isActive, startTime:"HH:MM:SS",
+     * endTime:"HH:MM:SS", weekdays:[0-6]}. Mirrors HA services.py
+     * create_rule. Malformed input is logged and ignored (no throw).
+     *
+     * @param camId Camera UUID
+     * @param raw   Raw JSON string written to rule_create
+     */
+    private _handleRuleCreate;
+    /**
+     * v1.8.0: update an automation rule. GETs the current rule list, merges
+     * the changed fields from `raw` onto the matching cached rule (Bosch
+     * requires the FULL rule body on PUT — a partial PUT would silently
+     * drop the omitted fields), then PUTs
+     * /v11/video_inputs/{id}/rules/{rule_id}. Mirrors HA services.py
+     * update_rule.
+     *
+     * @param camId Camera UUID
+     * @param raw   Raw JSON string written to rule_update: {id, ...changed fields}
+     */
+    private _handleRuleUpdate;
+    /**
+     * v1.8.0: delete an automation rule.
+     * DELETE /v11/video_inputs/{id}/rules/{rule_id}. Mirrors HA
+     * services.py delete_rule.
+     *
+     * @param camId  Camera UUID
+     * @param ruleId Rule id written to rule_delete
+     */
+    private _handleRuleDelete;
+    /**
+     * v1.8.0: share this camera with a friend. PUT
+     * /v11/friends/{friend_id}/share body: raw JSON array
+     * [{videoInputId, shareTime:{start,end}}] (shareTime omitted = indefinite
+     * share, matching the Python CLI's optional --days behavior); `[]`
+     * unshares all. Mirrors HA services.py share_camera. Gen2 only (caller
+     * gates the call — friend sharing isn't exposed on Gen1).
+     *
+     * @param camId Camera UUID (this camera's own id — becomes videoInputId)
+     * @param raw   Raw JSON string written to camera_share: {"friendId":"...","days":30}
+     */
+    private _handleCameraShare;
+    /**
+     * v1.8.0: invite a friend by email. POST /v11/friends body
+     * {invitationEmail, nickName} (nickName defaults to the email itself,
+     * matching both HA and the Python CLI). Account-wide, not camera
+     * specific — exposed per-camera purely to match this adapter's existing
+     * per-camera state scoping. Mirrors HA services.py invite_friend.
+     *
+     * @param camId Camera UUID (for the log message only — endpoint is account-wide)
+     * @param email Email address written to friend_invite
+     */
+    private _handleFriendInvite;
+    /**
+     * v1.8.0: remove a friend by id. DELETE /v11/friends/{friend_id}.
+     * Account-wide, not camera specific. Mirrors HA services.py
+     * remove_friend.
+     *
+     * @param camId    Camera UUID (for the log message only — endpoint is account-wide)
+     * @param friendId Friend id written to friend_remove
+     */
+    private _handleFriendRemove;
+    /**
+     * v1.8.0: install the pending firmware update. PUT
+     * /v11/video_inputs/{id}/firmware body {"id": <target>}. Guard logic
+     * mirrors HA v14.4.10 async_install_firmware EXACTLY: (1) abort if
+     * `_firmwareCache` already shows `updating: true` (a second overlapping
+     * install PUT — double-write or a stale poll racing a fresh trigger),
+     * (2) abort if there's no cached `update` target (nothing to install).
+     * Serialized per-camera via `_withCameraLock` + `_firmwareLocks` (same
+     * double-write race the HA bug-hunt found and fixed with a write-lock).
+     * On success, optimistically sets `updating: true` in the cache + DP —
+     * does NOT re-GET to confirm (matches HA).
+     *
+     * @param camId Camera UUID
+     */
+    private _handleFirmwareInstall;
     /**
      * Set lens mounting height via PUT /v11/video_inputs/{id}/lens_elevation.
      * Gen2 only. Range clamped to 0.5–5.0 m.

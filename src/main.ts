@@ -579,6 +579,18 @@ class BoschSmartHomeCamera extends utils.Adapter {
     // `_withCameraLock`.
     private _audioDetectionLocks = new Map<string, Promise<unknown>>();
 
+    // v1.8.0: firmware cloud status cache (all cameras). GET
+    // /v11/video_inputs/{id}/firmware → {current, upToDate, updating, update}.
+    // Populated by the slow-tier poll; consumed by the firmware_install write
+    // handler so the guard mirrors HA v14.4.10 async_install_firmware exactly
+    // (abort if already updating, abort if no update target cached).
+    private _firmwareCache = new Map<string, Record<string, unknown>>();
+
+    // v1.8.0: per-camera write serializer for firmware_install — prevents a
+    // double-press race firing two overlapping PUT /firmware calls (mirrors
+    // HA v14.4.10's write-lock bug-hunt fix for the same race).
+    private _firmwareLocks = new Map<string, Promise<unknown>>();
+
     /**
      * Whether a continuous live RTSP stream is active per camera ID.
      * Default: false (no livestream on adapter start — Bosch counts every
@@ -2940,6 +2952,137 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 native: {},
             });
 
+            // v1.8.0: cloud-API WRITE for the management-tier data above.
+            // Mirrors HA services.py set_motion_zones/set_privacy_masks/
+            // create_rule/update_rule/delete_rule (same /v11 endpoints, same
+            // field names) — this is the CLOUD write path, NOT the on-device
+            // RCP zone/mask editor (that stays parked until Bosch's permanent
+            // local user, see docs/family-parity-status.md). All cameras.
+            await this.setObjectNotExistsAsync(`${prefix}.motion_zones_set`, {
+                type: "state",
+                common: {
+                    name: "Set motion-sensitive zones — write JSON array of {x,y,w,h} (0.0-1.0), [] clears all",
+                    role: "json",
+                    type: "string",
+                    read: true,
+                    write: true,
+                    def: "",
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.privacy_masks_set`, {
+                type: "state",
+                common: {
+                    name: "Set privacy masks — write JSON array of {x,y,w,h} (0.0-1.0), [] clears all",
+                    role: "json",
+                    type: "string",
+                    read: true,
+                    write: true,
+                    def: "",
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.rule_create`, {
+                type: "state",
+                common: {
+                    name: 'Create automation rule — write JSON {name,isActive,startTime:"HH:MM:SS",endTime:"HH:MM:SS",weekdays:[0-6]}',
+                    role: "json",
+                    type: "string",
+                    read: true,
+                    write: true,
+                    def: "",
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.rule_update`, {
+                type: "state",
+                common: {
+                    name: "Update automation rule — write JSON {id,...changed fields} (GET-merge-PUT)",
+                    role: "json",
+                    type: "string",
+                    read: true,
+                    write: true,
+                    def: "",
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.rule_delete`, {
+                type: "state",
+                common: {
+                    name: "Delete automation rule — write the rule id to delete",
+                    role: "text",
+                    type: "string",
+                    read: true,
+                    write: true,
+                    def: "",
+                },
+                native: {},
+            });
+
+            // v1.8.0: firmware cloud status + install trigger. Mirrors HA
+            // update.py BoschFirmwareUpdate + v14.4.10 async_install_firmware
+            // (repairs.py fix flow). GET/PUT /v11/video_inputs/{id}/firmware.
+            await this.setObjectNotExistsAsync(`${prefix}.firmware_current_version`, {
+                type: "state",
+                common: {
+                    name: "Installed camera firmware version (cloud-reported)",
+                    role: "text",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "",
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.firmware_latest_version`, {
+                type: "state",
+                common: {
+                    name: "Latest available camera firmware version (cloud-reported)",
+                    role: "text",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "",
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.firmware_update_available`, {
+                type: "state",
+                common: {
+                    name: "Firmware update available",
+                    role: "indicator",
+                    type: "boolean",
+                    read: true,
+                    write: false,
+                    def: false,
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.firmware_updating`, {
+                type: "state",
+                common: {
+                    name: "Firmware install in progress",
+                    role: "indicator",
+                    type: "boolean",
+                    read: true,
+                    write: false,
+                    def: false,
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.firmware_install`, {
+                type: "state",
+                common: {
+                    name: "Install available firmware update (button — set true to trigger)",
+                    role: "button",
+                    type: "boolean",
+                    read: false,
+                    write: true,
+                    def: false,
+                },
+                native: {},
+            });
+
             // Gen1 floodlight schedule — GET /lighting_options. Gen2 uses the
             // /lighting/ambient path already mirrored above, so only create
             // these for Gen1 (Indoor/360 Gen1 answer HTTP 442 → DP stays empty).
@@ -2993,6 +3136,46 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         type: "string",
                         read: true,
                         write: false,
+                        def: "",
+                    },
+                    native: {},
+                });
+
+                // v1.8.0: cloud-API WRITE for camera sharing. Mirrors HA
+                // services.py share_camera/invite_friend/remove_friend
+                // (PUT /v11/friends/{id}/share, POST/DELETE /v11/friends).
+                await this.setObjectNotExistsAsync(`${prefix}.camera_share`, {
+                    type: "state",
+                    common: {
+                        name: 'Share this camera with a friend — write JSON {"friendId":"...","days":30} (days optional = indefinite)',
+                        role: "json",
+                        type: "string",
+                        read: true,
+                        write: true,
+                        def: "",
+                    },
+                    native: {},
+                });
+                await this.setObjectNotExistsAsync(`${prefix}.friend_invite`, {
+                    type: "state",
+                    common: {
+                        name: "Invite a friend by email (adds to the account-wide friend list, not camera-specific)",
+                        role: "text",
+                        type: "string",
+                        read: true,
+                        write: true,
+                        def: "",
+                    },
+                    native: {},
+                });
+                await this.setObjectNotExistsAsync(`${prefix}.friend_remove`, {
+                    type: "state",
+                    common: {
+                        name: "Remove a friend by id (account-wide, not camera-specific)",
+                        role: "text",
+                        type: "string",
+                        read: true,
+                        write: true,
                         def: "",
                     },
                     native: {},
@@ -6168,6 +6351,64 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (cam.generation >= 2) {
             await this._pollCloudListDp(token, camId, "shared_with_friends", "shared_with_friends");
         }
+        await this._pollFirmwareStatus(token, camId);
+    }
+
+    /**
+     * v1.8.0: GET /v11/video_inputs/{id}/firmware → mirrors
+     * firmware_current_version / firmware_latest_version /
+     * firmware_update_available / firmware_updating, and refreshes
+     * `_firmwareCache` (consumed by `_handleFirmwareInstall`'s guard).
+     * Best-effort: tolerates 404/442/443/444, swallows network errors, never
+     * throws (same contract as `_pollCloudListDp`).
+     *
+     * Serialized via `_withCameraLock` + `_firmwareLocks` — bug-hunt round 2
+     * finding: without this, a poll landing WHILE `_handleFirmwareInstall`
+     * is in flight could write a fresher `_firmwareCache` entry that then
+     * gets clobbered when the install handler's own (now-stale) `fw` object
+     * is `.set()` back after its PUT resolves, silently losing the poll's
+     * update. Locking both onto the same per-camera queue fixes it.
+     *
+     * @param token Current access_token
+     * @param camId Camera UUID
+     */
+    private async _pollFirmwareStatus(token: string, camId: string): Promise<void> {
+        await this._withCameraLock(this._firmwareLocks, camId, async () => {
+            try {
+                const resp = await this._httpClient.get<unknown>(
+                    `${CLOUD_API}/v11/video_inputs/${camId}/firmware`,
+                    {
+                        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+                        validateStatus: (s) =>
+                            (s >= 200 && s < 300) ||
+                            s === 404 ||
+                            s === 442 ||
+                            s === 443 ||
+                            s === 444,
+                    },
+                );
+                if (resp.status < 200 || resp.status >= 300) {
+                    return;
+                }
+                const fw = (resp.data as Record<string, unknown>) ?? {};
+                this._firmwareCache.set(camId, fw);
+                const current = typeof fw.current === "string" ? fw.current : "";
+                const upToDate = fw.upToDate === true;
+                const updating = fw.updating === true;
+                await this.upsertState(`cameras.${camId}.firmware_current_version`, current);
+                await this.upsertState(
+                    `cameras.${camId}.firmware_latest_version`,
+                    typeof fw.update === "string" && fw.update ? fw.update : current,
+                );
+                await this.upsertState(`cameras.${camId}.firmware_update_available`, !upToDate);
+                await this.upsertState(`cameras.${camId}.firmware_updating`, updating);
+            } catch (err: unknown) {
+                this.log.debug(
+                    `Firmware status read for ${camId.slice(0, 8)} failed: ` +
+                        `${err instanceof Error ? err.message : String(err)}`,
+                );
+            }
+        });
     }
 
     /**
@@ -7317,6 +7558,97 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     }
                     return; // skip generic ack below (button pattern)
                 }
+                case "motion_zones_set":
+                    // v1.8.0: cloud-API motion-zone write. Skip ack on
+                    // validation failure or privacy-mode rejection (443) so
+                    // the DP shows the pending value, not a false success.
+                    if (!(await this._handleMotionZonesWrite(camId, String(state.val)))) {
+                        return;
+                    }
+                    break;
+                case "privacy_masks_set":
+                    // v1.8.0: cloud-API privacy-mask write.
+                    if (!(await this._handlePrivacyMasksWrite(camId, String(state.val)))) {
+                        return;
+                    }
+                    break;
+                case "rule_create":
+                    // v1.8.0: cloud-API rule create.
+                    if (!(await this._handleRuleCreate(camId, String(state.val)))) {
+                        return;
+                    }
+                    break;
+                case "rule_update":
+                    // v1.8.0: cloud-API rule update (GET-merge-PUT).
+                    if (!(await this._handleRuleUpdate(camId, String(state.val)))) {
+                        return;
+                    }
+                    break;
+                case "rule_delete":
+                    // v1.8.0: cloud-API rule delete.
+                    if (!(await this._handleRuleDelete(camId, String(state.val)))) {
+                        return;
+                    }
+                    break;
+                case "camera_share": {
+                    // v1.8.0: cloud-API camera sharing. Gen2 only — friend
+                    // sharing isn't exposed on Gen1 (matches shared_with_friends read).
+                    const camShare = this._cameras.get(camId);
+                    if (!camShare || camShare.generation < 2) {
+                        this.log.warn(
+                            `camera_share write for ${camId.slice(0, 8)} ignored — Gen2 only`,
+                        );
+                        return;
+                    }
+                    if (!(await this._handleCameraShare(camId, String(state.val)))) {
+                        return;
+                    }
+                    break;
+                }
+                case "friend_invite": {
+                    const camInv = this._cameras.get(camId);
+                    if (!camInv || camInv.generation < 2) {
+                        this.log.warn(
+                            `friend_invite write for ${camId.slice(0, 8)} ignored — Gen2 only`,
+                        );
+                        return;
+                    }
+                    if (!(await this._handleFriendInvite(camId, String(state.val)))) {
+                        return;
+                    }
+                    break;
+                }
+                case "friend_remove": {
+                    const camRem = this._cameras.get(camId);
+                    if (!camRem || camRem.generation < 2) {
+                        this.log.warn(
+                            `friend_remove write for ${camId.slice(0, 8)} ignored — Gen2 only`,
+                        );
+                        return;
+                    }
+                    if (!(await this._handleFriendRemove(camId, String(state.val)))) {
+                        return;
+                    }
+                    break;
+                }
+                case "firmware_install": {
+                    // v1.8.0: button pattern (mirrors mark_all_read) — only
+                    // fires on truthy write. Bug-hunt round 1 finding: unlike
+                    // every sibling handler in this diff, this used to reset
+                    // the button unconditionally regardless of success — a
+                    // rejected/guarded install looked identical to a real one
+                    // except for a WARN log. Only reset+ack on TRUE success;
+                    // a failed attempt leaves the button un-acked (visible as
+                    // "pending failed", same convention as every other write
+                    // in this diff) so the failure is DP-visible, not just logged.
+                    if (state.val) {
+                        if (!(await this._handleFirmwareInstall(camId))) {
+                            return;
+                        }
+                        await this.setStateAsync(id, false, true);
+                    }
+                    return; // skip generic ack below (button pattern)
+                }
                 default:
                     return; // unknown writable state — no-op
             }
@@ -8086,6 +8418,555 @@ class BoschSmartHomeCamera extends utils.Adapter {
             this._audioDetectionCache.set(camId, { ...cfg });
             this.log.info(
                 `Audio detection ${field}=${on} for ${camId.slice(0, 8)} (HTTP ${resp.status})`,
+            );
+            return true;
+        });
+    }
+
+    // ── v1.8.0 management-tier cloud WRITE handlers ─────────────────────────
+    // Mirrors HA services.py set_motion_zones/set_privacy_masks/create_rule/
+    // update_rule/delete_rule/share_camera/invite_friend/remove_friend and
+    // __init__.py async_install_firmware (v14.4.10) — same /v11 endpoints,
+    // same field names, byte-verified against the HA integration + Python
+    // CLI (both cross-checked to agree). This is CLOUD write only; the
+    // on-device RCP zone/mask editor stays parked (Bosch permanent local
+    // user, summer 2026).
+
+    /**
+     * Parse+validate a user-supplied JSON array of {x,y,w,h} zone/mask
+     * rectangles (each field a number in 0.0–1.0). Returns null (and logs a
+     * warning) on malformed input instead of throwing — a bad write should
+     * leave the DP un-acked, not crash the adapter.
+     *
+     * @param camId   Camera UUID (for the log message only)
+     * @param raw     Raw string value written to the DP
+     * @param dpLabel DP name for the log message (e.g. "motion_zones_set")
+     */
+    private _parseZoneArray(
+        camId: string,
+        raw: string,
+        dpLabel: string,
+    ): Array<Record<string, number>> | null {
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(raw);
+        } catch {
+            this.log.warn(`${dpLabel} write for ${camId.slice(0, 8)} ignored — invalid JSON`);
+            return null;
+        }
+        if (!Array.isArray(parsed)) {
+            this.log.warn(
+                `${dpLabel} write for ${camId.slice(0, 8)} ignored — expected a JSON array`,
+            );
+            return null;
+        }
+        const fields = ["x", "y", "w", "h"] as const;
+        for (const entry of parsed) {
+            if (
+                typeof entry !== "object" ||
+                entry === null ||
+                !fields.every((f) => {
+                    const v = (entry as Record<string, unknown>)[f];
+                    return typeof v === "number" && v >= 0 && v <= 1;
+                })
+            ) {
+                this.log.warn(
+                    `${dpLabel} write for ${camId.slice(0, 8)} ignored — every entry needs numeric x,y,w,h in 0.0-1.0`,
+                );
+                return null;
+            }
+        }
+        return parsed as Array<Record<string, number>>;
+    }
+
+    /**
+     * POST /v11/video_inputs/{id}/{endpoint} with a raw JSON array body —
+     * shared by motion_zones_set and privacy_masks_set (identical shape).
+     * 443 = privacy mode active blocks the write (Bosch-documented, mirrors
+     * the read-side 443 tolerance in `_pollCloudListDp`).
+     *
+     * @param camId    Camera UUID
+     * @param endpoint "motion_sensitive_areas" | "privacy_masks"
+     * @param zones    Validated zone/mask array
+     * @param dpLabel  DP name for log messages
+     */
+    private async _postZoneArray(
+        camId: string,
+        endpoint: "motion_sensitive_areas" | "privacy_masks",
+        zones: Array<Record<string, number>>,
+        dpLabel: string,
+    ): Promise<boolean> {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const url = `${CLOUD_API}/v11/video_inputs/${camId}/${endpoint}`;
+        const resp = await this._httpClient.post<unknown>(url, zones, {
+            headers: {
+                Authorization: `Bearer ${this._currentAccessToken}`,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+            validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
+        });
+        if (resp.status === 443) {
+            this.log.warn(
+                `${dpLabel} write for ${camId.slice(0, 8)} rejected — camera in privacy mode (HTTP 443)`,
+            );
+            return false;
+        }
+        // Mirror the read-side count/raw DPs immediately (matches HA's
+        // async_request_refresh() after a successful zone/mask write).
+        const countDp = endpoint === "motion_sensitive_areas" ? "motion_zones" : "privacy_masks";
+        await this.upsertState(`cameras.${camId}.${countDp}_count`, zones.length);
+        await this.upsertState(`cameras.${camId}.${countDp}`, JSON.stringify(zones));
+        this.log.info(
+            `${dpLabel} for ${camId.slice(0, 8)}: ${zones.length} entries (HTTP ${resp.status})`,
+        );
+        return true;
+    }
+
+    /**
+     * v1.8.0: write motion-sensitive zones. POST
+     * /v11/video_inputs/{id}/motion_sensitive_areas with a raw JSON array of
+     * {x,y,w,h} (0.0-1.0); `[]` clears all zones. Mirrors HA
+     * services.py set_motion_zones.
+     *
+     * @param camId Camera UUID
+     * @param raw   Raw JSON string written to motion_zones_set
+     */
+    private async _handleMotionZonesWrite(camId: string, raw: string): Promise<boolean> {
+        const zones = this._parseZoneArray(camId, raw, "motion_zones_set");
+        if (zones === null) {
+            return false;
+        }
+        return this._postZoneArray(camId, "motion_sensitive_areas", zones, "motion_zones_set");
+    }
+
+    /**
+     * v1.8.0: write privacy masks. POST /v11/video_inputs/{id}/privacy_masks
+     * with a raw JSON array of {x,y,w,h} (0.0-1.0); `[]` clears all masks.
+     * Mirrors HA services.py set_privacy_masks.
+     *
+     * @param camId Camera UUID
+     * @param raw   Raw JSON string written to privacy_masks_set
+     */
+    private async _handlePrivacyMasksWrite(camId: string, raw: string): Promise<boolean> {
+        const masks = this._parseZoneArray(camId, raw, "privacy_masks_set");
+        if (masks === null) {
+            return false;
+        }
+        return this._postZoneArray(camId, "privacy_masks", masks, "privacy_masks_set");
+    }
+
+    /**
+     * v1.8.0: create an automation rule. POST /v11/video_inputs/{id}/rules
+     * body {id:null, name, isActive, startTime:"HH:MM:SS",
+     * endTime:"HH:MM:SS", weekdays:[0-6]}. Mirrors HA services.py
+     * create_rule. Malformed input is logged and ignored (no throw).
+     *
+     * @param camId Camera UUID
+     * @param raw   Raw JSON string written to rule_create
+     */
+    private async _handleRuleCreate(camId: string, raw: string): Promise<boolean> {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        let req: Record<string, unknown>;
+        try {
+            req = JSON.parse(raw) as Record<string, unknown>;
+        } catch {
+            this.log.warn(`rule_create write for ${camId.slice(0, 8)} ignored — invalid JSON`);
+            return false;
+        }
+        if (
+            typeof req !== "object" ||
+            req === null ||
+            typeof req.name !== "string" ||
+            typeof req.isActive !== "boolean" ||
+            typeof req.startTime !== "string" ||
+            typeof req.endTime !== "string" ||
+            !Array.isArray(req.weekdays)
+        ) {
+            this.log.warn(
+                `rule_create write for ${camId.slice(0, 8)} ignored — expected {name,isActive,startTime,endTime,weekdays}`,
+            );
+            return false;
+        }
+        const body = {
+            id: null,
+            name: req.name,
+            isActive: req.isActive,
+            startTime: req.startTime,
+            endTime: req.endTime,
+            weekdays: req.weekdays,
+        };
+        const resp = await this._httpClient.post<unknown>(
+            `${CLOUD_API}/v11/video_inputs/${camId}/rules`,
+            body,
+            {
+                headers: {
+                    Authorization: `Bearer ${this._currentAccessToken}`,
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
+            },
+        );
+        if (resp.status === 443) {
+            this.log.warn(
+                `rule_create write for ${camId.slice(0, 8)} rejected — camera in privacy mode (HTTP 443)`,
+            );
+            return false;
+        }
+        this.log.info(`Rule "${req.name}" created for ${camId.slice(0, 8)} (HTTP ${resp.status})`);
+        await this._pollCloudListDp(this._currentAccessToken, camId, "rules", "rules");
+        return true;
+    }
+
+    /**
+     * v1.8.0: update an automation rule. GETs the current rule list, merges
+     * the changed fields from `raw` onto the matching cached rule (Bosch
+     * requires the FULL rule body on PUT — a partial PUT would silently
+     * drop the omitted fields), then PUTs
+     * /v11/video_inputs/{id}/rules/{rule_id}. Mirrors HA services.py
+     * update_rule.
+     *
+     * @param camId Camera UUID
+     * @param raw   Raw JSON string written to rule_update: {id, ...changed fields}
+     */
+    private async _handleRuleUpdate(camId: string, raw: string): Promise<boolean> {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        let req: Record<string, unknown>;
+        try {
+            req = JSON.parse(raw) as Record<string, unknown>;
+        } catch {
+            this.log.warn(`rule_update write for ${camId.slice(0, 8)} ignored — invalid JSON`);
+            return false;
+        }
+        if (typeof req !== "object" || req === null || typeof req.id !== "string") {
+            this.log.warn(
+                `rule_update write for ${camId.slice(0, 8)} ignored — expected {"id":"...",...}`,
+            );
+            return false;
+        }
+        const listUrl = `${CLOUD_API}/v11/video_inputs/${camId}/rules`;
+        const headers = {
+            Authorization: `Bearer ${this._currentAccessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        };
+        const listResp = await this._httpClient.get<unknown>(listUrl, {
+            headers,
+            validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
+        });
+        if (listResp.status === 443) {
+            this.log.warn(
+                `rule_update write for ${camId.slice(0, 8)} rejected — camera in privacy mode (HTTP 443)`,
+            );
+            return false;
+        }
+        const list = Array.isArray(listResp.data)
+            ? (listResp.data as Record<string, unknown>[])
+            : [];
+        const existing = list.find((r) => r.id === req.id);
+        if (!existing) {
+            this.log.warn(
+                `rule_update write for ${camId.slice(0, 8)} ignored — rule id "${String(req.id)}" not found`,
+            );
+            return false;
+        }
+        const merged = { ...existing, ...req };
+        // encodeURIComponent: req.id is user-writable JSON input reaching a
+        // URL path segment — bug-hunt finding (round 2): without escaping, a
+        // value containing "/" could redirect this PUT onto a different
+        // same-host /v11/... endpoint. req.id is cross-checked against a
+        // real id from the GET above (line ~8651), but escape defensively
+        // anyway — matches the fix applied to rule_delete/camera_share/friend_remove.
+        const resp = await this._httpClient.put<unknown>(
+            `${listUrl}/${encodeURIComponent(String(req.id))}`,
+            merged,
+            {
+                headers,
+                // 404 added (bug-hunt round 2): a rule deleted between the GET
+                // and this PUT (TOCTOU) must surface the same friendly
+                // "not found" warning as rule_delete, not an uncaught axios
+                // throw swallowed by onStateChange's generic error log.
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 443 || s === 404,
+            },
+        );
+        if (resp.status === 443) {
+            this.log.warn(
+                `rule_update write for ${camId.slice(0, 8)} rejected — camera in privacy mode (HTTP 443)`,
+            );
+            return false;
+        }
+        if (resp.status === 404) {
+            this.log.warn(
+                `rule_update write for ${camId.slice(0, 8)} — rule "${String(req.id)}" not found (deleted concurrently?)`,
+            );
+            return false;
+        }
+        this.log.info(
+            `Rule ${String(req.id)} updated for ${camId.slice(0, 8)} (HTTP ${resp.status})`,
+        );
+        await this._pollCloudListDp(this._currentAccessToken, camId, "rules", "rules");
+        return true;
+    }
+
+    /**
+     * v1.8.0: delete an automation rule.
+     * DELETE /v11/video_inputs/{id}/rules/{rule_id}. Mirrors HA
+     * services.py delete_rule.
+     *
+     * @param camId  Camera UUID
+     * @param ruleId Rule id written to rule_delete
+     */
+    private async _handleRuleDelete(camId: string, ruleId: string): Promise<boolean> {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        if (!ruleId) {
+            this.log.warn(`rule_delete write for ${camId.slice(0, 8)} ignored — empty rule id`);
+            return false;
+        }
+        const resp = await this._httpClient.delete<unknown>(
+            // encodeURIComponent (bug-hunt round 1+2): ruleId is raw
+            // user-writable input reaching a URL path segment.
+            `${CLOUD_API}/v11/video_inputs/${camId}/rules/${encodeURIComponent(ruleId)}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${this._currentAccessToken}`,
+                    Accept: "application/json",
+                },
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 443 || s === 404,
+            },
+        );
+        if (resp.status === 443) {
+            this.log.warn(
+                `rule_delete write for ${camId.slice(0, 8)} rejected — camera in privacy mode (HTTP 443)`,
+            );
+            return false;
+        }
+        if (resp.status === 404) {
+            this.log.warn(
+                `rule_delete write for ${camId.slice(0, 8)} — rule "${ruleId}" not found`,
+            );
+            return false;
+        }
+        this.log.info(`Rule ${ruleId} deleted for ${camId.slice(0, 8)} (HTTP ${resp.status})`);
+        await this._pollCloudListDp(this._currentAccessToken, camId, "rules", "rules");
+        return true;
+    }
+
+    /**
+     * v1.8.0: share this camera with a friend. PUT
+     * /v11/friends/{friend_id}/share body: raw JSON array
+     * [{videoInputId, shareTime:{start,end}}] (shareTime omitted = indefinite
+     * share, matching the Python CLI's optional --days behavior); `[]`
+     * unshares all. Mirrors HA services.py share_camera. Gen2 only (caller
+     * gates the call — friend sharing isn't exposed on Gen1).
+     *
+     * @param camId Camera UUID (this camera's own id — becomes videoInputId)
+     * @param raw   Raw JSON string written to camera_share: {"friendId":"...","days":30}
+     */
+    private async _handleCameraShare(camId: string, raw: string): Promise<boolean> {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        let req: Record<string, unknown>;
+        try {
+            req = JSON.parse(raw) as Record<string, unknown>;
+        } catch {
+            this.log.warn(`camera_share write for ${camId.slice(0, 8)} ignored — invalid JSON`);
+            return false;
+        }
+        if (
+            typeof req !== "object" ||
+            req === null ||
+            typeof req.friendId !== "string" ||
+            !req.friendId
+        ) {
+            this.log.warn(
+                `camera_share write for ${camId.slice(0, 8)} ignored — expected {"friendId":"..."}`,
+            );
+            return false;
+        }
+        const entry: Record<string, unknown> = { videoInputId: camId };
+        if (typeof req.days === "number" && req.days > 0) {
+            const start = new Date();
+            const end = new Date(start.getTime() + req.days * 24 * 60 * 60 * 1000);
+            entry.shareTime = { start: start.toISOString(), end: end.toISOString() };
+        }
+        // encodeURIComponent (bug-hunt round 1+2): req.friendId is raw
+        // user-writable JSON input reaching a URL path segment — escape
+        // defensively (matches the fix applied to rule_delete/rule_update/
+        // friend_remove).
+        const resp = await this._httpClient.put<unknown>(
+            `${CLOUD_API}/v11/friends/${encodeURIComponent(req.friendId)}/share`,
+            [entry],
+            {
+                headers: {
+                    Authorization: `Bearer ${this._currentAccessToken}`,
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+                // 443 added (bug-hunt round 1): every sibling write handler in
+                // this diff special-cases privacy-mode with a clear warning —
+                // this one fell through to the generic catch, surfacing a
+                // raw Axios error instead. Bring it in line.
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 443,
+            },
+        );
+        if (resp.status === 443) {
+            this.log.warn(
+                `camera_share write for ${camId.slice(0, 8)} rejected — camera in privacy mode (HTTP 443)`,
+            );
+            return false;
+        }
+        this.log.info(
+            `Camera ${camId.slice(0, 8)} shared with friend ${String(req.friendId).slice(0, 8)} (HTTP ${resp.status})`,
+        );
+        await this._pollCloudListDp(
+            this._currentAccessToken,
+            camId,
+            "shared_with_friends",
+            "shared_with_friends",
+        );
+        return true;
+    }
+
+    /**
+     * v1.8.0: invite a friend by email. POST /v11/friends body
+     * {invitationEmail, nickName} (nickName defaults to the email itself,
+     * matching both HA and the Python CLI). Account-wide, not camera
+     * specific — exposed per-camera purely to match this adapter's existing
+     * per-camera state scoping. Mirrors HA services.py invite_friend.
+     *
+     * @param camId Camera UUID (for the log message only — endpoint is account-wide)
+     * @param email Email address written to friend_invite
+     */
+    private async _handleFriendInvite(camId: string, email: string): Promise<boolean> {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const trimmed = email.trim();
+        if (!trimmed.includes("@")) {
+            this.log.warn(
+                `friend_invite write for ${camId.slice(0, 8)} ignored — not an email address`,
+            );
+            return false;
+        }
+        const resp = await this._httpClient.post<unknown>(
+            `${CLOUD_API}/v11/friends`,
+            { invitationEmail: trimmed, nickName: trimmed },
+            {
+                headers: {
+                    Authorization: `Bearer ${this._currentAccessToken}`,
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+                validateStatus: (s) => s >= 200 && s < 300,
+            },
+        );
+        this.log.info(`Friend invite sent to ${trimmed} (HTTP ${resp.status})`);
+        return true;
+    }
+
+    /**
+     * v1.8.0: remove a friend by id. DELETE /v11/friends/{friend_id}.
+     * Account-wide, not camera specific. Mirrors HA services.py
+     * remove_friend.
+     *
+     * @param camId    Camera UUID (for the log message only — endpoint is account-wide)
+     * @param friendId Friend id written to friend_remove
+     */
+    private async _handleFriendRemove(camId: string, friendId: string): Promise<boolean> {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        if (!friendId) {
+            this.log.warn(`friend_remove write for ${camId.slice(0, 8)} ignored — empty friend id`);
+            return false;
+        }
+        // encodeURIComponent (bug-hunt round 1+2): friendId is raw
+        // user-writable input reaching a URL path segment.
+        const resp = await this._httpClient.delete<unknown>(
+            `${CLOUD_API}/v11/friends/${encodeURIComponent(friendId)}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${this._currentAccessToken}`,
+                    Accept: "application/json",
+                },
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 404,
+            },
+        );
+        if (resp.status === 404) {
+            this.log.warn(`friend_remove write — friend "${friendId}" not found`);
+            return false;
+        }
+        this.log.info(`Friend ${friendId} removed (HTTP ${resp.status})`);
+        return true;
+    }
+
+    /**
+     * v1.8.0: install the pending firmware update. PUT
+     * /v11/video_inputs/{id}/firmware body {"id": <target>}. Guard logic
+     * mirrors HA v14.4.10 async_install_firmware EXACTLY: (1) abort if
+     * `_firmwareCache` already shows `updating: true` (a second overlapping
+     * install PUT — double-write or a stale poll racing a fresh trigger),
+     * (2) abort if there's no cached `update` target (nothing to install).
+     * Serialized per-camera via `_withCameraLock` + `_firmwareLocks` (same
+     * double-write race the HA bug-hunt found and fixed with a write-lock).
+     * On success, optimistically sets `updating: true` in the cache + DP —
+     * does NOT re-GET to confirm (matches HA).
+     *
+     * @param camId Camera UUID
+     */
+    private async _handleFirmwareInstall(camId: string): Promise<boolean> {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        return this._withCameraLock(this._firmwareLocks, camId, async () => {
+            const fw = this._firmwareCache.get(camId) ?? {};
+            if (fw.updating === true) {
+                this.log.warn(
+                    `firmware_install for ${camId.slice(0, 8)} ignored — install already in progress`,
+                );
+                return false;
+            }
+            const target = typeof fw.update === "string" ? fw.update : "";
+            if (!target) {
+                this.log.warn(
+                    `firmware_install for ${camId.slice(0, 8)} ignored — no update currently available`,
+                );
+                return false;
+            }
+            const resp = await this._httpClient.put<unknown>(
+                `${CLOUD_API}/v11/video_inputs/${camId}/firmware`,
+                { id: target },
+                {
+                    headers: {
+                        Authorization: `Bearer ${this._currentAccessToken}`,
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                    },
+                    validateStatus: (s) => s >= 200 && s < 300,
+                },
+            );
+            const ok = resp.status >= 200 && resp.status < 300;
+            if (!ok) {
+                this.log.warn(
+                    `firmware_install for ${camId.slice(0, 8)} rejected by Bosch cloud (HTTP ${resp.status})`,
+                );
+                return false;
+            }
+            fw.updating = true;
+            this._firmwareCache.set(camId, fw);
+            await this.upsertState(`cameras.${camId}.firmware_updating`, true);
+            this.log.info(
+                `Firmware install to ${target} triggered for ${camId.slice(0, 8)} (HTTP ${resp.status})`,
             );
             return true;
         });

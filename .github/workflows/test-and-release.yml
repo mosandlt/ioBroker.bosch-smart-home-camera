@@ -61,6 +61,21 @@ jobs:
       - run: npm ci
       - run: npm run test:coverage:check
 
+  # CVE gate (SOCKET_SCAN_EVERY_RELEASE / bosch-quality-gates pattern): block
+  # any release that ships a runtime dependency with a known vulnerability.
+  # `--omit=dev` mirrors the local release-gate command exactly so CI==local.
+  npm-audit:
+    if: contains(github.event.head_commit.message, '[skip ci]') == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          cache: npm
+      - run: npm ci
+      - run: npm audit --omit=dev
+
   # Verify TypeScript compiles cleanly (catches errors not exercised by tests)
   build:
     needs: check-and-lint
@@ -97,7 +112,7 @@ jobs:
   # action exchanges the GitHub OIDC token for a short-lived publish token
   # at runtime. id-token: write is required for that exchange.
   deploy:
-    needs: [check-and-lint, build, adapter-tests, coverage-check, i18n-check]
+    needs: [check-and-lint, build, adapter-tests, coverage-check, i18n-check, npm-audit]
     if: |
       contains(github.event.head_commit.message, '[skip ci]') == false &&
       github.event_name == 'push' &&
