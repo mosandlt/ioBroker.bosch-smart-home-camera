@@ -17,6 +17,7 @@
  *   9. [maintenance.ts]  RSS-based cloud maintenance / outage discovery (v0.7.0)
  */
 
+import type * as https from "node:https";
 import * as net from "node:net";
 
 import * as utils from "@iobroker/adapter-core";
@@ -49,7 +50,7 @@ import {
 import { SessionWatchdog } from "./lib/session_watchdog";
 
 // digestRequest is used for LOCAL RCP writes (HTTPS + Digest auth, Gen2 port 443)
-import { digestRequest } from "./lib/digest";
+import { digestRequest, destroyLocalDigestAgents } from "./lib/digest";
 
 import { fetchSnapshot, buildSnapshotUrl } from "./lib/snapshot";
 import { fetchMjpegSnapshot } from "./lib/mjpeg_snapshot";
@@ -11406,6 +11407,21 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     }
                     this._mqttBridge = null;
                 }
+
+                // 2026-07-13: destroy the pooled keep-alive HTTP agents (cloud +
+                // LOCAL LAN digest) introduced by the connection-pooling
+                // hardening — bug-hunt finding, all 3 THREE_PER_ISSUE_PER_CHANGE
+                // reviewers independently flagged this: with keepAlive:true the
+                // agents hold sockets open for up to keepAliveMsecs after the
+                // last request, which used to close themselves automatically
+                // when every call got its own fresh non-keepAlive Agent. Must
+                // run AFTER closeLiveSession() above (still needs _httpClient).
+                try {
+                    (this._httpClient.defaults.httpsAgent as https.Agent | undefined)?.destroy?.();
+                } catch {
+                    /* best-effort */
+                }
+                destroyLocalDigestAgents();
 
                 // Best-effort connection flag (async — may not complete if ioBroker kills us)
                 void this.setStateAsync("info.connection", false, true).catch(() => undefined);
