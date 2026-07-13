@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "1.8.0",
+        "version": "1.8.1",
         "news": {
+            "1.8.1": {
+                "en": "Pooled keep-alive HTTPS connections for local camera + cloud API calls instead of a fresh connection per request; fixed a related agent-cleanup gap on adapter unload.",
+                "de": "HTTPS-Verbindungen für lokale Kamera- und Cloud-API-Aufrufe werden nun per Keep-Alive-Pool wiederverwendet statt pro Anfrage neu aufgebaut; zugehörige Agent-Cleanup-Lücke beim Adapter-Unload behoben.",
+                "ru": "Объединенные HTTPS-соединения с поддержкой активности для локальной камеры + вызовы облачного API вместо нового соединения на каждый запрос; исправлена ​​проблема с очисткой агента при выгрузке адаптера.",
+                "pt": "Conexões HTTPS keep-alive agrupadas para chamadas de câmera local + API de nuvem em vez de uma nova conexão por solicitação; corrigiu uma lacuna de limpeza do agente relacionada no descarregamento do adaptador.",
+                "nl": "Gepoolde keep-alive HTTPS-verbindingen voor lokale camera- en cloud-API-aanroepen in plaats van een nieuwe verbinding per verzoek; Een gerelateerd gat bij het opschonen van agenten bij het verwijderen van de adapter opgelost.",
+                "fr": "Connexions HTTPS persistantes regroupées pour les appels de caméra locale + API cloud au lieu d'une nouvelle connexion par demande ; correction d’un écart de nettoyage d’agent associé lors du déchargement de l’adaptateur.",
+                "it": "Connessioni HTTPS keep-alive in pool per chiamate API fotocamera locale + cloud invece di una nuova connessione per richiesta; risolto un problema correlato alla pulizia dell'agente durante lo scaricamento dell'adattatore.",
+                "es": "Conexiones HTTPS mantenidas agrupadas para llamadas de cámara local + API en la nube en lugar de una nueva conexión por solicitud; Se corrigió una brecha relacionada con la limpieza del agente en la descarga del adaptador.",
+                "pl": "Łączone połączenia HTTPS utrzymujące aktywność dla wywołań lokalnego aparatu i interfejsu API chmury zamiast nowego połączenia na żądanie; naprawiono powiązaną lukę w czyszczeniu agenta podczas rozładowywania adaptera.",
+                "uk": "Об’єднані підтримувані HTTPS-з’єднання для викликів локальної камери + хмарного API замість нового з’єднання за запитом; виправлено пов’язану прогалину очищення агента під час вивантаження адаптера.",
+                "zh-cn": "用于本地摄像头 + 云 API 调用的池化保持活动 HTTPS 连接，而不是每个请求一个新连接；修复了适配器卸载时相关的代理清理间隙。"
+            },
             "1.8.0": {
                 "en": "New: cloud-API write for motion zones, privacy masks, automation rules (create/update/delete), camera sharing, friend invite/remove, and a firmware-install trigger (all /v11 endpoints, ported from the HA integration). Also adds a blocking npm-audit CI gate.",
                 "de": "Neu: Cloud-API-Schreibzugriff für Bewegungszonen, Privatsphären-Masken, Automatisierungsregeln (Erstellen/Ändern/Löschen), Kamera-Freigabe, Freund einladen/entfernen und ein Firmware-Install-Trigger (alle /v11-Endpunkte, aus der HA-Integration portiert). Zusätzlich ein blockierendes npm-audit-CI-Gate.",
@@ -80,19 +93,6 @@
                 "pl": "Niezawodność push FCM: token urządzenia FCM jest teraz ponownie rejestrowany w Bosch co 24 h, gdy gniazdo MTalk jest aktywne. Zapobiega to cichej utracie push, gdy Bosch usuwa rejestrację po stronie serwera (TTL / aktualizacja oprogramowania / ponowne parowanie) bez zamykania gniazda.",
                 "uk": "Надійність FCM push: токен пристрою FCM тепер повторно реєструється у Bosch кожні 24 год, поки сокет MTalk активний. Це запобігає тихій втраті push, коли Bosch видаляє серверну реєстрацію (TTL / оновлення прошивки / повторне підключення) без закриття сокета.",
                 "zh-cn": "FCM 推送可靠性：只要 MTalk 套接字保持活跃，FCM 设备令牌现在每 24 小时向 Bosch 重新注册一次。当 Bosch 在不关闭套接字的情况下删除服务器端注册（TTL / 固件升级 / 重新配对）时，这可防止推送静默丢失。"
-            },
-            "1.7.3": {
-                "en": "PiP freeze fix: a background Web Worker now detects a frozen Picture-in-Picture window within ~10 s (was ~60 s) when the browser tab is hidden. Also fixes a false-positive recovery loop that could occur when a reconnect took >10 s to produce its first frame.",
-                "de": "PiP-Freeze-Fix: Ein Hintergrund-Web-Worker erkennt ein eingefrorenes Bild-im-Bild-Fenster jetzt in ~10 s (vorher ~60 s), wenn der Browser-Tab verborgen ist. Außerdem wird eine Falsch-Positiv-Wiederherstellungsschleife behoben, die auftreten konnte, wenn ein Verbindungsaufbau für den ersten Frame >10 s benötigte.",
-                "ru": "Исправление зависания PiP: фоновый веб-воркер теперь обнаруживает зависшее окно «картинка в картинке» в течение ~10 с (было ~60 с), когда вкладка браузера скрыта. Также исправлен цикл восстановления с ложным срабатыванием, который мог возникнуть, когда повторное подключение занимало > 10 с для создания первого кадра.",
-                "pt": "Correção de congelamento de PiP: um Web Worker em segundo plano agora detecta uma janela Picture-in-Picture congelada em aproximadamente 10 s (era aproximadamente 60 s) quando a guia do navegador está oculta. Também corrige um loop de recuperação falso positivo que poderia ocorrer quando uma reconexão levasse >10 s para produzir seu primeiro quadro.",
-                "nl": "Oplossing voor het vastlopen van PiP: een Web Worker op de achtergrond detecteert nu een bevroren Picture-in-Picture-venster binnen ~10 s (was ~60 s) wanneer het browsertabblad verborgen is. Er is ook een fout-positieve herstellus opgelost die kon optreden wanneer het opnieuw verbinden meer dan 10 seconden duurde om het eerste frame te produceren.",
-                "fr": "Correction du gel PiP : un Web Worker en arrière-plan détecte désormais une fenêtre Picture-in-Picture gelée dans un délai d'environ 10 s (au lieu d'environ 60 s) lorsque l'onglet du navigateur est masqué. Corrige également une boucle de récupération de faux positifs qui pouvait se produire lorsqu'une reconnexion prenait > 10 s pour produire sa première image.",
-                "it": "Correzione del blocco PiP: un Web Worker in background ora rileva una finestra Picture-in-Picture bloccata entro ~10 s (invece di ~60 s) quando la scheda del browser è nascosta. Risolve anche un ciclo di ripristino di falsi positivi che poteva verificarsi quando una riconnessione impiegava >10 s per produrre il primo frame.",
-                "es": "Corrección de congelación de PiP: un Web Worker en segundo plano ahora detecta una ventana de imagen en imagen congelada en ~10 s (en lugar de ~60 s) cuando la pestaña del navegador está oculta. También corrige un bucle de recuperación de falso positivo que podría ocurrir cuando una reconexión tardó >10 s en producir su primer fotograma.",
-                "pl": "Poprawka polegająca na zawieszaniu się obrazu PiP: działający w tle proces sieciowy wykrywa teraz zamrożone okno obrazu w obrazie w ciągu ~10 s (wcześniej ~60 s), gdy karta przeglądarki jest ukryta. Naprawia także fałszywie dodatnią pętlę odzyskiwania, która mogła wystąpić, gdy ponowne połączenie trwało > 10 s, aby wygenerować pierwszą ramkę.",
-                "uk": "Виправлення зависання PiP: фоновий веб-працівник тепер виявляє зависле вікно «Картинка в картинці» протягом ~10 с (було ~60 с), коли вкладка браузера прихована. Також виправляє хибно-позитивний цикл відновлення, який міг виникнути, коли для повторного підключення потрібно більше 10 с для створення першого кадру.",
-                "zh-cn": "PiP 冻结修复：当浏览器选项卡隐藏时，后台 Web Worker 现在可以在约 10 秒（约 60 秒）内检测到冻结的画中画窗口。还修复了重新连接花费超过 10 秒才能生成第一帧时可能发生的误报恢复循环。"
             }
         },
         "titleLang": {

@@ -719,6 +719,9 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.8.1 (2026-07-13)
+Performance/reliability fix: local camera (digest auth) and cloud API HTTPS requests now reuse pooled keep-alive connections instead of opening a fresh TCP+TLS connection per request, cutting per-request latency and connection overhead. Also fixes a related agent-cleanup gap so pooled connections are properly torn down on adapter unload instead of leaking sockets. No functional/state changes.
+
 ### 1.8.0 (2026-07-11)
 New: cloud-API WRITE for the management tier, closing a feature-parity gap with the HA integration and Python CLI (same `/v11` endpoints, byte-verified against both). Writable states per camera: `motion_zones_set`/`privacy_masks_set` (POST array of `{x,y,w,h}`, `[]` clears all), `rule_create`/`rule_update`/`rule_delete` (automation rules), `firmware_install` (button — installs the pending firmware update, guarded against a double-press or an already-in-progress install). Gen2 only: `camera_share`, `friend_invite`, `friend_remove`. New read-only firmware status states: `firmware_current_version`, `firmware_latest_version`, `firmware_update_available`, `firmware_updating`. This is cloud write only — the on-device RCP zone/mask editor stays parked until Bosch's permanent local user (summer 2026). Also adds a blocking `npm audit --omit=dev` CI gate ahead of the deploy job. 38 new tests, full suite 1367 → 1405 passing, coverage gate green.
 
