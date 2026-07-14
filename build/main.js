@@ -9990,6 +9990,21 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     }
                     this._mqttBridge = null;
                 }
+                // 2026-07-13: destroy the pooled keep-alive HTTP agents (cloud +
+                // LOCAL LAN digest) introduced by the connection-pooling
+                // hardening — bug-hunt finding, all 3 THREE_PER_ISSUE_PER_CHANGE
+                // reviewers independently flagged this: with keepAlive:true the
+                // agents hold sockets open for up to keepAliveMsecs after the
+                // last request, which used to close themselves automatically
+                // when every call got its own fresh non-keepAlive Agent. Must
+                // run AFTER closeLiveSession() above (still needs _httpClient).
+                try {
+                    this._httpClient.defaults.httpsAgent?.destroy?.();
+                }
+                catch {
+                    /* best-effort */
+                }
+                (0, digest_1.destroyLocalDigestAgents)();
                 // Best-effort connection flag (async — may not complete if ioBroker kills us)
                 void this.setStateAsync("info.connection", false, true).catch(() => undefined);
                 void this.setStateAsync("info.fcm_active", "stopped", true).catch(() => undefined);

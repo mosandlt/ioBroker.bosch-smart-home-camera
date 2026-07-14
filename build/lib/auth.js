@@ -424,6 +424,19 @@ function verifyCloudPeerCert(leafDer, authorized, authorizationError, servername
  */
 class BoschCloudAgent extends https.Agent {
     /**
+     * Cross-version fix (2026-07-13, ported from HA integration's aiohttp
+     * session-pooling hardening): the previous default (no options passed to
+     * `super()`) left `keepAlive` at Node's https.Agent default of `false`, so
+     * even though `_httpClient` (main.ts) is a singleton reused across every
+     * cloud API call, the underlying TCP+TLS connection to
+     * residential.cbs.boschsecurity.com was still torn down and rebuilt on
+     * every single request (polling ticks, heartbeats, writes). Enabling
+     * keepAlive lets Node reuse the pinned-TLS socket across requests.
+     */
+    constructor() {
+        super({ keepAlive: true, keepAliveMsecs: 10_000, maxSockets: 8 });
+    }
+    /**
      * Open a TLS connection with Node's chain check deferred, then run
      * {@link verifyCloudPeerCert} on `secureConnect`. On rejection the socket is
      * destroyed with the reason so the failure surfaces to the HTTP caller.

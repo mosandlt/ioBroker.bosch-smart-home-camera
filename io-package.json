@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "1.8.1",
+        "version": "1.8.2",
         "news": {
+            "1.8.2": {
+                "en": "Docs-only release: refreshed sibling-repo version table in README. No functional changes.",
+                "de": "Reines Doku-Release: aktualisierte Versionstabelle der Schwester-Repos im README. Keine funktionalen Änderungen.",
+                "ru": "Версия только для документации: обновлена ​​таблица версий родственного репозитория в README. Никаких функциональных изменений.",
+                "pt": "Versão somente do Docs: tabela de versão do repositório irmão atualizada no README. Sem alterações funcionais.",
+                "nl": "Uitgave voor alleen documenten: vernieuwde versietabel voor broers en zussen in README. Geen functionele wijzigingen.",
+                "fr": "Version Docs uniquement : tableau des versions des dépôts frères et sœurs actualisé dans README. Aucun changement fonctionnel.",
+                "it": "Versione solo documentazione: tabella delle versioni dei repository di pari livello aggiornata nel README. Nessuna modifica funzionale.",
+                "es": "Versión solo de documentos: tabla de versión actualizada del repositorio de hermanos en README. Sin cambios funcionales.",
+                "pl": "Wersja tylko dla dokumentów: odświeżona tabela wersji repozytorium rodzeństwa w pliku README. Żadnych zmian funkcjonalnych.",
+                "uk": "Випуск лише для документів: оновлена ​​таблиця версій однотипного сховища в README. Без функціональних змін.",
+                "zh-cn": "仅文档版本：刷新自述文件中的同级存储库版本表。没有功能变化。"
+            },
             "1.8.1": {
                 "en": "Pooled keep-alive HTTPS connections for local camera + cloud API calls instead of a fresh connection per request; fixed a related agent-cleanup gap on adapter unload.",
                 "de": "HTTPS-Verbindungen für lokale Kamera- und Cloud-API-Aufrufe werden nun per Keep-Alive-Pool wiederverwendet statt pro Anfrage neu aufgebaut; zugehörige Agent-Cleanup-Lücke beim Adapter-Unload behoben.",
@@ -80,19 +93,6 @@
                 "pl": "WebRTC: ochrona przed przestarzałym komputerem zapobiega pętli odzyskiwania; getStats zamraża wyrocznię; wykrywanie martwego toru CGNAT → lepki HLS; Natywny system nadzorujący iOS HLS 8s; Luka ponownego połączenia 1000 ms",
                 "uk": "WebRTC: Stale-PC guard запобігає циклу відновлення; getStats заморозити оракул; виявлення тупикової лінії CGNAT → липкий HLS; Нативний сторожовий таймер iOS HLS 8s; 1000 мс розрив підключення",
                 "zh-cn": "WebRTC：陈旧 PC 防护可防止恢复循环； getStats 冻结 oracle；死轨 CGNAT 检测 → 粘性 HLS； iOS原生-HLS 8s看门狗； 1000ms重连间隙"
-            },
-            "1.7.4": {
-                "en": "FCM push reliability: the FCM device token is now re-registered with Bosch every 24 h while the MTalk socket stays alive. This prevents silent push loss when Bosch drops the server-side registration (TTL / firmware upgrade / re-pair) without closing the socket.",
-                "de": "FCM-Push-Zuverlässigkeit: Das FCM-Gerät wird nun alle 24 Stunden erneut bei Bosch registriert, solange der MTalk-Socket aktiv ist. Dadurch wird ein stiller Push-Ausfall verhindert, wenn Bosch die serverseitige Registrierung löscht (TTL / Firmware-Update / Neu-Koppelung), ohne den Socket zu schließen.",
-                "ru": "Надёжность push-уведомлений FCM: токен устройства FCM теперь перерегистрируется у Bosch каждые 24 ч, пока сокет MTalk активен. Это предотвращает тихую потерю push-уведомлений при удалении Bosch серверной регистрации (TTL / обновление прошивки / переподключение) без закрытия сокета.",
-                "pt": "Confiabilidade de push FCM: o token do dispositivo FCM é agora re-registado no Bosch a cada 24 h enquanto o socket MTalk estiver ativo. Isto evita perda silenciosa de pushes quando o Bosch remove o registo do lado do servidor (TTL / atualização de firmware / re-emparelhamento) sem fechar o socket.",
-                "nl": "FCM-pushbetrouwbaarheid: het FCM-apparaattoken wordt nu elke 24 uur opnieuw geregistreerd bij Bosch zolang de MTalk-socket actief is. Dit voorkomt stilzwijgend push-verlies wanneer Bosch de serverregistratie verwijdert (TTL / firmware-update / herverbinding) zonder de socket te sluiten.",
-                "fr": "Fiabilité des push FCM : le token d'appareil FCM est désormais ré-enregistré chez Bosch toutes les 24 h tant que le socket MTalk est actif. Cela évite la perte silencieuse des push quand Bosch supprime l'enregistrement côté serveur (TTL / mise à jour firmware / ré-appairage) sans fermer le socket.",
-                "it": "Affidabilità push FCM: il token dispositivo FCM viene ora ri-registrato presso Bosch ogni 24 h finché il socket MTalk è attivo. Questo previene la perdita silenziosa di push quando Bosch elimina la registrazione lato server (TTL / aggiornamento firmware / ri-associazione) senza chiudere il socket.",
-                "es": "Fiabilidad de push FCM: el token de dispositivo FCM se vuelve a registrar en Bosch cada 24 h mientras el socket MTalk esté activo. Esto evita la pérdida silenciosa de push cuando Bosch elimina el registro del lado servidor (TTL / actualización de firmware / re-emparejamiento) sin cerrar el socket.",
-                "pl": "Niezawodność push FCM: token urządzenia FCM jest teraz ponownie rejestrowany w Bosch co 24 h, gdy gniazdo MTalk jest aktywne. Zapobiega to cichej utracie push, gdy Bosch usuwa rejestrację po stronie serwera (TTL / aktualizacja oprogramowania / ponowne parowanie) bez zamykania gniazda.",
-                "uk": "Надійність FCM push: токен пристрою FCM тепер повторно реєструється у Bosch кожні 24 год, поки сокет MTalk активний. Це запобігає тихій втраті push, коли Bosch видаляє серверну реєстрацію (TTL / оновлення прошивки / повторне підключення) без закриття сокета.",
-                "zh-cn": "FCM 推送可靠性：只要 MTalk 套接字保持活跃，FCM 设备令牌现在每 24 小时向 Bosch 重新注册一次。当 Bosch 在不关闭套接字的情况下删除服务器端注册（TTL / 固件升级 / 重新配对）时，这可防止推送静默丢失。"
             }
         },
         "titleLang": {

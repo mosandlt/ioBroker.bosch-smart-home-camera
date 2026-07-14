@@ -103,6 +103,20 @@ export declare function parseDigestChallenge(wwwAuthenticate: string): DigestCha
  */
 export declare function buildDigestHeader(method: string, url: string, username: string, password: string, challenge: DigestChallenge): string;
 /**
+ * Destroy every pooled keep-alive Agent created by {@link getLocalDigestAgent}
+ * and clear the cache.
+ *
+ * Bug-hunt finding (2026-07-13, all 3 THREE_PER_ISSUE_PER_CHANGE reviewers
+ * independently flagged this): before the keepAlive change, digestRequest()
+ * created a fresh non-keepAlive https.Agent per call, so sockets closed
+ * themselves after each response and no explicit teardown was needed. Now
+ * that sockets are pooled and held open (`keepAliveMsecs: 10_000`), the
+ * adapter's `onUnload()` MUST call this so open LAN sockets don't outlive a
+ * disable/restart cycle. Call from `onUnload()` alongside the other
+ * resource-cleanup calls.
+ */
+export declare function destroyLocalDigestAgents(): void;
+/**
  * Perform an HTTP request with RFC 7616 Digest authentication.
  *
  * TypeScript port of Python's async_digest_request() in auth_utils.py.

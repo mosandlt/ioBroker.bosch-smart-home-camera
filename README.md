@@ -721,6 +721,9 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.8.2 (2026-07-14)
+Docs-only release: refreshed the sibling-repo version table in the README. No functional changes.
+
 ### 1.8.1 (2026-07-13)
 Performance/reliability fix: local camera (digest auth) and cloud API HTTPS requests now reuse pooled keep-alive connections instead of opening a fresh TCP+TLS connection per request, cutting per-request latency and connection overhead. Also fixes a related agent-cleanup gap so pooled connections are properly torn down on adapter unload instead of leaking sockets. No functional/state changes.
 

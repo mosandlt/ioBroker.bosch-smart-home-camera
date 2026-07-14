@@ -60,6 +60,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseDigestChallenge = parseDigestChallenge;
 exports.buildDigestHeader = buildDigestHeader;
+exports.destroyLocalDigestAgents = destroyLocalDigestAgents;
 exports.digestRequest = digestRequest;
 exports.digestGet = digestGet;
 exports.digestPut = digestPut;
@@ -201,6 +202,57 @@ function buildDigestHeader(method, url, username, password, challenge) {
     }
     return `Digest ${parts.join(", ")}`;
 }
+// ── Connection pooling ───────────────────────────────────────────────────────
+//
+// Cross-version fix (2026-07-13, ported from HA integration's aiohttp
+// session-pooling hardening): digestRequest() used to `new https.Agent(...)`
+// on EVERY call, which forces a brand-new TCP+TLS handshake per request even
+// though it is the highest-frequency HTTP path in the adapter (RCP LAN polls,
+// heartbeats, per-camera light/privacy writes — every few seconds per camera).
+// A shared keep-alive Agent per `rejectUnauthorized` setting lets Node reuse
+// the underlying TCP/TLS socket across requests to the same camera host
+// (https.Agent pools per host:port internally), cutting handshake overhead
+// and local-camera load without changing any request/response behavior.
+const localDigestAgents = new Map();
+/**
+ * Get (or lazily create) a shared keep-alive https.Agent for LOCAL LAN Digest
+ * requests, keyed by the `rejectUnauthorized` TLS setting.
+ *
+ * @param rejectUnauthorized whether to verify the peer's TLS certificate
+ * @returns a shared https.Agent with keepAlive enabled
+ */
+function getLocalDigestAgent(rejectUnauthorized) {
+    let agent = localDigestAgents.get(rejectUnauthorized);
+    if (!agent) {
+        agent = new https.Agent({
+            rejectUnauthorized,
+            keepAlive: true,
+            keepAliveMsecs: 10_000,
+            maxSockets: 8,
+        });
+        localDigestAgents.set(rejectUnauthorized, agent);
+    }
+    return agent;
+}
+/**
+ * Destroy every pooled keep-alive Agent created by {@link getLocalDigestAgent}
+ * and clear the cache.
+ *
+ * Bug-hunt finding (2026-07-13, all 3 THREE_PER_ISSUE_PER_CHANGE reviewers
+ * independently flagged this): before the keepAlive change, digestRequest()
+ * created a fresh non-keepAlive https.Agent per call, so sockets closed
+ * themselves after each response and no explicit teardown was needed. Now
+ * that sockets are pooled and held open (`keepAliveMsecs: 10_000`), the
+ * adapter's `onUnload()` MUST call this so open LAN sockets don't outlive a
+ * disable/restart cycle. Call from `onUnload()` alongside the other
+ * resource-cleanup calls.
+ */
+function destroyLocalDigestAgents() {
+    for (const agent of localDigestAgents.values()) {
+        agent.destroy();
+    }
+    localDigestAgents.clear();
+}
 // ── Public API ────────────────────────────────────────────────────────────────
 /**
  * Perform an HTTP request with RFC 7616 Digest authentication.
@@ -237,7 +289,7 @@ async function digestRequest(url, username, password, options = {}) {
     const method = options.method ?? "GET";
     const timeout = options.timeout ?? 10_000;
     const rejectUnauthorized = options.rejectUnauthorized ?? false;
-    const httpsAgent = new https.Agent({ rejectUnauthorized });
+    const httpsAgent = getLocalDigestAgent(rejectUnauthorized);
     const axiosOpts = {
         method,
         url,
