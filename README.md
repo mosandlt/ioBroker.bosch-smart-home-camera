@@ -35,6 +35,7 @@ ioBroker adapter for Bosch Smart Home Cameras (Eyes Outdoor, 360 Indoor, Gen2 Ey
 - [Dashboard](#dashboard)
 - [Example Automations](#example-automations)
 - [MQTT Bridge](#mqtt-bridge)
+- [Credential-Free RTSP Front-Door](#credential-free-rtsp-front-door) — the flagship feature, flow diagram + config
 - [External Recorders (BlueIris, Frigate)](#external-recorders-blueiris-frigate)
 - [Development](#development)
 - [Existing Adapter Landscape](#existing-adapter-landscape)
@@ -243,13 +244,13 @@ sequenceDiagram
 
 ## Status
 
-**Stable (v1.5.2)** — verified live against 4 cameras (Gen1 + Gen2, FW 7.91.56 / 9.40.102) on a real ioBroker instance. Cloud API contracts confirmed against the iOS app via mitmproxy.
+**Stable (v1.8.2)** — verified live against 4 cameras (Gen1 + Gen2, FW 7.91.56 / 9.40.102) on a real ioBroker instance. Cloud API contracts confirmed against the iOS app via mitmproxy.
 
 What works:
 - Browser-based OAuth2 PKCE login via Bosch SingleKey ID (no programmatic password handling — captcha/MFA happen in the browser)
 - Token auto-refresh (~45 min cadence; 4xx → re-login required, 5xx → silent retry). Stored `refresh_token` also used at startup to mint a fresh `access_token` silently — no PKCE re-login required after restart, even if the adapter was stopped longer than the 1 h access-token lifetime.
 - Camera discovery (Gen1 + Gen2, `GET /v11/video_inputs`)
-- Per-camera state tree: `name`, `firmware_version`, `hardware_version`, `generation`, `online`, `privacy_enabled`, `light_enabled`, `front_light_enabled`, `wallwasher_enabled`, `image_rotation_180`, `snapshot_trigger`, `motion_trigger`, `motion_trigger_event_type`, `snapshot_path`, `stream_url`, `stream_host`, `stream_port`, `stream_path`, `last_motion_at`, `last_motion_event_type`
+- Per-camera state tree: `name`, `firmware_version`, `hardware_version`, `generation`, `online`, `privacy_enabled`, `light_enabled`, `front_light_enabled`, `wallwasher_enabled`, `image_rotation_180`, `snapshot_trigger`, `motion_trigger`, `motion_trigger_event_type`, `snapshot_path`, `stream_url`, `stream_host`, `stream_port`, `stream_path`, `last_motion_at`, `last_motion_event_type` — plus daily event counters, motion-zone/privacy-mask/rule read+write, firmware status + install, and Gen2 friend-sharing datapoints (v1.2.0–v1.8.0, full list in [Datapoints](#datapoints) below)
 - Privacy toggle via Bosch Cloud API `PUT /v11/video_inputs/{id}/privacy`
 - Light toggle, Gen-specific and now split into independent datapoints:
   - Gen2: `PUT /lighting/switch/front` + `/topdown`
@@ -261,7 +262,9 @@ What works:
 - RTSP session watchdog: LOCAL sessions renew automatically ~60 s before `maxSessionDuration` expires — 24/7 recording works without hourly stream drops
 - FCM push listener (`@aracna/fcm@1.0.32` MTalk/MCS) for sub-second motion / audio-alarm / person events. `info.fcm_active` reflects state: `healthy` / `polling` / `error` / `disconnected` / `stopped`. When push registration fails the adapter falls back to `/v11/events` polling every 60 s (`info.fcm_active=polling`) — events still arrive, just with higher latency. The polling interval is configurable via the `poll_interval` setting (API requests / Power saving tab, v1.4.1+).
 - Encrypted credential storage (`encryptedNative` — js-controller encrypts the refresh token at rest)
-- 1166+ unit tests passing
+- Cloud-API management-tier **WRITE** (v1.8.0): motion zones, privacy masks, automation rules (create/update/delete), Gen2 camera sharing (share/invite/remove friend), and a firmware-install trigger — same `/v11` endpoints as the Home Assistant integration and Python CLI, byte-verified against both. The on-device RCP zone/mask editor stays parked pending broader local write access from Bosch.
+- Pooled keep-alive HTTPS connections (v1.8.1) for local Digest and cloud API requests, instead of a fresh TCP+TLS handshake per call
+- 1480+ unit tests passing
 
 ---
 
@@ -310,6 +313,65 @@ Per-camera datapoints under `cameras.<id>.*`:
 | `speaker_level` | number | Intercom speaker volume 0–100 |
 | `last_status_notification` | string | JSON: camera online/offline transition payload |
 | `_proxy_port` | number | Sticky TLS proxy port (persisted across restarts) |
+| `events_today` | number | Total cloud events today (UTC day) |
+| `movement_count` | number | Movement events today (UTC day) |
+| `audio_count` | number | Audio-alarm events today (UTC day) |
+| `motion_enabled` | boolean | Motion detection on/off |
+| `motion_sensitivity` | string | Motion sensitivity select |
+| `detection_mode` | string | Gen2: `all_motions` / `only_humans` / `zones` |
+| `record_sound` | boolean | Record audio with video |
+| `notifications_enabled` | boolean | Master push-notification switch |
+| `notify_movement` / `notify_person` / `notify_audio` / `notify_trouble` / `notify_camera_alarm` / `notify_trouble_email` | boolean | Per-event-type push-notification toggle |
+| `motion_zones` | string (JSON) | Motion-sensitive zones, raw `{x,y,w,h}` array (read-only mirror) |
+| `motion_zones_count` | number | Number of configured motion zones |
+| `motion_zones_set` | string (JSON, write) | **v1.8.0** — write a JSON array of `{x,y,w,h}` (0.0–1.0) to replace all zones; `[]` clears them |
+| `privacy_masks` | string (JSON) | Privacy masks, raw `{x,y,w,h}` array (read-only mirror) |
+| `privacy_masks_count` | number | Number of configured privacy masks |
+| `privacy_masks_set` | string (JSON, write) | **v1.8.0** — write a JSON array of `{x,y,w,h}` (0.0–1.0) to replace all masks; `[]` clears them |
+| `rules` | string (JSON) | Automation rules, raw array of `{id,name,isActive,startTime,endTime,weekdays}` |
+| `rules_count` | number | Number of configured automation rules |
+| `rule_create` | string (JSON, write) | **v1.8.0** — write `{name,isActive,startTime:"HH:MM:SS",endTime:"HH:MM:SS",weekdays:[0-6]}` to create a rule |
+| `rule_update` | string (JSON, write) | **v1.8.0** — write `{id,...changed fields}` (GET-merge-PUT) |
+| `rule_delete` | string (write) | **v1.8.0** — write the rule id to delete |
+| `lighting_schedule_status` | string | Gen1 only — floodlight `scheduleStatus` mode |
+| `lighting_schedule` | string (JSON) | Gen1 only — raw `lighting_options` schedule |
+| `ambient_light_schedule` | string (JSON) | Gen2 outdoor — ambient-light schedule (`/lighting/ambient`) |
+| `ambient_light_enabled` | boolean | Gen2 outdoor — ambient-light-driven illumination |
+| `motion_light_enabled` / `motion_light_sensitivity` | boolean / number | Gen2 outdoor — motion-triggered light |
+| `darkness_threshold` | number | Ambient-light darkness threshold |
+| `shared_with_friends` | string (JSON) | Gen2 only — friends this camera is shared with (raw array) |
+| `shared_with_friends_count` | number | Gen2 only — count of the above |
+| `camera_share` | string (JSON, write) | **v1.8.0**, Gen2 only — write `{"friendId":"...","days":30}` (`days` optional = indefinite) to share this camera |
+| `friend_invite` | string (write) | **v1.8.0**, Gen2 only — invite a friend by e-mail (account-wide, not camera-specific) |
+| `friend_remove` | string (write) | **v1.8.0**, Gen2 only — remove a friend by id (account-wide) |
+| `firmware_current_version` | string | Installed camera firmware version (cloud-reported) |
+| `firmware_latest_version` | string | Latest available camera firmware version (cloud-reported) |
+| `firmware_update_available` | boolean | Firmware update available |
+| `firmware_updating` | boolean | Firmware install currently in progress |
+| `firmware_install` | button | **v1.8.0** — write `true` to install the pending firmware update (guarded against a double-press or an already-in-progress install) |
+| `commissioned` | boolean | `GET /commissioned` — camera configured + connected + commissioned |
+| `unread_events_count` | number | Unread cloud events (from `GET /v11/events`) |
+| `mark_all_read` | button | Marks all cloud events as read |
+| `autofollow_enabled` | boolean | 360° Gen1 only — motion autofollow |
+| `alarm_arm` / `alarm_mode` / `pre_alarm` | boolean | Gen2 Indoor II alarm system controls |
+| `alarm_state` | string | Gen2 Indoor II alarm system status |
+| `pre_alarm_delay` / `alarm_activation_delay` | number | Gen2 Indoor II alarm timing |
+| `siren_duration` | number | Panic-siren trigger duration |
+| `glass_break_detection` / `fire_alarm_detection` | boolean | Gen2 Audio+ — glass-break / smoke-fire-alarm sound detection |
+| `privacy_sound_enabled` | boolean | Audible privacy-mode chime |
+| `status_led` | boolean | Gen2 — status LED on/off |
+| `timestamp_overlay` | boolean | On-screen timestamp overlay |
+| `power_led_brightness` | number | Gen2 Indoor — power LED brightness |
+| `front_light_intensity` | number | Front-spotlight brightness |
+| `intercom_enabled` | boolean | Gen2 — two-way audio toggle |
+| `microphone_level` | number | Microphone recording level 0–100 (alias of `mic_level`) |
+| `onvif_scopes` | string (JSON) | ONVIF scopes diagnostic (cloud-reported) |
+| `rcp_version` | string | RCP protocol version diagnostic |
+| `stream_quality` | string | Stream quality select (high/low) |
+| `snapshot_url` | string | Local HTTP snapshot-server URL (`snapshot_http_port`, see [Development](#development)) |
+| `session_limit_hit` | boolean | Shared 3-session Bosch quota was hit for this camera |
+| `wifi_ssid` | string | Camera WiFi SSID |
+| `lens_elevation` | number | Gen2 Outdoor II — mounting-elevation parameter |
 
 Adapter-wide datapoints under `info.*`:
 
@@ -552,6 +614,108 @@ Wire it to a Telegram notification, a Frigate alert, or a Home Assistant
 
 ---
 
+## Credential-Free RTSP Front-Door
+
+Bosch cameras only speak **RTSPS** (RTSP tunneled inside TLS) with a private
+Bosch CA certificate that most NVR software (BlueIris, Frigate, VLC, go2rtc)
+can't handle directly, and every stream requires a Bosch **Digest** auth
+handshake with credentials that Bosch **rotates on every session renewal and
+every privacy-mode toggle**. This adapter is the **original implementation**
+of a local RTSP relay that solves both problems — it later shipped as a
+credential-free RTSP endpoint in the sibling Home Assistant integration
+(v14.1.0), which explicitly credits this adapter as the design source.
+
+The relay is three layers, all LOCAL-only (this adapter never uses Bosch's
+cloud media relay — no `proxy-NN.live.cbs.boschsecurity.com`, straight to the
+camera's LAN IP on TCP/443):
+
+1. **Bosch LOCAL session** (`src/lib/live_session.ts`) — `PUT
+   /v11/video_inputs/{id}/connection {type:"LOCAL"}` opens a session and
+   returns the camera's LAN address plus a Digest `user`/`password` pair,
+   valid until `maxSessionDuration` (default 3600 s) or an early rotation.
+2. **TLS proxy** (`src/lib/tls_proxy.ts`) — a plain TCP listener
+   (`net.createServer`) that opens a `tls.connect()` to the camera's LAN
+   address per inbound client and pipes bytes through, presenting a clean
+   `rtsp://` endpoint to the consumer. A circuit breaker closes the listener
+   after 5 consecutive connect failures inside 30 s so a truly unreachable
+   camera doesn't spin forever.
+3. **Transparent Digest injection** (`src/lib/rtsp_auth.ts`) — a small RTSP
+   state machine sitting in front of the TLS pipe. A client that already
+   sends its own `Authorization:` header (legacy in-URL-credentials clients)
+   is passed straight through. Everything else gets the Digest handshake
+   done *for* it: the proxy catches the camera's `401 + WWW-Authenticate`,
+   computes the response, and splices a fresh `Authorization: Digest …`
+   header into every subsequent client request — the recorder never sees a
+   username or password. When Bosch rotates the session's Digest creds
+   (privacy toggle, renewal), `updateDigestAuth()` hot-swaps them for future
+   connections without restarting the listener or changing the published URL.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Rec as Recorder<br/>(BlueIris / Frigate / go2rtc / VLC)
+    participant FD as Lazy front-door<br/>always-listening, sticky port
+    participant Proxy as Inner TLS proxy<br/>(tls_proxy.ts)
+    participant Auth as Digest injector<br/>(rtsp_auth.ts)
+    participant Bosch as Bosch Cloud API
+    participant Cam as Camera LAN :443<br/>(RTSPS)
+
+    Rec->>FD: TCP connect rtsp://host:<port>/rtsp_tunnel
+    Note over FD: port is always bound —<br/>no "Connection refused" even if idle
+    FD->>FD: resolveInner() — any live client already?
+    alt no active Bosch session
+        FD->>Bosch: PUT /connection {type:"LOCAL"}
+        Bosch-->>FD: lanAddress + digestUser/digestPassword
+        FD->>Proxy: startTlsProxy(remote=lanAddress, digestAuth)
+    end
+    FD->>Proxy: pipe client -> 127.0.0.1:<innerPort>
+    Proxy->>Cam: tls.connect()
+    Cam-->>Proxy: 401 + WWW-Authenticate: Digest
+    Proxy->>Auth: compute Digest response
+    Auth->>Cam: retry with Authorization: Digest ... (no creds from Rec)
+    Cam-->>Rec: RTSP 200 OK, media flows
+    Note over Bosch,Cam: privacy toggle / renewal rotates creds
+    Bosch-->>FD: fresh digestUser/digestPassword (heartbeat/renew)
+    FD->>Proxy: updateDigestAuth(user, password)
+    Note over Proxy: future connections use rotated creds,<br/>in-flight streams untouched
+    Rec-->>FD: last client disconnects
+    FD->>FD: idle linger (stream_persistent_idle_timeout, default 60s)
+    FD->>Bosch: DELETE /connection (release Bosch session slot)
+    Note over FD: front-door itself stays bound —<br/>next connect re-opens on demand
+```
+
+**Two operating modes, both published as the same `stream_url` datapoint:**
+
+| Mode | Config | Port behavior |
+|---|---|---|
+| **On-demand** (default) | `cameras.<id>.livestream_enabled = true` | TLS proxy only listens while the stream is explicitly on; off by default so it never occupies a shared Bosch session slot uninvited |
+| **Always-on front-door** | `stream_persistent_endpoint = true` (RTSP / Stream tab) | A separate lazy listener (`src/lib/lazy_stream.ts`) stays bound on the sticky port permanently; it opens the Bosch session + inner proxy on the first client connect and releases the Bosch session again after `stream_persistent_idle_timeout` (10–3600 s, default 60 s) idle — recommended for recorders that poll on their own schedule (forum #84538) |
+
+**Config surface** (Admin UI → "RTSP / Stream" tab):
+
+| Field | Native key | Default | Purpose |
+|---|---|---|---|
+| Expose RTSP proxy to LAN | `rtsp_expose_to_lan` | `false` | Bind `0.0.0.0` instead of `127.0.0.1` so a recorder on another host can reach it |
+| External hostname / LAN IP | `rtsp_external_host` | `""` | Host embedded in the published `stream_url` when exposed to LAN |
+| Max session duration (s) | `stream_max_session_duration` | `0` (camera default, 3600 s) | Raise to keep a continuous pull running longer between renewals (600–21600 s) |
+| Keep the RTSP endpoint reachable at all times | `stream_persistent_endpoint` | `false` | Enables the always-on lazy front-door described above |
+| Release session after idle (s) | `stream_persistent_idle_timeout` | `60` | Idle window before the on-demand Bosch session behind the front-door is released (10–3600 s) |
+
+**Security note:** exposure control is the bind-host toggle only (`127.0.0.1`
+vs. `0.0.0.0`/LAN-IP) — there is no IP allowlist or additional
+token/basic-auth layer on the RTSP endpoint itself, so treat "Expose RTSP
+proxy to LAN" the same as any other unauthenticated LAN service and keep it
+off outside a trusted network. The Digest credentials it hides are Bosch's,
+not a substitute access-control mechanism for your own network.
+
+**Port scheme:** one TLS-proxy port per camera (and, with the persistent
+endpoint on, the same sticky port doubles as the front-door port); picked
+free on first use and persisted across restarts and Bosch session renewals
+in `cameras.<id>._proxy_port`, so a recorder's saved URL keeps working
+indefinitely without reconfiguration.
+
+---
+
 ## External Recorders (BlueIris, Frigate)
 
 ```mermaid
@@ -644,7 +808,7 @@ iobroker.cameras runs on a different machine.
 npm install
 npm run build        # tsc → build/
 npm run watch        # auto-rebuild on save
-npm test             # unit tests (1166 passing)
+npm test             # unit tests (1480+ passing)
 npm run lint
 npm run test:coverage          # coverage report → coverage/index.html (HTML) + lcov
 npm run test:coverage:check    # enforce thresholds: 80% lines/functions, 70% branches
@@ -709,7 +873,7 @@ Part of a five-implementation family for Bosch Smart Home Cameras (plus an alpha
 |---|---|---|
 | 🏆 Home Assistant Integration | [Bosch-Smart-Home-Camera-Tool-HomeAssistant](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-HomeAssistant) | **v14.4.1** · HA Quality Scale **Platinum** · production-ready |
 | 🐍 Python CLI | [Bosch-Smart-Home-Camera-Tool-Python](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-Python) | **v10.10.4** · Mini-NVR + SMB upload (BETA) · LAN-fallback (ping / --local) · PTZ presets · webhook delivery · capture / research / standalone |
-| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | **v1.7.7** · stable · npm · always-on RTSP endpoint · daily event counters · MQTT bridge · PTZ presets · VIS-2 single + overview widgets |
+| 🟢 **ioBroker Adapter** (this repo) | [ioBroker.bosch-smart-home-camera](https://github.com/mosandlt/ioBroker.bosch-smart-home-camera) | **v1.8.2** · stable · npm · credential-free RTSP front-door (always-on option) · cloud-API management-tier WRITE (zones/masks/rules/sharing/firmware) · daily event counters · MQTT bridge · PTZ presets · VIS-2 single + overview widgets |
 | 🤖 MCP Server | [Bosch-Smart-Home-Camera-Tool-MCP](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-MCP) | **v1.5.5** · cred-rotation · PTZ presets · TOFU cert pinning · LAN-ping + prefer_local · Claude Code / Claude Desktop integration |
 | 🔴 Node-RED nodes (alpha) | [Bosch-Smart-Home-Camera-Tool-NodeRED](https://github.com/mosandlt/Bosch-Smart-Home-Camera-Tool-NodeRED) | v0.2.5-alpha · cloud nodes (event / snapshot / privacy / stream-url / config) |
 
@@ -728,7 +892,7 @@ Docs-only release: refreshed the sibling-repo version table in the README. No fu
 Performance/reliability fix: local camera (digest auth) and cloud API HTTPS requests now reuse pooled keep-alive connections instead of opening a fresh TCP+TLS connection per request, cutting per-request latency and connection overhead. Also fixes a related agent-cleanup gap so pooled connections are properly torn down on adapter unload instead of leaking sockets. No functional/state changes.
 
 ### 1.8.0 (2026-07-11)
-New: cloud-API WRITE for the management tier, closing a feature-parity gap with the HA integration and Python CLI (same `/v11` endpoints, byte-verified against both). Writable states per camera: `motion_zones_set`/`privacy_masks_set` (POST array of `{x,y,w,h}`, `[]` clears all), `rule_create`/`rule_update`/`rule_delete` (automation rules), `firmware_install` (button — installs the pending firmware update, guarded against a double-press or an already-in-progress install). Gen2 only: `camera_share`, `friend_invite`, `friend_remove`. New read-only firmware status states: `firmware_current_version`, `firmware_latest_version`, `firmware_update_available`, `firmware_updating`. This is cloud write only — the on-device RCP zone/mask editor stays parked until Bosch's permanent local user (summer 2026). Also adds a blocking `npm audit --omit=dev` CI gate ahead of the deploy job. 38 new tests, full suite 1367 → 1405 passing, coverage gate green.
+New: cloud-API WRITE for the management tier, closing a feature-parity gap with the HA integration and Python CLI (same `/v11` endpoints, byte-verified against both). Writable states per camera: `motion_zones_set`/`privacy_masks_set` (POST array of `{x,y,w,h}`, `[]` clears all), `rule_create`/`rule_update`/`rule_delete` (automation rules), `firmware_install` (button — installs the pending firmware update, guarded against a double-press or an already-in-progress install). Gen2 only: `camera_share`, `friend_invite`, `friend_remove`. New read-only firmware status states: `firmware_current_version`, `firmware_latest_version`, `firmware_update_available`, `firmware_updating`. This is cloud write only — the on-device RCP zone/mask editor stays parked pending broader local write access from Bosch. Also adds a blocking `npm audit --omit=dev` CI gate ahead of the deploy job. 38 new tests, full suite 1367 → 1405 passing, coverage gate green.
 
 ### 1.7.8 (2026-07-07)
 Docs-only release: repository-checker keyword fix (`package.json`/`io-package.json`, PR #46), refreshed sibling-repo version references in the "Related Projects" table, dev-sandbox Node version doc fix, devDependency bumps (`@types/node`, `@iobroker/adapter-react-v5`). No functional changes.
