@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "1.8.2",
+        "version": "1.8.3",
         "news": {
+            "1.8.3": {
+                "en": "Docs-only release: fixed the MCP row in the shared Integration Comparison table; broader README accuracy pass. No functional changes.",
+                "de": "Reines Doku-Release: MCP-Zeile in der gemeinsamen Vergleichstabelle korrigiert; umfassendere Genauigkeitspruefung des READMEs. Keine funktionalen Aenderungen.",
+                "ru": "Версия только для документации: исправлена ​​строка MCP в общей таблице сравнения интеграции; более широкий проход точности README. Никаких функциональных изменений.",
+                "pt": "Versão somente docs: corrigida a linha MCP na tabela compartilhada de comparação de integração; passagem de precisão README mais ampla. Sem alterações funcionais.",
+                "nl": "Release voor alleen documenten: probleem met de MCP-rij in de gedeelde integratievergelijkingstabel; bredere README-nauwkeurigheidspas. Geen functionele wijzigingen.",
+                "fr": "Version Docs uniquement : correction de la ligne MCP dans le tableau de comparaison d'intégration partagé ; Passe de précision README plus large. Aucun changement fonctionnel.",
+                "it": "Versione solo documenti: corretta la riga MCP nella tabella condivisa di confronto delle integrazioni; passaggio di precisione README più ampio. Nessuna modifica funzionale.",
+                "es": "Versión solo para documentos: se corrigió la fila MCP en la tabla de comparación de integración compartida; pase de precisión README más amplio. Sin cambios funcionales.",
+                "pl": "Wersja dostępna tylko w Dokumentach: poprawiono wiersz MCP we udostępnionej tabeli porównawczej integracji; szerszy przebieg dokładności README. Żadnych zmian funkcjonalnych.",
+                "uk": "Випуск лише для документів: виправлено рядок MCP у спільній таблиці порівняння інтеграції; ширший пропуск точності README. Без функціональних змін.",
+                "zh-cn": "仅文档版本：修复了共享集成比较表中的 MCP 行；更广泛的自述文件准确性通过。没有功能变化。"
+            },
             "1.8.2": {
                 "en": "Docs-only release: refreshed sibling-repo version table in README. No functional changes.",
                 "de": "Reines Doku-Release: aktualisierte Versionstabelle der Schwester-Repos im README. Keine funktionalen Änderungen.",
@@ -80,19 +93,6 @@
                 "pl": "CI: harness testów integracyjnych (@iobroker/testing), zadanie build, matryca Node 22/24, pokrycie ≥80 %, gate i18n E5606. Brak zmian funkcjonalnych.",
                 "uk": "CI: harness інтеграційних тестів (@iobroker/testing), завдання build, матриця Node 22/24, покриття ≥80 %, gate i18n E5606. Без функціональних змін.",
                 "zh-cn": "CI：集成测试框架（@iobroker/testing）、构建任务、Node 22/24 矩阵、覆盖率门（≥80 %）、i18n E5606 门。无功能变更。"
-            },
-            "1.7.5": {
-                "en": "WebRTC: stale-PC guard prevents recovery loop; getStats freeze oracle; dead-track CGNAT detection → sticky HLS; iOS native-HLS 8s watchdog; 1000ms reconnect gap",
-                "de": "WebRTC: Stale-PC-Guard verhindert Recovery-Loop; getStats-Freeze-Oracle; CGNAT-Dead-Track-Erkennung → Sticky HLS; iOS-native-HLS-8-s-Watchdog; 1000-ms-Reconnect",
-                "ru": "WebRTC: защита устаревшего ПК предотвращает цикл восстановления; getStats заморозить оракул; обнаружение мертвого пути CGNAT → липкий HLS; Сторожевой таймер iOS Native-HLS 8s; Интервал повторного подключения 1000 мс",
-                "pt": "WebRTC: proteção de PC obsoleto evita loop de recuperação; getStats congela oráculo; detecção de CGNAT de trilha morta → HLS pegajoso; Watchdog HLS 8s nativo do iOS; Intervalo de reconexão de 1000 ms",
-                "nl": "WebRTC: verouderde pc-beveiliging voorkomt herstellus; getStats bevriezingsorakel; dead-track CGNAT-detectie → sticky HLS; iOS native-HLS 8s-waakhond; 1000 ms tussenruimte voor opnieuw verbinden",
-                "fr": "WebRTC : la protection du PC obsolète empêche la boucle de récupération ; getStats gèle Oracle ; détection CGNAT de piste morte → HLS collant ; Chien de garde HLS 8s natif iOS ; Écart de reconnexion de 1 000 ms",
-                "it": "WebRTC: protezione PC obsoleto impedisce il ciclo di ripristino; getStats blocca Oracle; rilevamento CGNAT di tracce morte → HLS appiccicoso; Watchdog iOS nativo-HLS 8s; Intervallo di riconnessione di 1000 ms",
-                "es": "WebRTC: la protección de PC obsoleta evita el ciclo de recuperación; getStats congela el oráculo; detección de CGNAT de seguimiento muerto → HLS pegajoso; Perro guardián iOS nativo-HLS 8s; Brecha de reconexión de 1000 ms",
-                "pl": "WebRTC: ochrona przed przestarzałym komputerem zapobiega pętli odzyskiwania; getStats zamraża wyrocznię; wykrywanie martwego toru CGNAT → lepki HLS; Natywny system nadzorujący iOS HLS 8s; Luka ponownego połączenia 1000 ms",
-                "uk": "WebRTC: Stale-PC guard запобігає циклу відновлення; getStats заморозити оракул; виявлення тупикової лінії CGNAT → липкий HLS; Нативний сторожовий таймер iOS HLS 8s; 1000 мс розрив підключення",
-                "zh-cn": "WebRTC：陈旧 PC 防护可防止恢复循环； getStats 冻结 oracle；死轨 CGNAT 检测 → 粘性 HLS； iOS原生-HLS 8s看门狗； 1000ms重连间隙"
             }
         },
         "titleLang": {
