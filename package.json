@@ -4,7 +4,7 @@
     "description": "ioBroker adapter for Bosch Smart Home Cameras (Eyes Outdoor/Indoor, 360°, Gen2 Indoor II/Outdoor II)",
     "author": {
         "name": "mosandlt",
-        "email": "10558666+mosandlt@users.noreply.github.com"
+        "email": "Info@mosandl.eu"
     },
     "homepage": "https://github.com/mosandlt/ioBroker.bosch-smart-home-camera",
     "license": "MIT",
