@@ -49,6 +49,42 @@ export declare const CBS_REREGISTER_INTERVAL_MS: number;
 export declare const FCM_SENDER_ID = "404630424405";
 export declare const FCM_ANDROID_APP_ID = "1:404630424405:android:9e5b6b58e4c70075";
 /**
+ * Safely extract a named field (e.g. `dh=`, `salt=`) from a WebPush
+ * `Crypto-Key`/`Encryption` HTTP-header-style value, as carried in an FCM
+ * `DataMessageStanza.app_data` entry's `.value` string.
+ *
+ * ## Background
+ * `@aracna/fcm` (our MTalk/MCS push transport, v1.0.33 — the latest published
+ * version as of 2026-08-19, confirmed identical against the upstream source at
+ * github.com/queelag/fcm) extracts these fields inline via a naive
+ * `header.value.slice(3)` / `.slice(5)`, assuming the value is ALWAYS exactly
+ * `"dh=<key>"` / `"salt=<value>"` with nothing else. RFC 8291-legal headers can
+ * carry multiple `;`- or `,`-separated segments (e.g. `"dh=<key>;
+ * p256ecdsa=<vapid>"`) or a different segment order — the naive slice then
+ * corrupts the extracted key bytes just enough to still base64-decode but fail
+ * EC-point validation, surfacing as "Invalid EC key" errors or silently
+ * dropped push messages. This is the same bug class already fixed in the
+ * sibling Home Assistant integration's Python FCM library.
+ *
+ * Since `@aracna/fcm`'s extraction lives inside a private closure method with
+ * no clean subclass/DI override point, the actual fix is applied directly to
+ * `node_modules/@aracna/fcm/classes/fcm-client.js` via `patch-package`
+ * (`patches/@aracna+fcm+1.0.33.patch`, verified at install time by
+ * `scripts/verify-fcm-patch.js`). This function is a byte-for-byte-equivalent
+ * TypeScript copy of that patch's extraction logic — kept here purely so the
+ * extraction ALGORITHM has real unit-test coverage (the patched minified code
+ * itself cannot be unit-tested directly). Keep both in sync if either changes.
+ *
+ * @param headerValue The raw `.value` string from an `app_data` entry (or
+ *   `undefined` if no matching entry was found).
+ * @param prefix The field prefix to look for, e.g. `"dh="` or `"salt="`.
+ * @returns The extracted field value (whitespace-trimmed), or `undefined` if
+ *   `headerValue` was `undefined`. Falls back to the original slice-based
+ *   behavior only if no segment matches the prefix, matching upstream's
+ *   pre-existing behavior for that (unexpected) shape.
+ */
+export declare function extractEceHeaderField(headerValue: string | undefined, prefix: string): string | undefined;
+/**
  * Payload emitted on every motion / audio-alarm / person event.
  * Mirrors the event_payload dict in Python fcm.py _on_fcm_push().
  */

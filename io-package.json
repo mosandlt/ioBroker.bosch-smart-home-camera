@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "1.8.3",
+        "version": "1.8.4",
         "news": {
+            "1.8.4": {
+                "en": "Fixed FCM push notifications silently dropping or crashing on a malformed message (Invalid EC key). The FCM library corrupted real-world multi-segment crypto-key/salt headers, matching a fix shipped in the sibling HA integration.",
+                "de": "Fehler behoben: FCM-Push-Benachrichtigungen wurden bei einer fehlerhaften Nachricht (Invalid EC key) stillschweigend verworfen oder stürzten ab. Die FCM-Bibliothek beschädigte mehrsegmentige Crypto-Key/Salt-Header, analog zum Fix in der HA-Integration.",
+                "ru": "Исправлено: push-уведомления FCM молча отбрасывались или вызывали сбой при получении некорректного сообщения (Invalid EC key). Библиотека FCM повреждала многосегментные заголовки crypto-key/salt, как и в исправлении для интеграции HA.",
+                "pt": "Corrigido: notificações push FCM eram descartadas silenciosamente ou travavam com uma mensagem malformada (Invalid EC key). A biblioteca FCM corrompia cabeçalhos crypto-key/salt multissegmentados, igual à correção da integração HA.",
+                "nl": "Opgelost: FCM-pushmeldingen werden stilzwijgend verworpen of crashten bij een misvormd bericht (Invalid EC key). De FCM-bibliotheek beschadigde meersegment crypto-key/salt-headers, net als de fix in de HA-integratie.",
+                "fr": "Correction : les notifications push FCM étaient silencieusement abandonnées ou plantaient sur un message malformé (Invalid EC key). La bibliothèque FCM corrompait les en-têtes crypto-key/salt multi-segments, comme dans le correctif de l'intégration HA.",
+                "it": "Corretto: le notifiche push FCM venivano scartate silenziosamente o causavano un crash con un messaggio malformato (Invalid EC key). La libreria FCM corrompeva gli header crypto-key/salt multi-segmento, come nel fix dell'integrazione HA.",
+                "es": "Corregido: las notificaciones push de FCM se descartaban silenciosamente o fallaban con un mensaje malformado (Invalid EC key). La biblioteca FCM corrompía cabeceras crypto-key/salt multisegmento, igual que en la corrección de la integración HA.",
+                "pl": "Naprawiono: powiadomienia push FCM byly po cichu odrzucane lub powodowaly awarie przy zniekształconej wiadomości (Invalid EC key). Biblioteka FCM uszkadzala wieloczesciowe naglowki crypto-key/salt, analogicznie do poprawki w integracji HA.",
+                "uk": "Виправлено: push-сповіщення FCM мовчки відкидалися або спричиняли збій при отриманні пошкодженого повідомлення (Invalid EC key). Бібліотека FCM пошкоджувала багатосегментні заголовки crypto-key/salt, як і виправлення в інтеграції HA.",
+                "zh-cn": "修复了FCM推送通知在收到格式错误的消息时（Invalid EC key）被静默丢弃或崩溃的问题。FCM库损坏了真实场景中的多段crypto-key/salt请求头，与HA集成中发布的修复相同。"
+            },
             "1.8.3": {
                 "en": "Docs-only release: fixed the MCP row in the shared Integration Comparison table; broader README accuracy pass. No functional changes.",
                 "de": "Reines Doku-Release: MCP-Zeile in der gemeinsamen Vergleichstabelle korrigiert; umfassendere Genauigkeitspruefung des READMEs. Keine funktionalen Aenderungen.",
