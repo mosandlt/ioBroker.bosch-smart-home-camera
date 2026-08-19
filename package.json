@@ -1,6 +1,6 @@
 {
     "name": "iobroker.bosch-smart-home-camera",
-    "version": "1.8.3",
+    "version": "1.8.4",
     "description": "ioBroker adapter for Bosch Smart Home Cameras (Eyes Outdoor/Indoor, 360°, Gen2 Indoor II/Outdoor II)",
     "author": {
         "name": "mosandlt",
@@ -29,9 +29,12 @@
         "node": ">=22"
     },
     "scripts": {
+        "postinstall": "patch-package && node scripts/verify-fcm-patch.js",
+        "verify:fcm-patch": "node scripts/verify-fcm-patch.js",
         "build": "tsc -p tsconfig.json",
         "build:widget": "npm --prefix src-widgets install --no-audit --no-fund && npm --prefix src-widgets run build && node scripts/copy-widget.js",
         "watch": "tsc -p tsconfig.json --watch",
+        "pretest": "node scripts/verify-fcm-patch.js",
         "test": "npm run test:js && npm run test:package",
         "test:js": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\"}' mocha --config test/.mocharc.yml",
         "test:package": "mocha test/package.js --exit",
@@ -66,6 +69,7 @@
         "@types/tough-cookie": "^4.0.5",
         "c8": "^11.0.0",
         "cross-env": "^10.1.0",
+        "patch-package": "^8.0.1",
         "ts-node": "^10.9.2",
         "typescript": "^6.0.3",
         "yargs": "^18.1.0"

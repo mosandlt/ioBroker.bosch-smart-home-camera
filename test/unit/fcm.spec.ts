@@ -31,6 +31,7 @@ import {
     FCM_SENDER_ID,
     FCM_ANDROID_APP_ID,
     CLOUD_API,
+    extractEceHeaderField,
     type FcmEventPayload,
     type FcmCredentials,
     type FcmRawCredentials,
@@ -120,6 +121,83 @@ describe("FCM constants", () => {
 
     it("CLOUD_API points to Bosch CBS", () => {
         expect(CLOUD_API).to.equal("https://residential.cbs.boschsecurity.com");
+    });
+});
+
+// ── 1b. extractEceHeaderField (crypto-key/encryption header parsing) ──────────
+//
+// Regression coverage for the @aracna/fcm "Invalid EC key" bug: the upstream
+// library (v1.0.33, latest as of 2026-08-19) extracts the ECE `dh`/`salt`
+// fields via a naive `.value.slice(3)`/`.slice(5)`, assuming the header is
+// ALWAYS exactly "dh=<key>"/"salt=<value>" with no other content. This
+// function is a byte-for-byte-equivalent copy of the fix applied via
+// patch-package (patches/@aracna+fcm+1.0.33.patch) directly to
+// node_modules/@aracna/fcm/classes/fcm-client.js — the actual patched code
+// cannot be unit-tested directly (it lives inside a private minified closure
+// with no override point), so this test pins the extraction ALGORITHM instead.
+// Uses fake key/salt material only — no real device data.
+
+describe("extractEceHeaderField() — @aracna/fcm crypto-key/encryption header fix", () => {
+    it("extracts a single-segment 'dh=' header (matches original upstream behavior)", () => {
+        expect(extractEceHeaderField("dh=FAKE_DH_KEY_1234", "dh=")).to.equal("FAKE_DH_KEY_1234");
+    });
+
+    it("extracts a single-segment 'salt=' header (matches original upstream behavior)", () => {
+        expect(extractEceHeaderField("salt=FAKE_SALT_VALUE", "salt=")).to.equal("FAKE_SALT_VALUE");
+    });
+
+    it("extracts 'dh=' from a multi-segment header with a trailing p256ecdsa segment (RFC 8291)", () => {
+        expect(
+            extractEceHeaderField("dh=FAKE_DH_KEY_1234; p256ecdsa=FAKE_VAPID_KEY", "dh="),
+        ).to.equal("FAKE_DH_KEY_1234");
+    });
+
+    it("extracts 'dh=' when it is NOT the first segment (differently-ordered header)", () => {
+        expect(
+            extractEceHeaderField("p256ecdsa=FAKE_VAPID_KEY; dh=FAKE_DH_KEY_1234", "dh="),
+        ).to.equal("FAKE_DH_KEY_1234");
+    });
+
+    it("extracts 'salt=' from a multi-segment header with a leading rs= segment", () => {
+        expect(extractEceHeaderField("rs=4096; salt=FAKE_SALT_VALUE", "salt=")).to.equal(
+            "FAKE_SALT_VALUE",
+        );
+    });
+
+    it("supports comma-separated segments as well as semicolon-separated", () => {
+        expect(extractEceHeaderField("dh=FAKE_DH_KEY_1234,p256ecdsa=FAKE_VAPID_KEY", "dh=")).to.equal(
+            "FAKE_DH_KEY_1234",
+        );
+    });
+
+    it("is case-insensitive for the prefix match", () => {
+        expect(extractEceHeaderField("DH=FAKE_DH_KEY_1234", "dh=")).to.equal("FAKE_DH_KEY_1234");
+    });
+
+    it("trims whitespace around segments and after the prefix", () => {
+        expect(extractEceHeaderField("  dh= FAKE_DH_KEY_1234  ; other=x", "dh=")).to.equal(
+            "FAKE_DH_KEY_1234",
+        );
+    });
+
+    it("returns undefined when headerValue is undefined (no matching app_data entry)", () => {
+        expect(extractEceHeaderField(undefined, "dh=")).to.be.undefined;
+    });
+
+    it("falls back to the legacy slice behavior when no segment matches the prefix", () => {
+        // Deliberately-malformed header with no "dh=" segment at all — matches
+        // upstream's pre-existing (buggy but deterministic) fallback shape.
+        // "xyzFAKE_DH_KEY_1234".slice("dh=".length) === "FAKE_DH_KEY_1234".
+        expect(extractEceHeaderField("xyzFAKE_DH_KEY_1234", "dh=")).to.equal("FAKE_DH_KEY_1234");
+    });
+
+    it("REGRESSION: naive .slice(3) would have corrupted a real multi-segment 'dh=' header", () => {
+        const realisticHeader = "dh=FAKE_DH_KEY_1234; p256ecdsa=FAKE_VAPID_KEY";
+        const buggyResult = realisticHeader.slice(3); // upstream's actual pre-patch behavior
+        const fixedResult = extractEceHeaderField(realisticHeader, "dh=");
+
+        expect(buggyResult).to.not.equal("FAKE_DH_KEY_1234"); // proves the bug is real
+        expect(fixedResult).to.equal("FAKE_DH_KEY_1234"); // proves the fix corrects it
     });
 });
 
