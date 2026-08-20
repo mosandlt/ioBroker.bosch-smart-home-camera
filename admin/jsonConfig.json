@@ -521,6 +521,67 @@
           "hidden": "!data.mqtt_enabled"
         }
       }
+    },
+    "tab_ai": {
+      "type": "panel",
+      "label": "AI Analysis",
+      "items": {
+        "_info_ai": {
+          "type": "header",
+          "text": "Motion-triggered / manual AI snapshot analysis",
+          "size": 5,
+          "sm": 12
+        },
+        "_ai_help": {
+          "type": "staticText",
+          "text": "Writing true to cameras.<id>.ai_analyze POSTs the latest snapshot (base64 JPEG) + camera name to the endpoint below and expects a JSON response {\"description\": string, \"score\": 1-10}. This is a bring-your-own vision-API bridge — the adapter does not include an AI provider itself.",
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 12,
+          "lg": 12,
+          "xl": 12
+        },
+        "ai_analysis_enabled": {
+          "type": "checkbox",
+          "label": "Enable AI Camera Analysis",
+          "help": "Allow cameras.<id>.ai_analyze triggers to POST snapshots to the endpoint below.",
+          "default": false,
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 6,
+          "lg": 6,
+          "xl": 6
+        },
+        "ai_analysis_endpoint_url": {
+          "type": "text",
+          "label": "Endpoint URL",
+          "help": "HTTPS endpoint that accepts POST {camera, image_base64} and returns {description, score}. Must be a public https:// URL — plain http:// and private/loopback/link-local addresses are rejected at trigger time for safety (your API key and a real camera snapshot would otherwise be sent to it).",
+          "default": "",
+          "trim": true,
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 8,
+          "lg": 8,
+          "xl": 8,
+          "hidden": "!data.ai_analysis_enabled"
+        },
+        "ai_analysis_api_key": {
+          "type": "password",
+          "label": "API key (optional)",
+          "help": "Sent as 'Authorization: Bearer <key>'. Stored encrypted in the ioBroker object store.",
+          "default": "",
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 6,
+          "lg": 6,
+          "xl": 6,
+          "hidden": "!data.ai_analysis_enabled"
+        }
+      }
     }
   }
 }

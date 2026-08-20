@@ -119,6 +119,11 @@ export declare class CamerasApiError extends Error {
  */
 export declare function detectGeneration(hardwareVersion: string): 1 | 2;
 /**
+ * Strip ioBroker FORBIDDEN_CHARS + whitespace from an externally-sourced ID
+ * before it is used to build an ioBroker object ID.
+ */
+export declare function sanitizeId(id: string): string;
+/**
  * Fetch the list of cameras for the authenticated account.
  *
  * Calls GET https://residential.cbs.boschsecurity.com/v11/video_inputs

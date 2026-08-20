@@ -141,6 +141,22 @@ declare global {
              * poll_interval.
              */
             poll_interval_slow?: number;
+            // ── v1.9.0 AI Camera Analysis ────────────────────────────────────
+            /**
+             * Enable AI Camera Analysis. When on, writing `true` to
+             * `cameras.<id>.ai_analyze` fetches a fresh snapshot and POSTs it
+             * to {@link ai_analysis_endpoint_url}. Default false.
+             */
+            ai_analysis_enabled?: boolean;
+            /**
+             * HTTPS endpoint the adapter POSTs `{camera, image_base64}` to and
+             * expects a JSON `{description, score}` (score 1–10) response
+             * from. Adapter-defined contract — bring your own vision-API
+             * bridge/proxy. Required when {@link ai_analysis_enabled} is true.
+             */
+            ai_analysis_endpoint_url?: string;
+            /** Optional Bearer token sent as `Authorization` to the endpoint above (stored encrypted). */
+            ai_analysis_api_key?: string;
         }
     }
 }

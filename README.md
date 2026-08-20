@@ -35,6 +35,7 @@ ioBroker adapter for Bosch Smart Home Cameras (Eyes Outdoor, 360 Indoor, Gen2 Ey
 - [Dashboard](#dashboard)
 - [Example Automations](#example-automations)
 - [MQTT Bridge](#mqtt-bridge)
+- [AI Camera Analysis](#ai-camera-analysis)
 - [Credential-Free RTSP Front-Door](#credential-free-rtsp-front-door) — the flagship feature, flow diagram + config
 - [External Recorders (BlueIris, Frigate)](#external-recorders-blueiris-frigate)
 - [Development](#development)
@@ -284,6 +285,18 @@ Per-camera datapoints under `cameras.<id>.*`:
 | `wallwasher_enabled` | boolean | RGB wallwasher on/off (Gen2 outdoor) |
 | `wallwasher_color` | string | HEX `#RRGGBB`, empty = warm white mode |
 | `wallwasher_brightness` | number | 0–100 |
+| `top_led_brightness` | number | 0–100, Gen2 outdoor — top LED group only (independent of `wallwasher_brightness`) |
+| `bottom_led_brightness` | number | 0–100, Gen2 outdoor — bottom LED group only (independent of `wallwasher_brightness`) |
+| `front_light_white_balance` | number | -1.0 (cold/6500K) .. 1.0 (warm/2000K), Gen2 outdoor front spotlight — matches the HA integration's polarity |
+| `soft_light_fading` | boolean | Soft-fade the LED in/out at the darkness threshold (Gen2 outdoor) |
+| `rename` | string | Write a new camera title — `PUT /v11/video_inputs` |
+| `soft_reset` | button | Reboot the camera |
+| `hard_reset_confirm` | string | Type the camera's exact current title, then write `hard_reset=true` within 60s — safety guard, expires and must be re-typed after 60s or any rejected attempt |
+| `hard_reset` | button | **Destructive**: factory-reset the camera (requires `hard_reset_confirm` to match first) — camera loses its Bosch account pairing and must be re-commissioned |
+| `ai_description` | string | AI analysis: description of the latest analyzed snapshot (see [AI Camera Analysis](#ai-camera-analysis)) |
+| `ai_score` | number | AI analysis: suspicion score 1 (benign) – 10 (highly suspicious) |
+| `ai_last_analysis` | number | AI analysis: epoch-ms timestamp of the last completed analysis |
+| `ai_analyze` | button | Trigger AI analysis of the latest snapshot |
 | `image_rotation_180` | boolean | 180° image flip |
 | `livestream_enabled` | boolean | Opt-in RTSP livestream switch |
 | `stream_url` | string | `rtsp://user:pwd@host:port/rtsp_tunnel?inst=1&…` |
@@ -611,6 +624,52 @@ bosch/cameras/<camera-id>/motion
 
 Wire it to a Telegram notification, a Frigate alert, or a Home Assistant
 `mqtt.sensor` — no ioBroker adapter required on the subscriber side.
+
+---
+
+## AI Camera Analysis
+
+Optional, disabled by default. Unlike the HA integration (which delegates
+inference to its separately configured `ai_task` integration), ioBroker has
+no equivalent task-provider abstraction — this feature instead POSTs the
+latest snapshot to a **single HTTPS endpoint you configure**, and expects a
+small JSON response back. It is a bring-your-own vision-API bridge, not a
+built-in AI client.
+
+**Admin UI → "AI Analysis" tab:**
+
+| Field | Default | Description |
+|---|---|---|
+| Enable AI Camera Analysis | `false` | Master switch |
+| Endpoint URL | — | HTTPS endpoint accepting the POST below |
+| API key | — | Optional, sent as `Authorization: Bearer <key>`, stored encrypted |
+
+**Request** (`POST <endpoint>`):
+
+```json
+{
+  "camera": "Terrasse",
+  "image_base64": "<JPEG bytes, base64>"
+}
+```
+
+**Expected response:**
+
+```json
+{
+  "description": "Person walking near the door.",
+  "score": 7
+}
+```
+
+`score` is clamped to 1 (benign) – 10 (highly suspicious).
+
+**Usage:** write `true` to `cameras.<id>.ai_analyze` (e.g. from a motion
+automation, or manually). The adapter fetches a fresh snapshot, POSTs it, and
+writes the response into `cameras.<id>.ai_description` / `ai_score` /
+`ai_last_analysis`. Only the latest result is kept — this slice does not
+include a persisted alert-history log (the HA integration's
+`ai_alert_store.py` has one; may be added later if there's demand).
 
 ---
 

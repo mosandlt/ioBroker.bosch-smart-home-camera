@@ -175,7 +175,7 @@ const FORBIDDEN_CHARS = /[\][*,;'"`<>\\?\s]/g;
  * Strip ioBroker FORBIDDEN_CHARS + whitespace from an externally-sourced ID
  * before it is used to build an ioBroker object ID.
  */
-function sanitizeId(id: string): string {
+export function sanitizeId(id: string): string {
     return id.replace(FORBIDDEN_CHARS, "");
 }
 

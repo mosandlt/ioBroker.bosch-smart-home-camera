@@ -50,9 +50,13 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BoschSmartHomeCamera = void 0;
 const net = __importStar(require("node:net"));
+const axios_1 = __importDefault(require("axios"));
 const utils = __importStar(require("@iobroker/adapter-core"));
 // adapter-config.d.ts augments ioBroker.AdapterConfig — included via tsconfig src/**/*.ts,
 // no runtime import needed (import would fail: .d.ts files produce no .js output)
@@ -73,6 +77,7 @@ const web_stream_1 = require("./lib/web_stream");
 const fcm_1 = require("./lib/fcm");
 const alarm_light_1 = require("./lib/alarm_light");
 const maintenance_1 = require("./lib/maintenance");
+const ssrf_guard_1 = require("./lib/ssrf_guard");
 const mqtt_bridge_1 = require("./lib/mqtt_bridge");
 const rcp_lan_helper_1 = require("./lib/rcp_lan_helper");
 const cloud_feature_flags_1 = require("./lib/cloud_feature_flags");
@@ -444,6 +449,21 @@ class BoschSmartHomeCamera extends utils.Adapter {
     // PUT /notifications requires the FULL body → cache holds all keys so a
     // single-type toggle doesn't clobber the others.
     _notificationsCache = new Map();
+    // Bug-hunt finding: hard_reset_confirm's own description promises a
+    // "60s window" but nothing enforced it — a confirm token typed in once
+    // stayed armed indefinitely (it's a persisted acked state, so it also
+    // survived adapter restarts). Tracks, per camera, the epoch ms at which
+    // hard_reset_confirm was last WRITTEN (not when the camera was last
+    // renamed) — _handleHardResetWrite checks this before honouring a
+    // matching confirm value.
+    _hardResetConfirmSetAt = new Map();
+    /** 60s confirm window for hard_reset — matches the DP's own description text. */
+    static HARD_RESET_CONFIRM_WINDOW_MS = 60_000;
+    // v1.9.0: in-flight guard for ai_analyze — a rapid double-write must not
+    // fire two full snapshot-fetch+POST cycles concurrently for the same
+    // camera. Mirrors the coalescing pattern handleSnapshotTrigger already
+    // uses via `_snapshotInflight` (iOB-B1).
+    _aiAnalyzeInflight = new Map();
     // v1.1.0: Gen2 Outdoor motion-light + ambient-light caches (full-body PUT).
     // GET /lighting/motion → {lightOnMotionEnabled, motionLightSensitivity, …};
     // GET /lighting/ambient → {ambientLightEnabled, ambientLightSchedule, …}.
@@ -1456,6 +1476,15 @@ class BoschSmartHomeCamera extends utils.Adapter {
             "wallwasher_brightness",
             "wallwasher_color",
             "front_light_intensity",
+            // Bug-hunt finding: these 3 v1.9.0 DPs are gated identically to
+            // the others above (Gen2 + featureLight) but were never added
+            // here — a camera that loses featureLight (firmware/hardware
+            // re-detection) would keep stale top/bottom LED + white-balance
+            // DPs around forever instead of having them cleaned up like
+            // their siblings.
+            "top_led_brightness",
+            "bottom_led_brightness",
+            "front_light_white_balance",
         ];
         let removed = 0;
         for (const cam of cameras) {
@@ -2013,7 +2042,189 @@ class BoschSmartHomeCamera extends utils.Adapter {
                     },
                     native: {},
                 });
+                // v1.9.0: per-group top/bottom LED brightness (HA number.py
+                // top_led_brightness/bottom_led_brightness) — same underlying
+                // PUT /lighting/switch endpoint as wallwasher_brightness, but
+                // lets an automation drive top and bottom independently instead
+                // of always in lockstep. Gated identically to wallwasher_*.
+                await this.setObjectNotExistsAsync(`${prefix}.top_led_brightness`, {
+                    type: "state",
+                    common: {
+                        name: "Top LED brightness (Gen2 top group only) 0..100",
+                        role: "level.brightness",
+                        type: "number",
+                        min: 0,
+                        max: 100,
+                        unit: "%",
+                        read: true,
+                        write: true,
+                        def: 0,
+                    },
+                    native: {},
+                });
+                await this.setObjectNotExistsAsync(`${prefix}.bottom_led_brightness`, {
+                    type: "state",
+                    common: {
+                        name: "Bottom LED brightness (Gen2 bottom group only) 0..100",
+                        role: "level.brightness",
+                        type: "number",
+                        min: 0,
+                        max: 100,
+                        unit: "%",
+                        read: true,
+                        write: true,
+                        def: 0,
+                    },
+                    native: {},
+                });
+                // v1.9.0: front spotlight white balance (HA light.py front-light
+                // COLOR_TEMP, mapped from Bosch's frontLightSettings.whiteBalance
+                // -1.0..1.0). Only meaningful while the front light is in
+                // white-balance mode (color === null); writing it here always
+                // switches the front group to white-balance mode.
+                await this.setObjectNotExistsAsync(`${prefix}.front_light_white_balance`, {
+                    type: "state",
+                    common: {
+                        // Bug-hunt finding: this label had the polarity
+                        // inverted vs. the sibling HA integration's light.py
+                        // (verified there: -1.0 = cool/6500K, 1.0 = warm/2000K).
+                        // The field mapping to Bosch's API is correct — only
+                        // this user-facing label was wrong.
+                        name: "Front spotlight white balance -1.0 (cold/6500K) .. 1.0 (warm/2000K)",
+                        role: "level.color.temperature",
+                        type: "number",
+                        min: -1,
+                        max: 1,
+                        read: true,
+                        write: true,
+                        def: -1,
+                    },
+                    native: {},
+                });
             }
+            // v1.9.0: camera control — rename, soft reset (reboot), hard reset
+            // (factory reset). Mirrors HA services.py rename_camera / button.py
+            // soft_reset+hard_reset. hard_reset is destructive (camera loses its
+            // Bosch account pairing) — requires writing the SAME camera title to
+            // `hard_reset_confirm` first as a lightweight guard against a
+            // stray/automated `true` write (matches this repo's existing pattern
+            // of requiring a deliberate second value for irreversible actions).
+            await this.setObjectNotExistsAsync(`${prefix}.rename`, {
+                type: "state",
+                common: {
+                    name: "Rename camera (write new title, PUT /v11/video_inputs)",
+                    role: "text",
+                    type: "string",
+                    read: true,
+                    write: true,
+                    def: "",
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.soft_reset`, {
+                type: "state",
+                common: {
+                    name: "Soft reset / reboot camera (write true to trigger)",
+                    role: "button",
+                    type: "boolean",
+                    read: false,
+                    write: true,
+                    def: false,
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.hard_reset_confirm`, {
+                type: "state",
+                common: {
+                    name: "Type the camera's exact current title here, THEN write true to " +
+                        "hard_reset within 60s — safety guard for the destructive " +
+                        "factory reset below",
+                    role: "text",
+                    type: "string",
+                    read: true,
+                    write: true,
+                    def: "",
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.hard_reset`, {
+                type: "state",
+                common: {
+                    name: "DESTRUCTIVE: factory-reset camera (write true to trigger). " +
+                        "Camera loses its Bosch account pairing and must be re-commissioned " +
+                        "via the Bosch app. Requires hard_reset_confirm to hold the " +
+                        "camera's exact current title first.",
+                    role: "button",
+                    type: "boolean",
+                    read: false,
+                    write: true,
+                    def: false,
+                },
+                native: {},
+            });
+            // v1.9.0: AI Camera Analysis (slice of HA's ai_analysis.py) —
+            // motion/manually-triggered structured suspicion analysis over the
+            // latest snapshot. Unlike HA (which delegates to its separately
+            // configured `ai_task` integration), ioBroker has no equivalent
+            // task-provider abstraction, so this POSTs the snapshot JPEG
+            // (base64) + camera title to a single user-configured HTTPS
+            // endpoint (adapter.config.ai_analysis_endpoint_url /
+            // ai_analysis_api_key, see admin config "AI Analysis" tab) and
+            // expects a JSON response `{"description": string, "score":
+            // number 1-10}` back — an adapter-defined contract, not a
+            // specific vendor API. No persisted alert-history log in this
+            // slice (HA's ai_alert_store.py) — only the latest result.
+            await this.setObjectNotExistsAsync(`${prefix}.ai_description`, {
+                type: "state",
+                common: {
+                    name: "AI analysis: description of the latest analyzed snapshot",
+                    role: "text",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "",
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.ai_score`, {
+                type: "state",
+                common: {
+                    name: "AI analysis: suspicion score 1 (benign) .. 10 (highly suspicious)",
+                    role: "value",
+                    type: "number",
+                    min: 1,
+                    max: 10,
+                    read: true,
+                    write: false,
+                    def: 0,
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.ai_last_analysis`, {
+                type: "state",
+                common: {
+                    name: "AI analysis: timestamp of the last completed analysis (epoch ms)",
+                    role: "value.time",
+                    type: "number",
+                    read: true,
+                    write: false,
+                    def: 0,
+                },
+                native: {},
+            });
+            await this.setObjectNotExistsAsync(`${prefix}.ai_analyze`, {
+                type: "state",
+                common: {
+                    name: "Trigger AI analysis of the latest snapshot (write true) — " +
+                        "requires AI Analysis to be enabled + configured in adapter settings",
+                    role: "button",
+                    type: "boolean",
+                    read: false,
+                    write: true,
+                    def: false,
+                },
+                native: {},
+            });
             // Indoor-only in practice — created for all cameras; can be filtered later by generation/hardwareVersion
             await this.setObjectNotExistsAsync(`${prefix}.image_rotation_180`, {
                 type: "state",
@@ -2526,6 +2737,24 @@ class BoschSmartHomeCamera extends utils.Adapter {
                         read: true,
                         write: true,
                         def: 50,
+                    },
+                    native: {},
+                });
+                // v1.9.0: soft-fading of the auto darkness-triggered LED (HA
+                // switch.py soft_light_fading) — previously only read internally
+                // to preserve it inside the darkness-threshold PUT body, now a
+                // real user-writable DP. Gen2 Outdoor only — moved inside this
+                // gate (was previously created unconditionally, so Indoor/Gen1
+                // cameras got a DP that always warns and never acks).
+                await this.setObjectNotExistsAsync(`${prefix}.soft_light_fading`, {
+                    type: "state",
+                    common: {
+                        name: "Soft-fade the LED in/out at darkness threshold (Gen2 Outdoor)",
+                        role: "switch",
+                        type: "boolean",
+                        read: true,
+                        write: true,
+                        def: true,
                     },
                     native: {},
                 });
@@ -5280,13 +5509,20 @@ class BoschSmartHomeCamera extends utils.Adapter {
         const frontBrightness = ls.frontLightSettings.brightness;
         const frontOn = frontBrightness > 0;
         const wallOn = brightness > 0;
-        // Batch the 5 getStateAsync reads instead of serialising them.
-        const [curBr, curCol, curFront, curWall, curFrontIntensity] = await Promise.all([
+        // Batch the getStateAsync reads instead of serialising them.
+        const [curBr, curCol, curFront, curWall, curFrontIntensity, curTopBr, curBotBr, curWhiteBalance,] = await Promise.all([
             this.getStateAsync(`cameras.${cam.id}.wallwasher_brightness`),
             this.getStateAsync(`cameras.${cam.id}.wallwasher_color`),
             this.getStateAsync(`cameras.${cam.id}.front_light_enabled`),
             this.getStateAsync(`cameras.${cam.id}.wallwasher_enabled`),
             this.getStateAsync(`cameras.${cam.id}.front_light_intensity`),
+            // Bug-hunt finding: these 3 v1.9.0 DPs were never refreshed by
+            // this poll — a change made via any OTHER path (Bosch app, or a
+            // wallwasher_brightness write that also moves both LED groups)
+            // went stale until the adapter restarted.
+            this.getStateAsync(`cameras.${cam.id}.top_led_brightness`),
+            this.getStateAsync(`cameras.${cam.id}.bottom_led_brightness`),
+            this.getStateAsync(`cameras.${cam.id}.front_light_white_balance`),
         ]);
         const writes = [];
         if (curBr?.val !== brightness) {
@@ -5308,6 +5544,19 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // v1.3.x: mirror front spotlight brightness (frontLightSettings.brightness → 0..100).
         if (curFrontIntensity?.val !== frontBrightness) {
             writes.push(this.upsertState(`cameras.${cam.id}.front_light_intensity`, frontBrightness));
+        }
+        // v1.9.0: mirror per-group top/bottom LED brightness + front
+        // white-balance so they don't go stale after a change made outside
+        // this adapter's own write handlers.
+        if (curTopBr?.val !== top.brightness) {
+            writes.push(this.upsertState(`cameras.${cam.id}.top_led_brightness`, top.brightness));
+        }
+        if (curBotBr?.val !== bot.brightness) {
+            writes.push(this.upsertState(`cameras.${cam.id}.bottom_led_brightness`, bot.brightness));
+        }
+        const frontWhiteBalance = ls.frontLightSettings.whiteBalance ?? -1;
+        if (curWhiteBalance?.val !== frontWhiteBalance) {
+            writes.push(this.upsertState(`cameras.${cam.id}.front_light_white_balance`, frontWhiteBalance));
         }
         await Promise.all(writes);
     }
@@ -5869,6 +6118,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 // Convert from Bosch float (0.0–1.0) to user-facing percent (0–100)
                 await this.upsertState(`cameras.${camId}.darkness_threshold`, Math.round(dt * 100));
             }
+            // Bug-hunt finding: soft_light_fading was never refreshed by this
+            // poll — a change made via any OTHER path (Bosch app, or the
+            // darkness_threshold write handler merging in a stale cached
+            // value) went stale in the DP until the adapter restarted.
+            if (typeof data.softLightFading === "boolean") {
+                await this.upsertState(`cameras.${camId}.soft_light_fading`, data.softLightFading);
+            }
         }
         catch (err) {
             this.log.debug(`Global lighting poll for ${camId.slice(0, 8)} failed: ` +
@@ -6423,6 +6679,98 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 case "front_light_intensity":
                     await this.handleFrontLightIntensityUpdate(camId, typeof state.val === "number" ? state.val : parseInt(String(state.val), 10));
                     break;
+                case "top_led_brightness":
+                    await this.handleLedGroupBrightnessUpdate(camId, "topLedLightSettings", typeof state.val === "number" ? state.val : parseInt(String(state.val), 10));
+                    // Bug-hunt finding: the handler already upsertStates the
+                    // server-confirmed (possibly clamped) value — return here
+                    // (mirrors intrusion_distance) instead of falling through
+                    // to the generic ack below, which would overwrite it with
+                    // the raw unclamped user input.
+                    return;
+                case "bottom_led_brightness":
+                    await this.handleLedGroupBrightnessUpdate(camId, "bottomLedLightSettings", typeof state.val === "number" ? state.val : parseInt(String(state.val), 10));
+                    return; // see top_led_brightness comment above
+                case "front_light_white_balance":
+                    await this.handleFrontLightWhiteBalanceUpdate(camId, typeof state.val === "number" ? state.val : parseFloat(String(state.val)));
+                    return; // see top_led_brightness comment above
+                case "soft_light_fading":
+                    if (!(await this._handleSoftLightFadingWrite(camId, Boolean(state.val)))) {
+                        return;
+                    }
+                    break;
+                case "rename": {
+                    const newTitle = typeof state.val === "string" ? state.val.trim() : "";
+                    if (!newTitle) {
+                        this.log.warn(`rename write for ${camId.slice(0, 8)} ignored — empty title`);
+                        return; // skip ack — keep last valid value
+                    }
+                    if (!(await this._handleRenameWrite(camId, newTitle))) {
+                        return;
+                    }
+                    break;
+                }
+                case "soft_reset":
+                    if (state.val) {
+                        // Bug-hunt finding: the reset-to-false must fire even
+                        // if the handler throws, or the button stays stuck
+                        // at "true" forever (mirrors hard_reset's own
+                        // "always reset" comment, but that only actually
+                        // held for the non-throwing path before this fix).
+                        try {
+                            await this._handleSoftResetWrite(camId);
+                        }
+                        finally {
+                            await this.setStateAsync(id, false, true);
+                        }
+                    }
+                    return; // skip generic ack below
+                case "hard_reset_confirm":
+                    // Bug-hunt finding: track WHEN this was written so
+                    // _handleHardResetWrite can enforce the 60s window its
+                    // own description promises (previously unenforced —
+                    // a typed-in confirm stayed armed indefinitely, even
+                    // across adapter restarts, since this is a persisted
+                    // acked state).
+                    if (typeof state.val === "string" && state.val.trim()) {
+                        this._hardResetConfirmSetAt.set(camId, Date.now());
+                    }
+                    else {
+                        this._hardResetConfirmSetAt.delete(camId);
+                    }
+                    // Plain text field — ack as-is, no camera call. Read back by
+                    // hard_reset's own handler at write time.
+                    await this.setStateAsync(id, state.val, true);
+                    return; // skip generic ack below (already ack'd above)
+                case "hard_reset":
+                    if (state.val) {
+                        // Bug-hunt finding: reset-to-false must fire even if
+                        // the handler throws (see soft_reset comment above).
+                        try {
+                            await this._handleHardResetWrite(camId);
+                        }
+                        finally {
+                            await this.setStateAsync(id, false, true);
+                        }
+                    }
+                    else {
+                        // Always reset the trigger to false, whether the confirm
+                        // guard rejected the write or the reset actually fired —
+                        // never leave a destructive button stuck at "true".
+                        await this.setStateAsync(id, false, true);
+                    }
+                    return; // skip generic ack below
+                case "ai_analyze":
+                    if (state.val) {
+                        // Bug-hunt finding: reset-to-false must fire even if
+                        // the handler throws (see soft_reset comment above).
+                        try {
+                            await this._handleAiAnalyzeTrigger(camId);
+                        }
+                        finally {
+                            await this.setStateAsync(id, false, true);
+                        }
+                    }
+                    return; // skip generic ack below
                 case "microphone_level": {
                     // v0.7.7: audio level — PUT /v11/video_inputs/{id}/audio (Gen2)
                     const camAudio = this._cameras.get(camId);
@@ -7913,9 +8261,15 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 cached = getResp.data ?? {};
                 this._globalLightingCache.set(camId, { ...cached });
             }
-            catch {
-                this.log.warn(`darkness_threshold: failed to load current config for ${camId.slice(0, 8)}, using defaults`);
-                cached = {};
+            catch (err) {
+                // Mirror-image of the soft_light_fading bug-hunt finding:
+                // guessing softLightFading=true here and PUTting it would
+                // silently overwrite the camera's real configured value.
+                // Abort instead of guessing.
+                const msg = err instanceof Error ? err.message : String(err);
+                this.log.warn(`darkness_threshold: aborting write for ${camId.slice(0, 8)} — could not ` +
+                    `load current lighting config (${msg}), refusing to guess softLightFading`);
+                throw new Error(`darkness_threshold: could not load current lighting config for ${camId.slice(0, 8)}`);
             }
         }
         const softLightFading = typeof cached.softLightFading === "boolean" ? cached.softLightFading : true;
@@ -8425,6 +8779,453 @@ class BoschSmartHomeCamera extends utils.Adapter {
         await this.setStateAsync(`cameras.${camId}.front_light_enabled`, frontOn, true);
         this.log.info(`Front light intensity for camera ${camId.slice(0, 8)}: ` +
             `brightness=${result.frontLightSettings.brightness}`);
+    }
+    /**
+     * v1.9.0: set a single LED group's brightness (top OR bottom only) for a
+     * Gen2 camera. Mirrors HA's `number.<cam>_top_led_brightness` /
+     * `number.<cam>_bottom_led_brightness`. Same PUT /lighting/switch
+     * endpoint as wallwasher_brightness, but does not move the other group.
+     *
+     * @param camId      Camera UUID (must be Gen2 with featureSupport.light)
+     * @param groupKey   "topLedLightSettings" or "bottomLedLightSettings"
+     * @param brightness 0..100
+     */
+    async handleLedGroupBrightnessUpdate(camId, groupKey, brightness) {
+        const cam = this._cameras.get(camId);
+        if (!cam || cam.generation < 2 || cam.featureLight !== true) {
+            this.log.warn(`${groupKey === "topLedLightSettings" ? "top_led_brightness" : "bottom_led_brightness"} ` +
+                `write for ${camId.slice(0, 8)} ignored — Gen2 lighting not supported`);
+            throw new Error("LED group brightness not supported on this camera");
+        }
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        // Bug-hunt finding: falling back to DEFAULT_LIGHTING_STATE (all
+        // groups zeroed) when the cache is cold — e.g. a write racing the
+        // very first poll after startup — would PUT zeros for the OTHER,
+        // untouched LED group. Seed from a fresh GET instead of guessing;
+        // abort rather than risk clobbering a sibling group.
+        let current = this._lightingCache.get(camId);
+        if (!current) {
+            current =
+                (await (0, alarm_light_1.fetchLightingState)(this._httpClient, this._currentAccessToken, camId)) ??
+                    undefined;
+            if (!current) {
+                const dp = groupKey === "topLedLightSettings"
+                    ? "top_led_brightness"
+                    : "bottom_led_brightness";
+                this.log.warn(`${dp}: aborting write for ${camId.slice(0, 8)} — no cached lighting ` +
+                    `state and GET failed, refusing to guess and risk clobbering the other LED group`);
+                throw new Error(`lighting state not available for ${camId.slice(0, 8)}`);
+            }
+            this._lightingCache.set(camId, current);
+        }
+        const safeVal = Number.isFinite(brightness) ? brightness : 0;
+        const next = (0, alarm_light_1.buildLedGroupBrightnessUpdate)(current, groupKey, safeVal);
+        const result = await (0, alarm_light_1.putLightingState)(this._httpClient, this._currentAccessToken, camId, next);
+        if (!result) {
+            throw new Error(`PUT /lighting/switch returned non-success for ${camId.slice(0, 8)}`);
+        }
+        this._lightingCache.set(camId, result);
+        const dp = groupKey === "topLedLightSettings" ? "top_led_brightness" : "bottom_led_brightness";
+        await this.upsertState(`cameras.${camId}.${dp}`, result[groupKey].brightness);
+        this.log.info(`${dp} for camera ${camId.slice(0, 8)}: brightness=${result[groupKey].brightness}`);
+    }
+    /**
+     * v1.9.0: set the front spotlight's white balance for a Gen2 camera.
+     * Mirrors HA's `light.<cam>_front_light` COLOR_TEMP entity. Always
+     * switches the front group into white-balance mode (color=null).
+     *
+     * @param camId        Camera UUID (must be Gen2 with featureSupport.light)
+     * @param whiteBalance -1.0 (cold/6500K) .. 1.0 (warm/2000K) — matches HA's
+     *   light.py polarity.
+     */
+    async handleFrontLightWhiteBalanceUpdate(camId, whiteBalance) {
+        const cam = this._cameras.get(camId);
+        if (!cam || cam.generation < 2 || cam.featureLight !== true) {
+            this.log.warn(`front_light_white_balance write for ${camId.slice(0, 8)} ignored — ` +
+                `Gen2 lighting not supported`);
+            throw new Error("front light white balance not supported on this camera");
+        }
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        // Bug-hunt finding (same class as handleLedGroupBrightnessUpdate):
+        // DEFAULT_LIGHTING_STATE would zero the top/bottom LED groups on a
+        // cold-cache write. Seed from a fresh GET instead of guessing.
+        let current = this._lightingCache.get(camId);
+        if (!current) {
+            current =
+                (await (0, alarm_light_1.fetchLightingState)(this._httpClient, this._currentAccessToken, camId)) ??
+                    undefined;
+            if (!current) {
+                this.log.warn(`front_light_white_balance: aborting write for ${camId.slice(0, 8)} — no ` +
+                    `cached lighting state and GET failed, refusing to guess and risk clobbering LED groups`);
+                throw new Error(`lighting state not available for ${camId.slice(0, 8)}`);
+            }
+            this._lightingCache.set(camId, current);
+        }
+        const safeVal = Number.isFinite(whiteBalance) ? whiteBalance : -1;
+        const next = (0, alarm_light_1.buildFrontLightWhiteBalanceUpdate)(current, safeVal);
+        const result = await (0, alarm_light_1.putLightingState)(this._httpClient, this._currentAccessToken, camId, next);
+        if (!result) {
+            throw new Error(`PUT /lighting/switch returned non-success for ${camId.slice(0, 8)}`);
+        }
+        this._lightingCache.set(camId, result);
+        await this.upsertState(`cameras.${camId}.front_light_white_balance`, result.frontLightSettings.whiteBalance ?? -1);
+        this.log.info(`front_light_white_balance for camera ${camId.slice(0, 8)}: ` +
+            `wb=${result.frontLightSettings.whiteBalance}`);
+    }
+    /**
+     * v1.9.0: write soft_light_fading via PUT /v11/video_inputs/{id}/lighting
+     * (same endpoint as darkness_threshold — Bosch requires the full body).
+     * Merges with the cached darknessThreshold field, seeding from GET when
+     * the cache is empty. Gen2 Outdoor only, same class as darkness_threshold.
+     *
+     * @param camId   Camera UUID (must be Gen2 Outdoor)
+     * @param enabled New softLightFading value
+     * @returns true on success (caller should ack the DP), false on a
+     *   handled/logged failure (caller should skip the ack)
+     */
+    async _handleSoftLightFadingWrite(camId, enabled) {
+        const cam = this._cameras.get(camId);
+        if (!cam ||
+            cam.generation < 2 ||
+            cam.hardwareVersion === "HOME_Eyes_Indoor" ||
+            cam.hardwareVersion === "CAMERA_INDOOR_GEN2") {
+            this.log.warn(`soft_light_fading write for ${camId.slice(0, 8)} ignored — Gen2 Outdoor only`);
+            return false;
+        }
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const url = `${auth_1.CLOUD_API}/v11/video_inputs/${camId}/lighting`;
+        const headers = {
+            Authorization: `Bearer ${this._currentAccessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        };
+        let cached = this._globalLightingCache.get(camId);
+        if (!cached) {
+            try {
+                const getResp = await this._httpClient.get(url, {
+                    headers,
+                    validateStatus: (s) => s >= 200 && s < 300,
+                });
+                cached = getResp.data ?? {};
+                this._globalLightingCache.set(camId, { ...cached });
+            }
+            catch (err) {
+                // Bug-hunt finding: previously fell back to a guessed
+                // darknessThreshold=0.5 and PUT it, silently overwriting the
+                // camera's real configured threshold. Abort instead — a
+                // network blip must not clobber an unrelated setting.
+                const msg = err instanceof Error ? err.message : String(err);
+                this.log.warn(`soft_light_fading: aborting write for ${camId.slice(0, 8)} — could not ` +
+                    `load current lighting config (${msg}), refusing to guess darknessThreshold`);
+                return false;
+            }
+        }
+        const darknessThreshold = typeof cached.darknessThreshold === "number" ? cached.darknessThreshold : 0.5;
+        const body = { darknessThreshold, softLightFading: enabled };
+        const resp = await this._httpClient.put(url, body, {
+            headers,
+            validateStatus: (s) => s >= 200 && s < 300,
+        });
+        this._globalLightingCache.set(camId, { ...cached, ...body });
+        this.log.info(`soft_light_fading set to ${enabled} for ${camId.slice(0, 8)} (HTTP ${resp.status})`);
+        return true;
+    }
+    /**
+     * v1.9.0: rename a camera via PUT /v11/video_inputs
+     * `{videoInputId, title, timeZone}`. Mirrors HA services.py
+     * `handle_rename_camera`. On success also updates the local camera-title
+     * cache so subsequently rebuilt log lines / titles use the new name
+     * without waiting for the next camera-list poll.
+     *
+     * @param camId    Camera UUID
+     * @param newTitle New camera title
+     * @returns true on success, false on a handled/logged failure
+     */
+    async _handleRenameWrite(camId, newTitle) {
+        if (!this._currentAccessToken) {
+            throw new Error("no access token — adapter not ready");
+        }
+        const cam = this._cameras.get(camId);
+        // Bosch's adapter time zone isn't available via a public Node API call
+        // without a dependency — the system's own IANA zone (Intl) is the
+        // closest reliable equivalent and matches what HA sends (hass.config.time_zone).
+        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        try {
+            const resp = await this._httpClient.put(`${auth_1.CLOUD_API}/v11/video_inputs`, { videoInputId: camId, title: newTitle, timeZone }, {
+                headers: {
+                    Authorization: `Bearer ${this._currentAccessToken}`,
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+                validateStatus: () => true,
+            });
+            if (resp.status !== 200 && resp.status !== 201 && resp.status !== 204) {
+                this.log.warn(`rename for ${camId.slice(0, 8)} rejected — HTTP ${resp.status}`);
+                return false;
+            }
+            if (cam) {
+                cam.name = newTitle;
+            }
+            this.log.info(`Camera ${camId.slice(0, 8)} renamed to "${newTitle}"`);
+            return true;
+        }
+        catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.log.warn(`rename for ${camId.slice(0, 8)} failed: ${msg}`);
+            return false;
+        }
+    }
+    /**
+     * v1.9.0: soft reset (reboot) a camera via
+     * PUT /v11/video_inputs/{id}/soft_reset (bodyless). Mirrors HA
+     * `device_actions.async_soft_reset_camera`. HA's own live test against a
+     * real online camera found Bosch's cloud can return HTTP 404
+     * `sh:entity.notfound` even for a request that matches the app
+     * byte-for-byte — treated as a soft, logged failure here (never throws),
+     * since the endpoint's real-world reliability is unproven.
+     *
+     * @param camId Camera UUID
+     */
+    async _handleSoftResetWrite(camId) {
+        // Bug-hunt finding: unlike _handleHardResetWrite, this never checked
+        // the camera actually exists before proceeding.
+        if (!this._cameras.has(camId)) {
+            this.log.warn(`soft_reset for ${camId.slice(0, 8)} ignored — unknown camera`);
+            return;
+        }
+        if (!this._currentAccessToken) {
+            this.log.warn(`soft_reset for ${camId.slice(0, 8)} skipped — no access token`);
+            return;
+        }
+        // Bug-hunt finding: sanitize the externally-sourced id before URL
+        // interpolation (matches this repo's existing sanitizeId() pattern
+        // from the v1.7.7 repochecker-hardening round — cameras.ts strips
+        // it once at camera-list time, this is defense-in-depth).
+        const safeCamId = (0, cameras_1.sanitizeId)(camId);
+        try {
+            const resp = await this._httpClient.put(`${auth_1.CLOUD_API}/v11/video_inputs/${safeCamId}/soft_reset`, null, {
+                headers: { Authorization: `Bearer ${this._currentAccessToken}` },
+                validateStatus: () => true,
+            });
+            if (resp.status >= 200 && resp.status < 300) {
+                this.log.info(`Soft reset (reboot) triggered for camera ${camId.slice(0, 8)}`);
+            }
+            else {
+                this.log.warn(`soft_reset for ${camId.slice(0, 8)} rejected — HTTP ${resp.status}`);
+            }
+        }
+        catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.log.warn(`soft_reset for ${camId.slice(0, 8)} failed: ${msg}`);
+        }
+    }
+    /**
+     * v1.9.0: DESTRUCTIVE factory reset via
+     * PUT /v11/video_inputs/{id}/hard_reset (bodyless). Mirrors HA
+     * `device_actions.async_hard_reset_camera`. Guarded by
+     * `hard_reset_confirm` holding the camera's exact current title AND
+     * having been written within the last 60s (`_hardResetConfirmSetAt`,
+     * enforced here) — ioBroker has no service-call-argument confirmation
+     * dialog like HA's button entity `entity_registry_enabled_default=False`
+     * pattern, so this DP-level guard is the closest equivalent to stop a
+     * stray/scripted `true` write from silently un-pairing a camera. The
+     * confirm state is cleared on every exit path (success, rejection,
+     * missing token, HTTP failure, or exception) so a stale value never
+     * stays armed.
+     *
+     * @param camId Camera UUID
+     */
+    async _handleHardResetWrite(camId) {
+        try {
+            const cam = this._cameras.get(camId);
+            const confirmState = await this.getStateAsync(`cameras.${camId}.hard_reset_confirm`);
+            const confirmVal = typeof confirmState?.val === "string" ? confirmState.val.trim() : "";
+            // Bug-hunt finding: enforce the 60s window the DP's own
+            // description already promised but nothing previously checked —
+            // a confirm typed in once stayed armed indefinitely (even across
+            // adapter restarts, since it's a persisted acked state). This
+            // also closes a TOCTOU: a stale confirm from an old REJECTED
+            // attempt could otherwise later match if the camera got renamed
+            // to equal it.
+            const setAt = this._hardResetConfirmSetAt.get(camId);
+            const withinWindow = typeof setAt === "number" &&
+                Date.now() - setAt <= BoschSmartHomeCamera.HARD_RESET_CONFIRM_WINDOW_MS;
+            if (!cam || !confirmVal || confirmVal !== cam.name || !withinWindow) {
+                const expiredNote = confirmVal && confirmVal === cam?.name && !withinWindow
+                    ? " (60s confirm window expired — re-type it)"
+                    : "";
+                this.log.warn(`hard_reset for ${camId.slice(0, 8)} REJECTED — hard_reset_confirm must hold ` +
+                    `the camera's exact current title ("${cam?.name ?? "?"}") within 60s${expiredNote}`);
+                return;
+            }
+            if (!this._currentAccessToken) {
+                this.log.warn(`hard_reset for ${camId.slice(0, 8)} skipped — no access token`);
+                return;
+            }
+            // Bug-hunt finding: sanitize the externally-sourced id before URL
+            // interpolation (matches this repo's existing sanitizeId() pattern).
+            const safeCamId = (0, cameras_1.sanitizeId)(camId);
+            const resp = await this._httpClient.put(`${auth_1.CLOUD_API}/v11/video_inputs/${safeCamId}/hard_reset`, null, {
+                headers: { Authorization: `Bearer ${this._currentAccessToken}` },
+                validateStatus: () => true,
+            });
+            if (resp.status >= 200 && resp.status < 300) {
+                this.log.warn(`DESTRUCTIVE hard reset (factory reset) triggered for camera ${camId.slice(0, 8)} — ` +
+                    `it will need to be re-commissioned via the Bosch app`);
+            }
+            else {
+                this.log.warn(`hard_reset for ${camId.slice(0, 8)} rejected — HTTP ${resp.status}`);
+            }
+        }
+        catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.log.warn(`hard_reset for ${camId.slice(0, 8)} failed: ${msg}`);
+        }
+        finally {
+            // Bug-hunt finding: clear on EVERY exit path — was previously
+            // only cleared on the HTTP-2xx success branch, so a
+            // guard-rejected / no-token / non-2xx / network-error attempt
+            // left the confirm token armed indefinitely.
+            await this.setStateAsync(`cameras.${camId}.hard_reset_confirm`, "", true);
+            this._hardResetConfirmSetAt.delete(camId);
+        }
+    }
+    /**
+     * v1.9.0: AI Camera Analysis trigger — POSTs the latest cached snapshot
+     * (as base64 JPEG) + camera title to the user-configured external
+     * AI/vision endpoint (adapter.config.ai_analysis_endpoint_url /
+     * ai_analysis_api_key), and writes the JSON response's `description`
+     * (string) and `score` (number 1-10) into `ai_description`/`ai_score`.
+     *
+     * This is a SLICE of HA's ai_analysis.py: no persisted alert-history log
+     * (HA's ai_alert_store.py) and no built-in AI provider — HA delegates to
+     * its separately configured `ai_task` integration, ioBroker has no
+     * equivalent so the endpoint URL/key are adapter config instead.
+     *
+     * Intentionally uses a plain (non-Bosch-CA-pinned) axios instance — the
+     * shared `_httpClient` is configured with `BoschCloudAgent` (pinned to
+     * Bosch's own CA) and would reject any third-party endpoint's TLS cert.
+     * Because of that, `endpointUrl` gets its own SSRF validation
+     * (`validateAiEndpointUrl` — https-only, rejects private/loopback/
+     * link-local/unspecified resolved addresses) instead of inheriting any
+     * safety net from `_httpClient`'s config — see bug-hunt finding on this
+     * function: with zero validation this could be pointed at `http://`
+     * (leaking the API key + a real snapshot of the user's home in
+     * cleartext) or at an internal/metadata address (e.g.
+     * 169.254.169.254). `maxRedirects: 0` on the POST itself closes the
+     * remaining gap where a validated https URL could still redirect to an
+     * internal target.
+     *
+     * Bug-hunt finding: a rapid double-write must not fire two concurrent
+     * snapshot-fetch+POST cycles for the same camera — coalesced via
+     * `_aiAnalyzeInflight`, same pattern as `handleSnapshotTrigger`'s
+     * `_snapshotInflight` (iOB-B1).
+     *
+     * @param camId Camera UUID
+     */
+    async _handleAiAnalyzeTrigger(camId) {
+        const inflight = this._aiAnalyzeInflight.get(camId);
+        if (inflight) {
+            await inflight;
+            return;
+        }
+        const promise = this._doAiAnalyzeTrigger(camId);
+        this._aiAnalyzeInflight.set(camId, promise);
+        try {
+            await promise;
+        }
+        finally {
+            this._aiAnalyzeInflight.delete(camId);
+        }
+    }
+    async _doAiAnalyzeTrigger(camId) {
+        // Bug-hunt finding: unlike _handleHardResetWrite, this never checked
+        // the camera actually exists before proceeding.
+        if (!this._cameras.has(camId)) {
+            this.log.warn(`ai_analyze for ${camId.slice(0, 8)} ignored — unknown camera`);
+            return;
+        }
+        const cam = this._cameras.get(camId);
+        const endpointUrl = typeof this.config.ai_analysis_endpoint_url === "string"
+            ? this.config.ai_analysis_endpoint_url.trim()
+            : "";
+        if (this.config.ai_analysis_enabled !== true || !endpointUrl) {
+            this.log.warn(`ai_analyze for ${camId.slice(0, 8)} ignored — AI Analysis is disabled or has ` +
+                `no endpoint configured (adapter settings → AI Analysis)`);
+            return;
+        }
+        // Bug-hunt finding (CRITICAL): validate defensively at trigger time,
+        // in case the config was edited directly (e.g. via a raw object
+        // write) bypassing any admin-UI-level check.
+        const ssrfCheck = await (0, ssrf_guard_1.validateAiEndpointUrl)(endpointUrl);
+        if (!ssrfCheck.ok) {
+            this.log.error(`ai_analyze for ${camId.slice(0, 8)} REJECTED — configured endpoint URL failed ` +
+                `safety validation (${ssrfCheck.reason}). Refusing to send the API key/snapshot.`);
+            return;
+        }
+        // Ensure a fresh frame, then reuse the in-memory cache the snapshot
+        // pipeline already maintains — no second Bosch session/fetch needed.
+        try {
+            await this.handleSnapshotTrigger(camId);
+        }
+        catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.log.warn(`ai_analyze for ${camId.slice(0, 8)}: snapshot fetch failed: ${msg}`);
+            return;
+        }
+        const buf = this._latestSnapshots.get(camId);
+        if (!buf) {
+            this.log.warn(`ai_analyze for ${camId.slice(0, 8)} aborted — no snapshot available`);
+            return;
+        }
+        const apiKey = typeof this.config.ai_analysis_api_key === "string"
+            ? this.config.ai_analysis_api_key
+            : "";
+        try {
+            const headers = { "Content-Type": "application/json" };
+            if (apiKey) {
+                headers.Authorization = `Bearer ${apiKey}`;
+            }
+            const resp = await axios_1.default.post(endpointUrl, {
+                camera: cam?.name ?? camId,
+                image_base64: buf.toString("base64"),
+            }, {
+                headers,
+                timeout: 30_000,
+                validateStatus: () => true,
+                // Bug-hunt finding: a validated https URL could still
+                // redirect (3xx) to an internal target — refuse to
+                // follow, matching axios's own recommended SSRF posture.
+                maxRedirects: 0,
+            });
+            if (resp.status < 200 || resp.status >= 300) {
+                this.log.warn(`ai_analyze for ${camId.slice(0, 8)}: endpoint returned HTTP ${resp.status}`);
+                return;
+            }
+            const data = resp.data;
+            const description = typeof data.description === "string" ? data.description : "";
+            const scoreRaw = typeof data.score === "number" ? data.score : NaN;
+            // Bug-hunt finding: the object declares min:1 but this fallback
+            // previously wrote 0 on a non-finite score — write the
+            // documented minimum instead of an out-of-range value.
+            const score = Number.isFinite(scoreRaw)
+                ? Math.max(1, Math.min(10, Math.round(scoreRaw)))
+                : 1;
+            await this.setStateAsync(`cameras.${camId}.ai_description`, description, true);
+            await this.setStateAsync(`cameras.${camId}.ai_score`, score, true);
+            await this.setStateAsync(`cameras.${camId}.ai_last_analysis`, Date.now(), true);
+            this.log.info(`AI analysis for camera ${camId.slice(0, 8)}: score=${score} description="${description.slice(0, 60)}"`);
+        }
+        catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.log.warn(`ai_analyze for ${camId.slice(0, 8)} failed: ${msg}`);
+        }
     }
     /**
      * Switch the stream-quality preference for a camera and force a session

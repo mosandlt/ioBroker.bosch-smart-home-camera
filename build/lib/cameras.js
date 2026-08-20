@@ -30,6 +30,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CamerasApiError = exports.UnauthorizedError = void 0;
 exports.detectGeneration = detectGeneration;
+exports.sanitizeId = sanitizeId;
 exports.fetchCameras = fetchCameras;
 const axios_1 = __importDefault(require("axios"));
 const auth_1 = require("./auth");

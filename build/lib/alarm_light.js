@@ -30,6 +30,8 @@ exports.fetchLightingState = fetchLightingState;
 exports.putLightingState = putLightingState;
 exports.normaliseLightingState = normaliseLightingState;
 exports.buildFrontLightUpdate = buildFrontLightUpdate;
+exports.buildLedGroupBrightnessUpdate = buildLedGroupBrightnessUpdate;
+exports.buildFrontLightWhiteBalanceUpdate = buildFrontLightWhiteBalanceUpdate;
 exports.buildWallwasherUpdate = buildWallwasherUpdate;
 const auth_1 = require("./auth");
 /** Default group settings used when the cache is empty (mirrors HA's defaults). */
@@ -204,6 +206,54 @@ function buildFrontLightUpdate(current, brightness) {
         frontLightSettings: {
             ...current.frontLightSettings,
             brightness: clamp(Math.round(brightness), 0, 100),
+        },
+        topLedLightSettings: { ...current.topLedLightSettings },
+        bottomLedLightSettings: { ...current.bottomLedLightSettings },
+    };
+}
+/**
+ *
+ */
+/**
+ * Build the next PUT body for a single LED-group brightness update (top OR
+ * bottom only, independent of the other group). Unlike
+ * `buildWallwasherUpdate` (which always moves top+bottom together), this
+ * lets a caller drive one group without touching the other — mirrors HA's
+ * `number.<cam>_top_led_brightness` / `number.<cam>_bottom_led_brightness`.
+ *
+ * @param current    Cached current lighting state (or DEFAULT_LIGHTING_STATE on first run)
+ * @param groupKey   Which LED group to change: "topLedLightSettings" or "bottomLedLightSettings"
+ * @param brightness New brightness 0..100 for that group only
+ * @returns updated LightingState with only the named group's brightness changed
+ */
+function buildLedGroupBrightnessUpdate(current, groupKey, brightness) {
+    const next = {
+        frontLightSettings: { ...current.frontLightSettings },
+        topLedLightSettings: { ...current.topLedLightSettings },
+        bottomLedLightSettings: { ...current.bottomLedLightSettings },
+    };
+    next[groupKey] = {
+        ...next[groupKey],
+        brightness: clamp(Math.round(brightness), 0, 100),
+    };
+    return next;
+}
+/**
+ * Build the next PUT body for a front-spotlight white-balance update.
+ * Front spotlight only supports white-balance mode (no RGB) — writing this
+ * always sets `color: null` so the group stays/switches into white-balance
+ * mode, mirroring HA's `light.<cam>_front_light` COLOR_TEMP entity.
+ *
+ * @param current      Cached current lighting state (or DEFAULT_LIGHTING_STATE on first run)
+ * @param whiteBalance New white balance -1.0 (warm) .. 1.0 (cold)
+ * @returns updated LightingState with only frontLightSettings.whiteBalance (+ color=null) changed
+ */
+function buildFrontLightWhiteBalanceUpdate(current, whiteBalance) {
+    return {
+        frontLightSettings: {
+            ...current.frontLightSettings,
+            color: null,
+            whiteBalance: clamp(whiteBalance, -1.0, 1.0),
         },
         topLedLightSettings: { ...current.topLedLightSettings },
         bottomLedLightSettings: { ...current.bottomLedLightSettings },

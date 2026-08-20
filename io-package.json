@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "1.8.4",
+        "version": "1.9.0",
         "news": {
+            "1.9.0": {
+                "en": "New: AI camera analysis (external endpoint), camera soft/hard reset, rename, and Gen2 LED/white-balance tuning DPs — plus 2 adversarial bug-hunt passes that found and fixed an SSRF hole in the AI endpoint config and a hard-reset confirmation that never expired.",
+                "de": "Neu: KI-Kamera-Analyse (externer Endpunkt), Kamera Soft-/Hard-Reset, Umbenennen, sowie Gen2 LED/Weissabgleich-DPs -- plus 2 kritische Bug-Hunt-Runden, die eine SSRF-Luecke in der KI-Endpunkt-Konfiguration und eine nie ablaufende Hard-Reset-Bestaetigung fanden und behoben.",
+                "ru": "Новое: анализ камеры с помощью ИИ (внешняя конечная точка), программный/аппаратный сброс камеры, переименование и точки данных настройки светодиодов/баланса белого Gen2 — плюс 2 раунда поиска ошибок, которые нашли и устранили уязвимость SSRF в конфигурации конечной точки ИИ.",
+                "pt": "Novo: análise de câmera por IA (endpoint externo), reset suave/duro da câmera, renomear e DPs de ajuste de LED/balanço de branco Gen2 — além de 2 rodadas de caça a bugs que encontraram e corrigiram uma falha de SSRF na configuração do endpoint de IA.",
+                "nl": "Nieuw: AI-camera-analyse (externe endpoint), zachte/harde camera-reset, hernoemen en Gen2 LED/witbalans-DP's — plus 2 bug-hunt-rondes die een SSRF-lek in de AI-endpointconfiguratie vonden en verhielpen.",
+                "fr": "Nouveau : analyse de caméra par IA (point de terminaison externe), réinitialisation douce/matérielle de la caméra, renommage et DP de réglage LED/balance des blancs Gen2 — plus 2 sessions de chasse aux bugs ayant trouvé et corrigé une faille SSRF dans la configuration du point de terminaison IA.",
+                "it": "Novità: analisi della fotocamera con IA (endpoint esterno), reset soft/hard della fotocamera, rinomina e DP di regolazione LED/bilanciamento del bianco Gen2 — più 2 sessioni di bug-hunt che hanno trovato e corretto una falla SSRF nella configurazione dell'endpoint IA.",
+                "es": "Novedades: análisis de cámara con IA (endpoint externo), reinicio suave/duro de la cámara, cambio de nombre y DPs de ajuste de LED/balance de blancos Gen2 — además de 2 rondas de búsqueda de errores que encontraron y corrigieron un fallo SSRF en la configuración del endpoint de IA.",
+                "pl": "Nowosc: analiza kamery AI (zewnetrzny punkt koncowy), miekki/twardy reset kamery, zmiana nazwy oraz DP regulacji LED/balansu bieli Gen2 -- plus 2 rundy polowania na bledy, ktore znalazly i naprawily luke SSRF w konfiguracji punktu koncowego AI.",
+                "uk": "Новинка: аналіз камери за допомогою ШІ (зовнішня кінцева точка), програмне/апаратне скидання камери, перейменування та точки даних налаштування світлодіодів/балансу білого Gen2 — плюс 2 раунди пошуку помилок, які знайшли та виправили вразливість SSRF у конфігурації кінцевої точки ШІ.",
+                "zh-cn": "新增：AI摄像头分析（外部端点）、摄像头软/硬重置、重命名以及Gen2 LED/白平衡调节数据点——另外经过2轮对抗性漏洞排查，发现并修复了AI端点配置中的SSRF漏洞以及一个永不过期的硬重置确认。"
+            },
             "1.8.4": {
                 "en": "Fixed FCM push notifications silently dropping or crashing on a malformed message (Invalid EC key). The FCM library corrupted real-world multi-segment crypto-key/salt headers, matching a fix shipped in the sibling HA integration.",
                 "de": "Fehler behoben: FCM-Push-Benachrichtigungen wurden bei einer fehlerhaften Nachricht (Invalid EC key) stillschweigend verworfen oder stürzten ab. Die FCM-Bibliothek beschädigte mehrsegmentige Crypto-Key/Salt-Header, analog zum Fix in der HA-Integration.",
@@ -191,15 +204,20 @@
         }
     },
     "encryptedNative": [
-        "mqtt_password"
+        "mqtt_password",
+        "ai_analysis_api_key"
     ],
     "protectedNative": [
-        "mqtt_password"
+        "mqtt_password",
+        "ai_analysis_api_key"
     ],
     "native": {
         "redirect_url": "",
         "use_mjpeg_snapshot": true,
-        "mqtt_password": ""
+        "mqtt_password": "",
+        "ai_analysis_enabled": false,
+        "ai_analysis_endpoint_url": "",
+        "ai_analysis_api_key": ""
     },
     "instanceObjects": [
         {

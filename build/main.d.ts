@@ -343,6 +343,10 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _alarmSettingsCache;
     private _alarmStatusCache;
     private _notificationsCache;
+    private _hardResetConfirmSetAt;
+    /** 60s confirm window for hard_reset — matches the DP's own description text. */
+    private static readonly HARD_RESET_CONFIRM_WINDOW_MS;
+    private _aiAnalyzeInflight;
     private _motionLightCache;
     private _ambientLightCache;
     private static readonly NOTIFY_TYPE_MAP;
@@ -1663,6 +1667,115 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param brightness  0..100
      */
     private handleFrontLightIntensityUpdate;
+    /**
+     * v1.9.0: set a single LED group's brightness (top OR bottom only) for a
+     * Gen2 camera. Mirrors HA's `number.<cam>_top_led_brightness` /
+     * `number.<cam>_bottom_led_brightness`. Same PUT /lighting/switch
+     * endpoint as wallwasher_brightness, but does not move the other group.
+     *
+     * @param camId      Camera UUID (must be Gen2 with featureSupport.light)
+     * @param groupKey   "topLedLightSettings" or "bottomLedLightSettings"
+     * @param brightness 0..100
+     */
+    private handleLedGroupBrightnessUpdate;
+    /**
+     * v1.9.0: set the front spotlight's white balance for a Gen2 camera.
+     * Mirrors HA's `light.<cam>_front_light` COLOR_TEMP entity. Always
+     * switches the front group into white-balance mode (color=null).
+     *
+     * @param camId        Camera UUID (must be Gen2 with featureSupport.light)
+     * @param whiteBalance -1.0 (cold/6500K) .. 1.0 (warm/2000K) — matches HA's
+     *   light.py polarity.
+     */
+    private handleFrontLightWhiteBalanceUpdate;
+    /**
+     * v1.9.0: write soft_light_fading via PUT /v11/video_inputs/{id}/lighting
+     * (same endpoint as darkness_threshold — Bosch requires the full body).
+     * Merges with the cached darknessThreshold field, seeding from GET when
+     * the cache is empty. Gen2 Outdoor only, same class as darkness_threshold.
+     *
+     * @param camId   Camera UUID (must be Gen2 Outdoor)
+     * @param enabled New softLightFading value
+     * @returns true on success (caller should ack the DP), false on a
+     *   handled/logged failure (caller should skip the ack)
+     */
+    private _handleSoftLightFadingWrite;
+    /**
+     * v1.9.0: rename a camera via PUT /v11/video_inputs
+     * `{videoInputId, title, timeZone}`. Mirrors HA services.py
+     * `handle_rename_camera`. On success also updates the local camera-title
+     * cache so subsequently rebuilt log lines / titles use the new name
+     * without waiting for the next camera-list poll.
+     *
+     * @param camId    Camera UUID
+     * @param newTitle New camera title
+     * @returns true on success, false on a handled/logged failure
+     */
+    private _handleRenameWrite;
+    /**
+     * v1.9.0: soft reset (reboot) a camera via
+     * PUT /v11/video_inputs/{id}/soft_reset (bodyless). Mirrors HA
+     * `device_actions.async_soft_reset_camera`. HA's own live test against a
+     * real online camera found Bosch's cloud can return HTTP 404
+     * `sh:entity.notfound` even for a request that matches the app
+     * byte-for-byte — treated as a soft, logged failure here (never throws),
+     * since the endpoint's real-world reliability is unproven.
+     *
+     * @param camId Camera UUID
+     */
+    private _handleSoftResetWrite;
+    /**
+     * v1.9.0: DESTRUCTIVE factory reset via
+     * PUT /v11/video_inputs/{id}/hard_reset (bodyless). Mirrors HA
+     * `device_actions.async_hard_reset_camera`. Guarded by
+     * `hard_reset_confirm` holding the camera's exact current title AND
+     * having been written within the last 60s (`_hardResetConfirmSetAt`,
+     * enforced here) — ioBroker has no service-call-argument confirmation
+     * dialog like HA's button entity `entity_registry_enabled_default=False`
+     * pattern, so this DP-level guard is the closest equivalent to stop a
+     * stray/scripted `true` write from silently un-pairing a camera. The
+     * confirm state is cleared on every exit path (success, rejection,
+     * missing token, HTTP failure, or exception) so a stale value never
+     * stays armed.
+     *
+     * @param camId Camera UUID
+     */
+    private _handleHardResetWrite;
+    /**
+     * v1.9.0: AI Camera Analysis trigger — POSTs the latest cached snapshot
+     * (as base64 JPEG) + camera title to the user-configured external
+     * AI/vision endpoint (adapter.config.ai_analysis_endpoint_url /
+     * ai_analysis_api_key), and writes the JSON response's `description`
+     * (string) and `score` (number 1-10) into `ai_description`/`ai_score`.
+     *
+     * This is a SLICE of HA's ai_analysis.py: no persisted alert-history log
+     * (HA's ai_alert_store.py) and no built-in AI provider — HA delegates to
+     * its separately configured `ai_task` integration, ioBroker has no
+     * equivalent so the endpoint URL/key are adapter config instead.
+     *
+     * Intentionally uses a plain (non-Bosch-CA-pinned) axios instance — the
+     * shared `_httpClient` is configured with `BoschCloudAgent` (pinned to
+     * Bosch's own CA) and would reject any third-party endpoint's TLS cert.
+     * Because of that, `endpointUrl` gets its own SSRF validation
+     * (`validateAiEndpointUrl` — https-only, rejects private/loopback/
+     * link-local/unspecified resolved addresses) instead of inheriting any
+     * safety net from `_httpClient`'s config — see bug-hunt finding on this
+     * function: with zero validation this could be pointed at `http://`
+     * (leaking the API key + a real snapshot of the user's home in
+     * cleartext) or at an internal/metadata address (e.g.
+     * 169.254.169.254). `maxRedirects: 0` on the POST itself closes the
+     * remaining gap where a validated https URL could still redirect to an
+     * internal target.
+     *
+     * Bug-hunt finding: a rapid double-write must not fire two concurrent
+     * snapshot-fetch+POST cycles for the same camera — coalesced via
+     * `_aiAnalyzeInflight`, same pattern as `handleSnapshotTrigger`'s
+     * `_snapshotInflight` (iOB-B1).
+     *
+     * @param camId Camera UUID
+     */
+    private _handleAiAnalyzeTrigger;
+    private _doAiAnalyzeTrigger;
     /**
      * Switch the stream-quality preference for a camera and force a session
      * re-open so the new highQualityVideo flag takes effect immediately.
