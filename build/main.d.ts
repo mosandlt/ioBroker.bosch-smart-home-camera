@@ -355,6 +355,8 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _audioDetectionLocks;
     private _firmwareCache;
     private _firmwareLocks;
+    /** Last known local-data-interface status per camera (cloud-polled). */
+    private _ldiState;
     /**
      * Whether a continuous live RTSP stream is active per camera ID.
      * Default: false (no livestream on adapter start — Bosch counts every
@@ -610,6 +612,31 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * @param cameras
      */
     private ensureCameraObjects;
+    /**
+     * Refresh the local-data-interface status of one camera. Gen1 and cameras
+     * on older firmware are never queried.
+     *
+     * @param cam camera metadata
+     * @param token access token (defaults to the current one)
+     */
+    private _refreshLdiStatus;
+    /**
+     * Decide whether a camera streams from its local data interface: the
+     * status is active AND a valid password is configured. Otherwise the
+     * existing cloud path is used unchanged.
+     *
+     * @param camId camera cloud ID
+     * @returns null for the cloud path, else the direct URL (null = fail closed)
+     */
+    private _localSource;
+    /**
+     * Publish the direct local stream URL (or clear it when the camera address
+     * is unusable). Video only; the credentials are never logged.
+     *
+     * @param camId camera cloud ID
+     * @param url direct URL, or null to fail closed
+     */
+    private _publishLocalSource;
     /**
      * Ensure the top-level `cloud` channel and F13 feature-flags DPs exist.
      * Called once in onReady after cameras are discovered.

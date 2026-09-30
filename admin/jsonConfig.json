@@ -198,6 +198,25 @@
           "lg": 6,
           "xl": 6,
           "hidden": "!data.stream_persistent_endpoint"
+        },
+        "_ldi_header": {
+          "type": "header",
+          "text": "Local data interface",
+          "size": 5,
+          "newLine": true,
+          "sm": 12
+        },
+        "local_data_passwords": {
+          "type": "password",
+          "label": "Camera passwords (local data interface)",
+          "help": "Only for cameras whose local data interface is active (see cameras.<id>.local_data_interface). Format: <camera id or its first 8 characters>=<password from the camera sticker>, several entries separated by a space or comma. With a password the stream_url points straight at the camera (video only, no audio) and no cloud stream session is used. Stored encrypted.",
+          "default": "",
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 8,
+          "lg": 8,
+          "xl": 8
         }
       }
     },

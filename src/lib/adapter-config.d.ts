@@ -157,6 +157,12 @@ declare global {
             ai_analysis_endpoint_url?: string;
             /** Optional Bearer token sent as `Authorization` to the endpoint above (stored encrypted). */
             ai_analysis_api_key?: string;
+            /**
+             * Per-camera passwords for the local data interface, as
+             * `<cameraId or first 8 chars>=<password>` entries separated by
+             * whitespace, commas or semicolons (stored encrypted).
+             */
+            local_data_passwords?: string;
         }
     }
 }

@@ -95,6 +95,15 @@ import {
 
 import { validateAiEndpointUrl } from "./lib/ssrf_guard";
 
+import {
+    buildLocalStreamUrl,
+    fetchLdiStatus,
+    isLdiEligible,
+    maskUrl,
+    passwordForCamera,
+    type LdiState,
+} from "./lib/local_data_interface";
+
 import { MqttBridge } from "./lib/mqtt_bridge";
 
 import { fetchRcpLan, parseOnvifScopes, formatRcpVersion } from "./lib/rcp_lan_helper";
@@ -615,6 +624,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
     // double-press race firing two overlapping PUT /firmware calls (mirrors
     // HA v14.4.10's write-lock bug-hunt fix for the same race).
     private _firmwareLocks = new Map<string, Promise<unknown>>();
+
+    /** Last known local-data-interface status per camera (cloud-polled). */
+    private _ldiState = new Map<string, LdiState>();
 
     /**
      * Whether a continuous live RTSP stream is active per camera ID.
@@ -3324,6 +3336,19 @@ class BoschSmartHomeCamera extends utils.Adapter {
                 native: {},
             });
 
+            await this.setObjectNotExistsAsync(`${prefix}.local_data_interface`, {
+                type: "state",
+                common: {
+                    name: "Local data interface status — active | inactive | unsupported | unknown",
+                    role: "info.status",
+                    type: "string",
+                    read: true,
+                    write: false,
+                    def: "unknown",
+                },
+                native: {},
+            });
+
             // Gen1 floodlight schedule — GET /lighting_options. Gen2 uses the
             // /lighting/ambient path already mirrored above, so only create
             // these for Gen1 (Indoor/360 Gen1 answer HTTP 442 → DP stays empty).
@@ -3717,7 +3742,79 @@ class BoschSmartHomeCamera extends utils.Adapter {
             // false when no state exists yet (fresh install).
             const lsState = await this.getStateAsync(`${prefix}.livestream_enabled`);
             this._livestreamEnabled.set(cam.id, lsState?.val === true);
+
+            const ldiPersisted = await this.getStateAsync(`${prefix}.local_data_interface`);
+            if (
+                ldiPersisted?.val === "active" ||
+                ldiPersisted?.val === "inactive" ||
+                ldiPersisted?.val === "unsupported"
+            ) {
+                this._ldiState.set(cam.id, ldiPersisted.val);
+            }
         }
+    }
+
+    /**
+     * Refresh the local-data-interface status of one camera. Gen1 and cameras
+     * on older firmware are never queried.
+     *
+     * @param cam camera metadata
+     * @param token access token (defaults to the current one)
+     */
+    private async _refreshLdiStatus(cam: BoschCamera, token?: string): Promise<void> {
+        const accessToken = token ?? this._currentAccessToken;
+        if (!accessToken || !isLdiEligible(cam.generation, cam.firmwareVersion)) {
+            return;
+        }
+        const next = await fetchLdiStatus(this._httpClient, accessToken, cam.id);
+        if (next === null) {
+            return;
+        }
+        this._ldiState.set(cam.id, next);
+        await this.upsertState(`cameras.${cam.id}.local_data_interface`, next);
+    }
+
+    /**
+     * Decide whether a camera streams from its local data interface: the
+     * status is active AND a valid password is configured. Otherwise the
+     * existing cloud path is used unchanged.
+     *
+     * @param camId camera cloud ID
+     * @returns null for the cloud path, else the direct URL (null = fail closed)
+     */
+    private _localSource(camId: string): { url: string | null } | null {
+        if (this._ldiState.get(camId) !== "active") {
+            return null;
+        }
+        const password = passwordForCamera(this.config.local_data_passwords, camId);
+        if (password === null) {
+            return null;
+        }
+        return { url: buildLocalStreamUrl(this._lanIpMap.get(camId), password) };
+    }
+
+    /**
+     * Publish the direct local stream URL (or clear it when the camera address
+     * is unusable). Video only; the credentials are never logged.
+     *
+     * @param camId camera cloud ID
+     * @param url direct URL, or null to fail closed
+     */
+    private async _publishLocalSource(camId: string, url: string | null): Promise<void> {
+        const short = camId.slice(0, 8);
+        if (url === null) {
+            this.log.error(
+                `Camera ${short}: local data interface is active but the camera LAN address is ` +
+                    `unknown or not a private address - not starting a cloud stream`,
+            );
+        } else {
+            this.log.info(
+                `Camera ${short}: streaming from the local data interface (video only) ${maskUrl(url)}`,
+            );
+        }
+        await this.upsertState(`cameras.${camId}.stream_url`, url ?? "");
+        await this.upsertState(`cameras.${camId}.stream_url_sub`, "");
+        await this._publishStreamParts(camId, url ?? "");
     }
 
     /**
@@ -3886,6 +3983,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * @param camId
      */
     private async ensureLiveSession(camId: string): Promise<LiveSession> {
+        if (this._localSource(camId) !== null) {
+            throw new Error(`Camera ${camId.slice(0, 8)} streams locally - no cloud session`);
+        }
         // v0.5.3: bumped from 30 s → 60 s so a snapshot burst inside the
         // SNAPSHOT_SESSION_IDLE_MS keep-alive window can always reuse the
         // cached session. Watchdog handles real session renewal at ~T-60s
@@ -4539,7 +4639,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         let port = 0;
         let path = "";
         if (url) {
-            const m = /^rtsp:\/\/([^:/]+):(\d+)(\/.*)$/.exec(url);
+            const m = /^rtsps?:\/\/(?:[^/@]*@)?([^:/]+):(\d+)(\/.*)$/.exec(url);
             if (m) {
                 host = m[1];
                 port = parseInt(m[2], 10);
@@ -5602,7 +5702,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         const { bindHost, urlHost } = this._rtspBindConfig();
         for (const cam of cameras) {
             const camId = cam.id;
-            if (this._lazyFrontDoors.has(camId)) {
+            if (this._lazyFrontDoors.has(camId) || this._localSource(camId) !== null) {
                 continue;
             }
             // Reuse the persisted sticky port so the published URL stays stable
@@ -6087,6 +6187,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // Gated on slow-tier tick; best-effort (errors swallowed inside helper).
         if (doSlowTier) {
             await this._pollLanDiagnostics(cam.id);
+            await this._refreshLdiStatus(cam, token);
         }
 
         // v1.2.0: management-tier READ-only mirrors (zones / privacy masks /
@@ -10801,6 +10902,26 @@ class BoschSmartHomeCamera extends utils.Adapter {
             // could fire the idle timer 60 s later and tear down the
             // freshly-opened stream.
             this._cancelSnapshotIdleTeardown(camId);
+            // Local data interface: only consulted when a password is configured,
+            // so setups without one take the unchanged cloud path below.
+            const localCam = this._cameras.get(camId);
+            if (localCam && passwordForCamera(this.config.local_data_passwords, camId) !== null) {
+                await this._refreshLdiStatus(localCam);
+            }
+            const local = this._localSource(camId);
+            if (local) {
+                await this._publishLocalSource(camId, local.url);
+                return;
+            }
+            if (
+                this._ldiState.get(camId) === "active" &&
+                passwordForCamera(this.config.local_data_passwords, camId) === null
+            ) {
+                this.log.info(
+                    `Camera ${camId.slice(0, 8)}: local data interface is active - set the camera ` +
+                        `password in the adapter settings to stream locally`,
+                );
+            }
             // Open Bosch session + spawn TLS proxy + arm watchdog + populate stream_url
             try {
                 await this.ensureLiveSession(camId);

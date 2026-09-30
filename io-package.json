@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "1.9.0",
+        "version": "1.10.0",
         "news": {
+            "1.10.0": {
+                "en": "New: local data interface status per Gen2 camera (firmware 9.40.105+); with an optional per-camera password and an active interface, stream_url points directly at the camera (video only) and no cloud stream session is used.",
+                "de": "Neu: Status der lokalen Datenschnittstelle pro Gen2-Kamera (Firmware 9.40.105+); mit optionalem Kamera-Passwort und aktiver Schnittstelle zeigt stream_url direkt auf die Kamera (nur Video), ohne Cloud-Stream-Session.",
+                "ru": "Новое: статус локального интерфейса данных для каждой камеры Gen2 (прошивка 9.40.105+); с дополнительным паролем для каждой камеры и активным интерфейсомstream_url указывает непосредственно на камеру (только видео), и сеанс облачного потока не используется.",
+                "pt": "Novo: status da interface de dados local por câmera Gen2 (firmware 9.40.105+); com uma senha opcional por câmera e uma interface ativa, stream_url aponta diretamente para a câmera (somente vídeo) e nenhuma sessão de streaming na nuvem é usada.",
+                "nl": "Nieuw: lokale data-interfacestatus per Gen2-camera (firmware 9.40.105+); met een optioneel wachtwoord per camera en een actieve interface wijst stream_url rechtstreeks naar de camera (alleen video) en wordt er geen cloudstreamsessie gebruikt.",
+                "fr": "Nouveau : état de l'interface de données locale par caméra Gen2 (firmware 9.40.105+) ; avec un mot de passe facultatif par caméra et une interface active, stream_url pointe directement vers la caméra (vidéo uniquement) et aucune session de flux cloud n'est utilisée.",
+                "it": "Novità: stato dell'interfaccia dati locale per telecamera Gen2 (firmware 9.40.105+); con una password opzionale per telecamera e un'interfaccia attiva, stream_url punta direttamente alla telecamera (solo video) e non viene utilizzata alcuna sessione di streaming cloud.",
+                "es": "Nuevo: estado de la interfaz de datos local por cámara Gen2 (firmware 9.40.105+); con una contraseña opcional por cámara y una interfaz activa, stream_url apunta directamente a la cámara (solo video) y no se utiliza ninguna sesión de transmisión en la nube.",
+                "pl": "Nowość: stan lokalnego interfejsu danych dla kamery Gen2 (oprogramowanie 9.40.105+); z opcjonalnym hasłem dla kamery i aktywnym interfejsem, stream_url wskazuje bezpośrednio na kamerę (tylko wideo) i nie jest używana żadna sesja strumienia w chmurze.",
+                "uk": "Нове: статус локального інтерфейсу даних для кожної камери Gen2 (прошивка 9.40.105+); з необов’язковим паролем для кожної камери та активним інтерфейсом stream_url вказує безпосередньо на камеру (тільки відео), і сеанс хмарного потоку не використовується.",
+                "zh-cn": "新功能：每个 Gen2 摄像机的本地数据接口状态（固件 9.40.105+）；通过可选的每个摄像机密码和活动界面，stream_url 直接指向摄像机（仅限视频），并且不使用云流会话。"
+            },
             "1.9.0": {
                 "en": "New: AI camera analysis (external endpoint), camera soft/hard reset, rename, and Gen2 LED/white-balance tuning DPs — plus 2 adversarial bug-hunt passes that found and fixed an SSRF hole in the AI endpoint config and a hard-reset confirmation that never expired.",
                 "de": "Neu: KI-Kamera-Analyse (externer Endpunkt), Kamera Soft-/Hard-Reset, Umbenennen, sowie Gen2 LED/Weissabgleich-DPs -- plus 2 kritische Bug-Hunt-Runden, die eine SSRF-Luecke in der KI-Endpunkt-Konfiguration und eine nie ablaufende Hard-Reset-Bestaetigung fanden und behoben.",
@@ -80,45 +93,6 @@
                 "pl": "Nowość: zapis Cloud-API dla stref ruchu, maski prywatności, reguły automatyzacji (tworzenie/aktualizacja/usuwanie), udostępnianie kamery, zapraszanie/usuwanie znajomych i wyzwalacz instalacji oprogramowania sprzętowego (wszystkie punkty końcowe /v11, przeniesione z integracji HA). Dodaje również blokującą bramę CI npm-audit.",
                 "uk": "Нове: запис у хмарний API для зон руху, маски конфіденційності, правила автоматизації (створення/оновлення/видалення), спільний доступ до камери, запрошення/видалення друзів і тригер встановлення мікропрограми (усі кінцеві точки /v11, перенесені з інтеграції HA). Також додано блокуючий CI-шлюз npm-audit.",
                 "zh-cn": "新增功能：用于运动区域、隐私遮罩、自动化规则（创建/更新/删除）、相机共享、朋友邀请/删除以及固件安装触发器（所有 /v11 端点，从 HA 集成移植）的云 API 写入。还添加了一个阻塞 npm-audit CI 门。"
-            },
-            "1.7.8": {
-                "en": "Docs-only release: repository-checker keyword fix (package.json/io-package.json), refreshed sibling-repo version references in README, dev-sandbox Node version doc fix, devDependency bumps (@types/node, @iobroker/adapter-react-v5). No functional changes.",
-                "de": "Reines Doku-Release: Repository-Checker-Keyword-Fix (package.json/io-package.json), aktualisierte Versionsangaben der Schwester-Repos im README, Doku-Fix Node-Version im Dev-Sandbox, devDependency-Updates (@types/node, @iobroker/adapter-react-v5). Keine funktionalen Änderungen.",
-                "ru": "Выпуск только для документации: исправлено ключевое слово проверки репозитория (package.json/io-package.json), обновлены ссылки на версии родственного репозитория в README, исправление документации версии узла dev-sandbox, улучшения devDependency (@types/node, @iobroker/adapter-react-v5). Никаких функциональных изменений.",
-                "pt": "Lançamento somente de documentos: correção de palavra-chave do verificador de repositório (package.json/io-package.json), referências de versão de repositório irmão atualizadas no README, correção de documento de versão do nó dev-sandbox, colisões devDependency (@types/node, @iobroker/adapter-react-v5). Sem alterações funcionais.",
-                "nl": "Release voor alleen documenten: repository-checker sleutelwoordfix (package.json/io-package.json), vernieuwde broer-repository-versiereferenties in README, dev-sandbox Node-versie doc-fix, devDependency bumps (@types/node, @iobroker/adapter-react-v5). Geen functionele wijzigingen.",
-                "fr": "Version Docs uniquement : correctif de mot-clé du vérificateur de référentiel (package.json/io-package.json), références de version actualisées du dépôt frère dans README, correctif de la documentation de la version dev-sandbox Node, bosses de devDependency (@types/node, @iobroker/adapter-react-v5). Aucun changement fonctionnel.",
-                "it": "Versione solo documenti: correzione delle parole chiave repository-checker (package.json/io-package.json), riferimenti alla versione di sibling-repo aggiornati nel README, correzione del documento della versione dev-sandbox Node, problemi di devDependency (@types/node, @iobroker/adapter-react-v5). Nessuna modifica funzionale.",
-                "es": "Versión solo para documentos: corrección de palabras clave del verificador de repositorio (package.json/io-package.json), referencias actualizadas de la versión del repositorio hermano en README, corrección de documentos de la versión del nodo dev-sandbox, mejoras de devDependency (@types/node, @iobroker/adapter-react-v5). Sin cambios funcionales.",
-                "pl": "Wersja tylko dla Dokumentów: poprawka słowa kluczowego sprawdzania repozytorium (package.json/io-package.json), odświeżone odniesienia do wersji rodzeństwa-repo w README, dev-sandbox poprawka doc wersji Node, nierówności devDependency (@types/node, @iobroker/adapter-react-v5). Żadnych zmian funkcjonalnych.",
-                "uk": "Випуск лише для документів: виправлення ключового слова перевірки сховища (package.json/io-package.json), оновлені посилання на версії однорідного сховища в README, виправлення документа версії dev-sandbox Node, помилки devDependency (@types/node, @iobroker/adapter-react-v5). Без функціональних змін.",
-                "zh-cn": "仅文档版本：repository-checker 关键字修复 (package.json/io-package.json)、自述文件中刷新的同级存储库版本引用、dev-sandbox Node 版本文档修复、devDependency 碰撞 (@types/node、@iobroker/adapter-react-v5)。没有功能变化。"
-            },
-            "1.7.7": {
-                "en": "Repository review hardening: English-only log/notification text; camera IDs sanitized for object paths; dead region option removed; README credits Bosch Smart Home; mqtt_password protection confirmed at io-package.json root.",
-                "de": "Repository-Review-Härtung: Log-/Benachrichtigungstexte nur noch Englisch; Kamera-IDs für Objektpfade bereinigt; tote Region-Option entfernt; README verlinkt Bosch Smart Home; mqtt_password-Schutz an io-package.json-Wurzel bestätigt.",
-                "ru": "Усиление проверки репозитория: текст журнала/уведомлений только на английском языке; идентификаторы камер очищены для траекторий объектов; удалена опция мертвой зоны; В README упоминается умный дом Bosch; Защита mqtt_password подтверждена в корне io-package.json.",
-                "pt": "Proteção de revisão de repositório: texto de registro/notificação somente em inglês; IDs de câmeras higienizados para caminhos de objetos; opção de região morta removida; README dá créditos à Bosch Smart Home; Proteção mqtt_password confirmada na raiz io-package.json.",
-                "nl": "Verharding van repositorybeoordeling: alleen Engelstalige log-/meldingstekst; camera-ID's opgeschoond voor objectpaden; dode regio-optie verwijderd; README-credits Bosch Smart Home; mqtt_password-beveiliging bevestigd op io-package.json root.",
-                "fr": "Renforcement de l'examen du référentiel : texte de journal/notification en anglais uniquement ; identifiants de caméra nettoyés pour les chemins d'objet ; option de région morte supprimée ; Crédits README Bosch Smart Home ; Protection mqtt_password confirmée à la racine io-package.json.",
-                "it": "Rafforzamento della revisione del repository: testo di registro/notifica solo in inglese; ID delle telecamere ripuliti per i percorsi degli oggetti; opzione regione morta rimossa; README crediti Bosch Smart Home; Protezione mqtt_password confermata nella root io-package.json.",
-                "es": "Fortalecimiento de la revisión del repositorio: texto de registro/notificación solo en inglés; ID de cámara desinfectadas para las rutas de los objetos; se eliminó la opción de región muerta; README acredita Bosch Smart Home; Protección mqtt_password confirmada en la raíz io-package.json.",
-                "pl": "Udoskonalanie przeglądu repozytorium: tekst dziennika/powiadomienia tylko w języku angielskim; identyfikatory kamer oczyszczone pod kątem ścieżek obiektów; usunięto opcję martwego obszaru; README opisuje Bosch Smart Home; Ochrona mqtt_password potwierdzona w katalogu głównym io-package.json.",
-                "uk": "Посилення перевірки репозиторію: текст журналу/повідомлення лише англійською мовою; дезінфіковані ідентифікатори камер для шляхів об’єктів; видалено опцію мертвої області; README кредити Bosch Smart Home; Захист mqtt_password підтверджено в корені io-package.json.",
-                "zh-cn": "存储库审查强化：纯英文日志/通知文本；针对对象路径清理相机 ID；删除了死区选项；自述文件归功于博世智能家居； mqtt_password 保护已在 io-package.json 根目录中确认。"
-            },
-            "1.7.6": {
-                "en": "CI: integration test harness (@iobroker/testing), build job, Node 22/24 matrix, coverage gate (≥80%), i18n E5606 gate. No functional changes.",
-                "de": "CI: Integration-Test-Harness (@iobroker/testing), Build-Job, Node-22/24-Matrix, Coverage-Gate (≥80 %), i18n-E5606-Gate. Keine funktionalen Änderungen.",
-                "ru": "CI: обвязка интеграционных тестов (@iobroker/testing), задание сборки, матрица Node 22/24, покрытие ≥80 %, i18n E5606. Функциональных изменений нет.",
-                "pt": "CI: harness de testes de integração (@iobroker/testing), job de build, matriz Node 22/24, cobertura ≥80 %, gate i18n E5606. Sem alterações funcionais.",
-                "nl": "CI: integratietestharnas (@iobroker/testing), build-taak, Node 22/24 matrix, dekking ≥80 %, i18n E5606-gate. Geen functionele wijzigingen.",
-                "fr": "CI : harnais de tests d'intégration (@iobroker/testing), tâche build, matrice Node 22/24, couverture ≥80 %, gate i18n E5606. Aucune modification fonctionnelle.",
-                "it": "CI: test harness integrazione (@iobroker/testing), job build, matrice Node 22/24, copertura ≥80 %, gate i18n E5606. Nessuna modifica funzionale.",
-                "es": "CI: harness de pruebas de integración (@iobroker/testing), trabajo build, matriz Node 22/24, cobertura ≥80 %, gate i18n E5606. Sin cambios funcionales.",
-                "pl": "CI: harness testów integracyjnych (@iobroker/testing), zadanie build, matryca Node 22/24, pokrycie ≥80 %, gate i18n E5606. Brak zmian funkcjonalnych.",
-                "uk": "CI: harness інтеграційних тестів (@iobroker/testing), завдання build, матриця Node 22/24, покриття ≥80 %, gate i18n E5606. Без функціональних змін.",
-                "zh-cn": "CI：集成测试框架（@iobroker/testing）、构建任务、Node 22/24 矩阵、覆盖率门（≥80 %）、i18n E5606 门。无功能变更。"
             }
         },
         "titleLang": {
@@ -205,11 +179,13 @@
     },
     "encryptedNative": [
         "mqtt_password",
-        "ai_analysis_api_key"
+        "ai_analysis_api_key",
+        "local_data_passwords"
     ],
     "protectedNative": [
         "mqtt_password",
-        "ai_analysis_api_key"
+        "ai_analysis_api_key",
+        "local_data_passwords"
     ],
     "native": {
         "redirect_url": "",
@@ -217,7 +193,8 @@
         "mqtt_password": "",
         "ai_analysis_enabled": false,
         "ai_analysis_endpoint_url": "",
-        "ai_analysis_api_key": ""
+        "ai_analysis_api_key": "",
+        "local_data_passwords": ""
     },
     "instanceObjects": [
         {
