@@ -209,7 +209,7 @@
         "local_data_passwords": {
           "type": "password",
           "label": "Camera passwords (local data interface)",
-          "help": "Only for cameras whose local data interface is active (see cameras.<id>.local_data_interface). Format: <camera id or its first 8 characters>=<password from the camera sticker>, several entries separated by a space or comma. With a password the stream_url points straight at the camera (video only, no audio) and no cloud stream session is used. Stored encrypted.",
+          "help": "Only for cameras whose local data interface is active (see cameras.<id>.local_data_interface). Format: <camera id or its first 8 characters>=<password from the camera sticker>, several entries separated by a space or comma. With a password the stream_url points straight at the camera (with audio; quality follows stream_quality) and no cloud stream session is used. Stored encrypted.",
           "default": "",
           "newLine": true,
           "xs": 12,

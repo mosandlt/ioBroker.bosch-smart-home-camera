@@ -182,18 +182,27 @@ export function isSafeLanHost(host: unknown): host is string {
 }
 
 /**
- * Build the direct local stream URL (video only).
+ * Build the direct local stream URL:
+ * `rtsps://localuser:<pw>@<host>:9554/rtsp_tunnel?line=1&inst=<1|2>&enableaudio=<0|1>`.
+ * inst 1 = high quality, inst 2 = low quality; enableaudio=1 adds the AAC track.
  *
  * @param host validated LAN address
  * @param password camera password
+ * @param quality "low" selects inst=2, anything else inst=1
+ * @param audio true (default) requests the audio track
  * @returns URL, or null when host or password are not acceptable
  */
-export function buildLocalStreamUrl(host: unknown, password: unknown): string | null {
+export function buildLocalStreamUrl(
+    host: unknown,
+    password: unknown,
+    quality: "high" | "low" = "high",
+    audio: boolean = true,
+): string | null {
     if (!isSafeLanHost(host) || !isValidPassword(password)) {
         return null;
     }
     const h = net.isIP(host) === 6 ? `[${host}]` : host;
-    return `rtsps://${LDI_USERNAME}:${encodeURIComponent(password)}@${h}:${LDI_PORT}/live`;
+    return `rtsps://${LDI_USERNAME}:${encodeURIComponent(password)}@${h}:${LDI_PORT}/rtsp_tunnel?line=1&inst=${quality === "low" ? 2 : 1}&enableaudio=${audio ? 1 : 0}`;
 }
 
 /**

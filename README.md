@@ -783,7 +783,8 @@ Gen2 cameras on firmware 9.40.105 or newer can expose a local data interface (en
 
 To stream directly from the camera, enter the sticker password under Settings → RTSP / Stream → *Camera passwords*, as `<camera id or its first 8 characters>=<password>` (several entries separated by a space or comma). The field is stored encrypted. When the status is `active` and a password is set for that camera:
 
-- `stream_url` (and `stream_host` / `stream_port` / `stream_path`) point straight at the camera (`rtsps://localuser:<password>@<camera LAN IP>:9554/live`), video only, no audio track. `stream_url_sub` stays empty.
+- `stream_url` (and `stream_host` / `stream_port` / `stream_path`) point straight at the camera (`rtsps://localuser:<password>@<camera LAN IP>:9554/rtsp_tunnel?line=1&inst=<1|2>&enableaudio=1`), with the AAC audio track. `inst` follows `stream_quality` (`high` = 1, `low` = 2). `stream_url_sub` stays empty.
+- The camera allows only a few (about 3) simultaneous RTSP sessions.
 - No Bosch cloud stream session is opened for that camera. If the camera's LAN address is unknown or not a private address, the stream is not started (no cloud fallback) and the log says why.
 - The camera closes the stream while privacy mode is on.
 - The URL contains the password, so treat `stream_url` like a credential. The adapter never writes the password to its log.
@@ -961,8 +962,11 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.10.1 (2026-09-30)
+- Fixed: the direct local stream URL now uses `/rtsp_tunnel?line=1&inst=<1|2>&enableaudio=1` instead of `/live`, so the stream carries audio and follows the `stream_quality` setting (high = inst 1, low = inst 2).
+
 ### 1.10.0 (2026-09-30)
-- New: local data interface. Read-only `local_data_interface` status state per camera (Gen2, firmware 9.40.105 or newer). With an optional per-camera password (Settings → RTSP / Stream) and an active interface, `stream_url` points directly at the camera (video only) and no cloud stream session is used.
+- New: local data interface. Read-only `local_data_interface` status state per camera (Gen2, firmware 9.40.105 or newer). With an optional per-camera password (Settings → RTSP / Stream) and an active interface, `stream_url` points directly at the camera and no cloud stream session is used.
 - Fixed: the FCM `Invalid EC key` fix (multi-segment crypto-key/salt headers) is now applied at runtime by wrapping the push decryption in the adapter itself; the `patch-package` postinstall step is removed.
 - CI: adapter tests also run on Node 26.
 

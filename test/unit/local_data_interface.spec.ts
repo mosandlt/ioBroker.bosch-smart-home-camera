@@ -172,17 +172,34 @@ describe("LAN host validation", () => {
 describe("buildLocalStreamUrl / maskUrl", () => {
     it("builds rtsps URL with fixed user and port", () => {
         expect(buildLocalStreamUrl("10.0.0.5", "test-pw")).to.equal(
-            "rtsps://localuser:test-pw@10.0.0.5:9554/live",
+            "rtsps://localuser:test-pw@10.0.0.5:9554/rtsp_tunnel?line=1&inst=1&enableaudio=1",
         );
+    });
+    it("low quality -> inst=2", () => {
+        expect(buildLocalStreamUrl("10.0.0.5", "pw", "low", true)).to.equal(
+            "rtsps://localuser:pw@10.0.0.5:9554/rtsp_tunnel?line=1&inst=2&enableaudio=1",
+        );
+    });
+    it("audio off -> enableaudio=0, high quality -> inst=1", () => {
+        expect(buildLocalStreamUrl("10.0.0.5", "pw", "high", false)).to.equal(
+            "rtsps://localuser:pw@10.0.0.5:9554/rtsp_tunnel?line=1&inst=1&enableaudio=0",
+        );
+    });
+    it("special-char password stays quoted with query params", () => {
+        const url = buildLocalStreamUrl("10.0.0.5", "p&w=1?#%", "low", false) as string;
+        expect(url).to.equal(
+            "rtsps://localuser:p%26w%3D1%3F%23%25@10.0.0.5:9554/rtsp_tunnel?line=1&inst=2&enableaudio=0",
+        );
+        expect(maskUrl(url)).to.not.contain("p%26w");
     });
     it("url-quotes the password", () => {
         expect(buildLocalStreamUrl("10.0.0.5", "a@b/c:d#e")).to.equal(
-            "rtsps://localuser:a%40b%2Fc%3Ad%23e@10.0.0.5:9554/live",
+            "rtsps://localuser:a%40b%2Fc%3Ad%23e@10.0.0.5:9554/rtsp_tunnel?line=1&inst=1&enableaudio=1",
         );
     });
     it("brackets IPv6", () => {
         expect(buildLocalStreamUrl("fd12::1", "pw")).to.equal(
-            "rtsps://localuser:pw@[fd12::1]:9554/live",
+            "rtsps://localuser:pw@[fd12::1]:9554/rtsp_tunnel?line=1&inst=1&enableaudio=1",
         );
     });
     it("unsafe host or bad password -> null", () => {
@@ -192,8 +209,12 @@ describe("buildLocalStreamUrl / maskUrl", () => {
         expect(buildLocalStreamUrl("10.0.0.5", "")).to.equal(null);
     });
     it("maskUrl hides the credentials", () => {
-        const masked = maskUrl("rtsps://localuser:test-pw@10.0.0.5:9554/live");
-        expect(masked).to.equal("rtsps://***@10.0.0.5:9554/live");
+        const masked = maskUrl(
+            "rtsps://localuser:test-pw@10.0.0.5:9554/rtsp_tunnel?line=1&inst=1&enableaudio=1",
+        );
+        expect(masked).to.equal(
+            "rtsps://***@10.0.0.5:9554/rtsp_tunnel?line=1&inst=1&enableaudio=1",
+        );
         expect(masked).to.not.contain("test-pw");
     });
 });

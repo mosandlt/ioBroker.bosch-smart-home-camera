@@ -3791,12 +3791,19 @@ class BoschSmartHomeCamera extends utils.Adapter {
         if (password === null) {
             return null;
         }
-        return { url: buildLocalStreamUrl(this._lanIpMap.get(camId), password) };
+        return {
+            url: buildLocalStreamUrl(
+                this._lanIpMap.get(camId),
+                password,
+                this._streamQuality.get(camId) === "low" ? "low" : "high",
+                true,
+            ),
+        };
     }
 
     /**
      * Publish the direct local stream URL (or clear it when the camera address
-     * is unusable). Video only; the credentials are never logged.
+     * is unusable). Video plus audio, quality per `stream_quality`; the credentials are never logged.
      *
      * @param camId camera cloud ID
      * @param url direct URL, or null to fail closed
@@ -3810,7 +3817,7 @@ class BoschSmartHomeCamera extends utils.Adapter {
             );
         } else {
             this.log.info(
-                `Camera ${short}: streaming from the local data interface (video only) ${maskUrl(url)}`,
+                `Camera ${short}: streaming from the local data interface (with audio) ${maskUrl(url)}`,
             );
         }
         await this.upsertState(`cameras.${camId}.stream_url`, url ?? "");
@@ -10700,6 +10707,16 @@ class BoschSmartHomeCamera extends utils.Adapter {
             `Stream quality for ${camId.slice(0, 8)}: ${previous} → ${normalised} ` +
                 `(closing session so next stream request re-opens with new flag)`,
         );
+
+        // Local data interface: no session to reopen, just republish the URL
+        // with the matching inst value while the stream is enabled.
+        if (this._livestreamEnabled.get(camId) === true) {
+            const local = this._localSource(camId);
+            if (local) {
+                await this._publishLocalSource(camId, local.url);
+                return;
+            }
+        }
 
         // Close existing session so the next ensureLiveSession() picks up the
         // new highQualityVideo flag. Best-effort — proxy stays serving the

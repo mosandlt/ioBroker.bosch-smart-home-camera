@@ -77,6 +77,7 @@ interface StubOpts {
     generation?: number;
     firmware?: string;
     token?: string | null;
+    quality?: "high" | "low";
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -89,6 +90,7 @@ function makeStub(o: StubOpts = {}): any {
     const s: any = {
         config: { local_data_passwords: o.passwords ?? "" },
         _ldiState: new Map(o.state ? [[CAM, o.state]] : []),
+        _streamQuality: new Map(o.quality ? [[CAM, o.quality]] : []),
         _lanIpMap: new Map(o.ip ? [[CAM, o.ip]] : []),
         _cameras: new Map([
             [
@@ -117,6 +119,7 @@ function makeStub(o: StubOpts = {}): any {
         "_refreshLdiStatus",
         "_publishLocalSource",
         "_publishStreamParts",
+        "handleStreamQualityChange",
     ]) {
         s[name] = proto[name];
     }
@@ -124,10 +127,21 @@ function makeStub(o: StubOpts = {}): any {
 }
 
 describe("_localSource", () => {
-    const url = `rtsps://localuser:${PW}@10.0.0.5:9554/live`;
+    const url = `rtsps://localuser:${PW}@10.0.0.5:9554/rtsp_tunnel?line=1&inst=1&enableaudio=1`;
     it("active + password + LAN ip -> direct URL", () => {
         const s = makeStub({ state: "active", passwords: `${CAM}=${PW}`, ip: "10.0.0.5" });
         expect(proto._localSource.call(s, CAM)).to.deep.equal({ url });
+    });
+    it("low quality -> inst=2", () => {
+        const s = makeStub({
+            state: "active",
+            passwords: `${CAM}=${PW}`,
+            ip: "10.0.0.5",
+            quality: "low",
+        });
+        expect(proto._localSource.call(s, CAM)).to.deep.equal({
+            url: url.replace("inst=1", "inst=2"),
+        });
     });
     it("active without password -> cloud path (null)", () => {
         const s = makeStub({ state: "active", ip: "10.0.0.5" });
@@ -208,12 +222,14 @@ describe("handleLivestreamToggle with the local data interface", () => {
         await s.handleLivestreamToggle(CAM, true);
         expect(s.ensureLiveSession.called).to.equal(false);
         expect(s._states[`cameras.${CAM}.stream_url`]).to.equal(
-            `rtsps://localuser:${PW}@10.0.0.5:9554/live`,
+            `rtsps://localuser:${PW}@10.0.0.5:9554/rtsp_tunnel?line=1&inst=1&enableaudio=1`,
         );
         expect(s._states[`cameras.${CAM}.stream_url_sub`]).to.equal("");
         expect(s._states[`cameras.${CAM}.stream_host`]).to.equal("10.0.0.5");
         expect(s._states[`cameras.${CAM}.stream_port`]).to.equal(9554);
-        expect(s._states[`cameras.${CAM}.stream_path`]).to.equal("/live");
+        expect(s._states[`cameras.${CAM}.stream_path`]).to.equal(
+            "/rtsp_tunnel?line=1&inst=1&enableaudio=1",
+        );
         expect(s.logs.join("\n")).to.not.contain(PW);
         expect(s.logs.join("\n")).to.contain("***@10.0.0.5");
     });
@@ -260,7 +276,9 @@ describe("handleLivestreamToggle with the local data interface", () => {
         const s = toggleStub({ state: "active", passwords: `${CAM}=${PW}`, ip: "10.0.0.5" });
         await s.handleLivestreamToggle(CAM, true);
         expect(s.ensureLiveSession.called).to.equal(false);
-        expect(s._states[`cameras.${CAM}.stream_url`]).to.contain("9554/live");
+        expect(s._states[`cameras.${CAM}.stream_url`]).to.contain(
+            "9554/rtsp_tunnel?line=1&inst=1&enableaudio=1",
+        );
     });
 });
 
@@ -276,5 +294,23 @@ describe("ensureLiveSession guard", () => {
         expect(err).to.be.instanceOf(Error);
         expect((err as Error).message).to.contain("streams locally");
         expect((err as Error).message).to.not.contain(PW);
+    });
+});
+
+describe("handleStreamQualityChange with the local source", () => {
+    it("republishes the URL with the new inst, password never logged", async () => {
+        const s = makeStub({
+            state: "active",
+            passwords: `${CAM}=${PW}`,
+            ip: "10.0.0.5",
+            quality: "high",
+        });
+        s._livestreamEnabled.set(CAM, true);
+        s._liveSessions = new Map();
+        await s.handleStreamQualityChange(CAM, "low");
+        expect(s._states[`cameras.${CAM}.stream_url`]).to.contain("inst=2&enableaudio=1");
+        expect(s.logs.join("\n")).to.not.contain(PW);
+        await s.handleStreamQualityChange(CAM, "high");
+        expect(s._states[`cameras.${CAM}.stream_url`]).to.contain("inst=1&enableaudio=1");
     });
 });

@@ -206,18 +206,22 @@ function isSafeLanHost(host) {
     return false;
 }
 /**
- * Build the direct local stream URL (video only).
+ * Build the direct local stream URL:
+ * `rtsps://localuser:<pw>@<host>:9554/rtsp_tunnel?line=1&inst=<1|2>&enableaudio=<0|1>`.
+ * inst 1 = high quality, inst 2 = low quality; enableaudio=1 adds the AAC track.
  *
  * @param host validated LAN address
  * @param password camera password
+ * @param quality "low" selects inst=2, anything else inst=1
+ * @param audio true (default) requests the audio track
  * @returns URL, or null when host or password are not acceptable
  */
-function buildLocalStreamUrl(host, password) {
+function buildLocalStreamUrl(host, password, quality = "high", audio = true) {
     if (!isSafeLanHost(host) || !isValidPassword(password)) {
         return null;
     }
     const h = net.isIP(host) === 6 ? `[${host}]` : host;
-    return `rtsps://${LDI_USERNAME}:${encodeURIComponent(password)}@${h}:${LDI_PORT}/live`;
+    return `rtsps://${LDI_USERNAME}:${encodeURIComponent(password)}@${h}:${LDI_PORT}/rtsp_tunnel?line=1&inst=${quality === "low" ? 2 : 1}&enableaudio=${audio ? 1 : 0}`;
 }
 /**
  * Hide the userinfo part of a URL for display.

@@ -631,7 +631,7 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
     private _localSource;
     /**
      * Publish the direct local stream URL (or clear it when the camera address
-     * is unusable). Video only; the credentials are never logged.
+     * is unusable). Video plus audio, quality per `stream_quality`; the credentials are never logged.
      *
      * @param camId camera cloud ID
      * @param url direct URL, or null to fail closed
