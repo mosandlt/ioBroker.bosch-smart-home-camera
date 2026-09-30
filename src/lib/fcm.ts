@@ -48,6 +48,7 @@ import {
     type FcmClientMessageData,
 } from "@aracna/fcm";
 import { Logger } from "@aracna/core";
+import { installFcmEceWrapper } from "./fcm_ece_wrapper";
 
 // ── Constants (from Python fcm.py) ───────────────────────────────────────────
 
@@ -76,6 +77,10 @@ for (const _fcmLogger of [FcmClassLogger, FcmFunctionLogger, FcmRequestLogger]) 
         _fcmLogger.disable();
     }
 }
+// Attach the "Invalid EC key" decrypt wrapper before any FcmClient exists.
+// Never throws; main.ts logs one info line if it could not attach.
+installFcmEceWrapper();
+
 export const FCM_SENDER_ID = "404630424405";
 export const FCM_ANDROID_APP_ID = `1:${FCM_SENDER_ID}:android:9e5b6b58e4c70075`;
 
@@ -97,14 +102,10 @@ export const FCM_ANDROID_APP_ID = `1:${FCM_SENDER_ID}:android:9e5b6b58e4c70075`;
  * dropped push messages. This is the same bug class already fixed in the
  * sibling Home Assistant integration's Python FCM library.
  *
- * Since `@aracna/fcm`'s extraction lives inside a private closure method with
- * no clean subclass/DI override point, the actual fix is applied directly to
- * `node_modules/@aracna/fcm/classes/fcm-client.js` via `patch-package`
- * (`patches/@aracna+fcm+1.0.33.patch`, verified at install time by
- * `scripts/verify-fcm-patch.js`). This function is a byte-for-byte-equivalent
- * TypeScript copy of that patch's extraction logic — kept here purely so the
- * extraction ALGORITHM has real unit-test coverage (the patched minified code
- * itself cannot be unit-tested directly). Keep both in sync if either changes.
+ * The live fix is the runtime wrapper in `fcm_ece_wrapper.ts` (wraps
+ * `http_ece.decrypt`, which the library calls with the blindly sliced values).
+ * This function is the reference extraction algorithm for the un-sliced header,
+ * kept with its unit tests as the specification of the by-name parsing.
  *
  * @param headerValue The raw `.value` string from an `app_data` entry (or
  *   `undefined` if no matching entry was found).

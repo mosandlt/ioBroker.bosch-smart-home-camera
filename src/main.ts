@@ -73,6 +73,7 @@ import {
     type FcmCredentials,
     type FcmEventPayload,
 } from "./lib/fcm";
+import { getFcmEceWrapperStatus } from "./lib/fcm_ece_wrapper";
 
 import {
     setPanicAlarm,
@@ -5404,6 +5405,12 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // back to a fresh registration if the state is empty, the ciphertext
         // is stale, or the JSON is malformed.
         const savedFcmCreds = await this._loadSavedFcmCredentials();
+        const eceStatus = getFcmEceWrapperStatus();
+        if (!eceStatus.attached) {
+            this.log.info(
+                `FCM push decrypt fix not active (${eceStatus.reason ?? "unknown"}); push messages with unusual header layouts may fail to decrypt.`,
+            );
+        }
         this._fcmListener = new FcmListener(
             this._httpClient,
             tokens.access_token,

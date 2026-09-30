@@ -963,6 +963,17 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ### 1.10.0 (2026-09-30)
 - New: local data interface. Read-only `local_data_interface` status state per camera (Gen2, firmware 9.40.105 or newer). With an optional per-camera password (Settings → RTSP / Stream) and an active interface, `stream_url` points directly at the camera (video only) and no cloud stream session is used.
+- Fixed: the FCM `Invalid EC key` fix (multi-segment crypto-key/salt headers) is now applied at runtime by wrapping the push decryption in the adapter itself; the `patch-package` postinstall step is removed.
+- CI: adapter tests also run on Node 26.
+
+### 1.9.0 (2026-08-20)
+- New: AI camera analysis. Writing `true` to `cameras.<id>.ai_analyze` posts the latest snapshot to a user-configured HTTPS endpoint and stores the returned description and score (opt-in, AI tab in the settings).
+- New: camera soft reset, hard reset (with expiring confirmation) and rename states.
+- New: Gen2 LED and white-balance tuning states.
+- Fixed: SSRF hole in the AI endpoint configuration (private, loopback and link-local targets are rejected) and a hard-reset confirmation that never expired.
+
+### 1.8.4 (2026-08-19)
+- Fixed: FCM push notifications could be dropped or crash on a malformed message (`Invalid EC key`) because multi-segment crypto-key/salt headers were extracted incorrectly.
 
 ### 1.8.3 (2026-07-15)
 Docs-only release: fixed the MCP row in the shared Integration Comparison table (shares the Python CLI's `bosch_config.json` rather than its own OAuth2 PKCE flow) and a broader README accuracy pass (state tree, config options, RTSP front-door emphasis). No functional changes.

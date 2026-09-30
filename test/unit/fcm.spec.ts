@@ -129,12 +129,10 @@ describe("FCM constants", () => {
 // Regression coverage for the @aracna/fcm "Invalid EC key" bug: the upstream
 // library (v1.0.33, latest as of 2026-08-19) extracts the ECE `dh`/`salt`
 // fields via a naive `.value.slice(3)`/`.slice(5)`, assuming the header is
-// ALWAYS exactly "dh=<key>"/"salt=<value>" with no other content. This
-// function is a byte-for-byte-equivalent copy of the fix applied via
-// patch-package (patches/@aracna+fcm+1.0.33.patch) directly to
-// node_modules/@aracna/fcm/classes/fcm-client.js — the actual patched code
-// cannot be unit-tested directly (it lives inside a private minified closure
-// with no override point), so this test pins the extraction ALGORITHM instead.
+// ALWAYS exactly "dh=<key>"/"salt=<value>" with no other content. The live
+// fix is the runtime wrapper around http_ece.decrypt (covered end-to-end in
+// fcm_ece_wrapper.spec.ts); this block pins the by-name extraction ALGORITHM
+// of the reference implementation.
 // Uses fake key/salt material only — no real device data.
 
 describe("extractEceHeaderField() — @aracna/fcm crypto-key/encryption header fix", () => {

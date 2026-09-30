@@ -75,6 +75,7 @@ const tls_proxy_1 = require("./lib/tls_proxy");
 const lazy_stream_1 = require("./lib/lazy_stream");
 const web_stream_1 = require("./lib/web_stream");
 const fcm_1 = require("./lib/fcm");
+const fcm_ece_wrapper_1 = require("./lib/fcm_ece_wrapper");
 const alarm_light_1 = require("./lib/alarm_light");
 const maintenance_1 = require("./lib/maintenance");
 const ssrf_guard_1 = require("./lib/ssrf_guard");
@@ -4853,6 +4854,10 @@ class BoschSmartHomeCamera extends utils.Adapter {
         // back to a fresh registration if the state is empty, the ciphertext
         // is stale, or the JSON is malformed.
         const savedFcmCreds = await this._loadSavedFcmCredentials();
+        const eceStatus = (0, fcm_ece_wrapper_1.getFcmEceWrapperStatus)();
+        if (!eceStatus.attached) {
+            this.log.info(`FCM push decrypt fix not active (${eceStatus.reason ?? "unknown"}); push messages with unusual header layouts may fail to decrypt.`);
+        }
         this._fcmListener = new fcm_1.FcmListener(this._httpClient, tokens.access_token, { savedCredentials: savedFcmCreds ?? undefined }, {
             setInterval: (cb, ms) => this.setInterval(cb, ms),
             clearInterval: (id) => this.clearInterval(id),

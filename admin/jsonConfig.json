@@ -362,7 +362,7 @@
         "enable_diagnostics_polling": {
           "type": "checkbox",
           "label": "Poll diagnostic datapoints",
-          "help": "ON (default): periodically refresh the rarely-changing diagnostic datapoints — motion zones, light/ambient config, alarm settings, ONVIF/RCP info and cloud feature flags. Turn OFF to stop these cloud reads entirely if you don't use those datapoints; the core states (online, privacy, motion, snapshots, light, livestream) keep working.",
+          "help": "ON (default): periodically refresh the rarely-changing diagnostic datapoints — motion zones, light/ambient config, alarm settings, RCP info and cloud feature flags. Turn OFF to stop these cloud reads entirely if you don't use those datapoints; the core states (online, privacy, motion, snapshots, light, livestream) keep working.",
           "default": true,
           "newLine": true,
           "xs": 12,
