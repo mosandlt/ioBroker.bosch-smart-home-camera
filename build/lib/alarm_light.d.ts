@@ -146,6 +146,32 @@ export declare function buildLedGroupBrightnessUpdate(current: LightingState, gr
  * @returns updated LightingState with only frontLightSettings.whiteBalance (+ color=null) changed
  */
 export declare function buildFrontLightWhiteBalanceUpdate(current: LightingState, whiteBalance: number): LightingState;
+/** Outcome of {@link planFrontLightWhiteBalance}. */
+export type FrontWhiteBalancePlan = {
+    action: "hold";
+} | {
+    action: "write";
+    body: LightingState;
+    enableAfter: boolean;
+};
+/**
+ * Decide how to apply a front-spotlight white-balance write. The camera
+ * silently IGNORES a whiteBalance write while the front group's brightness
+ * is 0 (verified on Gen2 by the sibling HA integration), so:
+ *  - light off (switch off, brightness <= 0): "hold" — do not write, the
+ *    caller keeps the value and applies it with the next ON write;
+ *  - switch on but cached brightness 0: restore the last non-zero
+ *    brightness (100 if unknown) in the same body and enable the group
+ *    afterwards (`enableAfter`);
+ *  - otherwise: plain white-balance write.
+ *
+ * @param current            Cached lighting state
+ * @param whiteBalance       Requested white balance -1.0 .. 1.0
+ * @param frontOn            Current front_light_enabled state
+ * @param lastBrightness     Last non-zero front brightness seen (0 = unknown)
+ * @returns the plan to execute
+ */
+export declare function planFrontLightWhiteBalance(current: LightingState, whiteBalance: number, frontOn: boolean, lastBrightness: number): FrontWhiteBalancePlan;
 /**
  *
  */

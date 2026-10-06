@@ -336,6 +336,11 @@ declare class BoschSmartHomeCamera extends utils.Adapter {
      * to merge incremental DP writes into the full body Bosch requires.
      */
     private _lightingCache;
+    /** Front white-balance writes held while the light is off (applied on next ON). */
+    private _pendingFrontWb;
+    /** Last non-zero front brightness per camera (restored for WB writes at brightness 0). */
+    private _lastFrontBrightness;
+    private _frontWbLocks;
     private _intrusionConfigCache;
     private _audioCache;
     private _lensElevationCache;

@@ -32,6 +32,7 @@ exports.normaliseLightingState = normaliseLightingState;
 exports.buildFrontLightUpdate = buildFrontLightUpdate;
 exports.buildLedGroupBrightnessUpdate = buildLedGroupBrightnessUpdate;
 exports.buildFrontLightWhiteBalanceUpdate = buildFrontLightWhiteBalanceUpdate;
+exports.planFrontLightWhiteBalance = planFrontLightWhiteBalance;
 exports.buildWallwasherUpdate = buildWallwasherUpdate;
 const auth_1 = require("./auth");
 /** Default group settings used when the cache is empty (mirrors HA's defaults). */
@@ -257,6 +258,41 @@ function buildFrontLightWhiteBalanceUpdate(current, whiteBalance) {
         },
         topLedLightSettings: { ...current.topLedLightSettings },
         bottomLedLightSettings: { ...current.bottomLedLightSettings },
+    };
+}
+/**
+ * Decide how to apply a front-spotlight white-balance write. The camera
+ * silently IGNORES a whiteBalance write while the front group's brightness
+ * is 0 (verified on Gen2 by the sibling HA integration), so:
+ *  - light off (switch off, brightness <= 0): "hold" — do not write, the
+ *    caller keeps the value and applies it with the next ON write;
+ *  - switch on but cached brightness 0: restore the last non-zero
+ *    brightness (100 if unknown) in the same body and enable the group
+ *    afterwards (`enableAfter`);
+ *  - otherwise: plain white-balance write.
+ *
+ * @param current            Cached lighting state
+ * @param whiteBalance       Requested white balance -1.0 .. 1.0
+ * @param frontOn            Current front_light_enabled state
+ * @param lastBrightness     Last non-zero front brightness seen (0 = unknown)
+ * @returns the plan to execute
+ */
+function planFrontLightWhiteBalance(current, whiteBalance, frontOn, lastBrightness) {
+    if (current.frontLightSettings.brightness > 0) {
+        return {
+            action: "write",
+            body: buildFrontLightWhiteBalanceUpdate(current, whiteBalance),
+            enableAfter: false,
+        };
+    }
+    if (!frontOn) {
+        return { action: "hold" };
+    }
+    const restored = lastBrightness > 0 ? lastBrightness : 100;
+    return {
+        action: "write",
+        body: buildFrontLightWhiteBalanceUpdate(buildFrontLightUpdate(current, restored), whiteBalance),
+        enableAfter: true,
     };
 }
 /**

@@ -421,6 +421,11 @@ class BoschSmartHomeCamera extends utils.Adapter {
      * to merge incremental DP writes into the full body Bosch requires.
      */
     _lightingCache = new Map();
+    /** Front white-balance writes held while the light is off (applied on next ON). */
+    _pendingFrontWb = new Map();
+    /** Last non-zero front brightness per camera (restored for WB writes at brightness 0). */
+    _lastFrontBrightness = new Map();
+    _frontWbLocks = new Map();
     // v0.7.14: cached intrusionDetectionConfig body from cloud GET so the
     // user-write handler can merge a single field (sensitivity/distance)
     // into the full body. Bosch rejects DELTA PUTs with HTTP 400.
@@ -8864,6 +8869,9 @@ class BoschSmartHomeCamera extends utils.Adapter {
         this._lightingCache.set(camId, result);
         // Ack the DP and sync front_light_enabled boolean from the new brightness.
         await this.upsertState(`cameras.${camId}.front_light_intensity`, result.frontLightSettings.brightness);
+        if (result.frontLightSettings.brightness > 0) {
+            this._lastFrontBrightness.set(camId, result.frontLightSettings.brightness);
+        }
         const frontOn = result.frontLightSettings.brightness > 0;
         await this.setStateAsync(`cameras.${camId}.front_light_enabled`, frontOn, true);
         this.log.info(`Front light intensity for camera ${camId.slice(0, 8)}: ` +
@@ -8955,10 +8963,44 @@ class BoschSmartHomeCamera extends utils.Adapter {
             this._lightingCache.set(camId, current);
         }
         const safeVal = Number.isFinite(whiteBalance) ? whiteBalance : -1;
-        const next = (0, alarm_light_1.buildFrontLightWhiteBalanceUpdate)(current, safeVal);
-        const result = await (0, alarm_light_1.putLightingState)(this._httpClient, this._currentAccessToken, camId, next);
+        const frontOn = await this._readBoolState(`cameras.${camId}.front_light_enabled`);
+        const token = this._currentAccessToken;
+        const result = await this._withCameraLock(this._frontWbLocks, camId, async () => {
+            const base = this._lightingCache.get(camId) ?? current;
+            if (base.frontLightSettings.brightness > 0) {
+                this._lastFrontBrightness.set(camId, base.frontLightSettings.brightness);
+            }
+            const plan = (0, alarm_light_1.planFrontLightWhiteBalance)(base, safeVal, frontOn, this._lastFrontBrightness.get(camId) ?? 0);
+            if (plan.action === "hold") {
+                // Camera ignores a WB write at brightness 0: keep it for the next ON.
+                this._pendingFrontWb.set(camId, safeVal);
+                return null;
+            }
+            this._pendingFrontWb.delete(camId);
+            const put = await (0, alarm_light_1.putLightingState)(this._httpClient, token, camId, plan.body);
+            if (!put) {
+                throw new Error(`PUT /lighting/switch returned non-success for ${camId.slice(0, 8)}`);
+            }
+            if (plan.enableAfter) {
+                const r = await this._httpClient.put(`${auth_1.CLOUD_API}/v11/video_inputs/${camId}/lighting/switch/front`, { enabled: true }, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                    },
+                    validateStatus: () => true,
+                });
+                if (![200, 201, 204].includes(r.status)) {
+                    throw new Error(`PUT /lighting/switch/front returned ${r.status} for ${camId.slice(0, 8)}`);
+                }
+            }
+            return put;
+        });
         if (!result) {
-            throw new Error(`PUT /lighting/switch returned non-success for ${camId.slice(0, 8)}`);
+            await this.upsertState(`cameras.${camId}.front_light_white_balance`, safeVal);
+            this.log.info(`front_light_white_balance for camera ${camId.slice(0, 8)}: light off, ` +
+                `holding wb=${safeVal} until next ON`);
+            return;
         }
         this._lightingCache.set(camId, result);
         await this.upsertState(`cameras.${camId}.front_light_white_balance`, result.frontLightSettings.whiteBalance ?? -1);
@@ -9902,6 +9944,13 @@ class BoschSmartHomeCamera extends utils.Adapter {
             frontLight: enabled,
             wallwasher: currentWallwasher,
         });
+        const pendingWb = this._pendingFrontWb.get(camId);
+        if (enabled && pendingWb !== undefined) {
+            const cam = this._cameras.get(camId);
+            if (cam && cam.generation >= 2 && cam.featureLight === true) {
+                await this.handleFrontLightWhiteBalanceUpdate(camId, pendingWb);
+            }
+        }
     }
     /**
      * v0.4.0: toggle the wallwasher (Gen1) / top-down LED strip (Gen2) only,
