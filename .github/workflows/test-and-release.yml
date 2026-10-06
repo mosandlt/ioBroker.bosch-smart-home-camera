@@ -74,7 +74,7 @@ jobs:
           node-version: '24.x'
           cache: npm
       - run: npm ci
-      - run: npm audit --omit=dev
+      - run: node scripts/check-audit.js
 
   # Verify TypeScript compiles cleanly (catches errors not exercised by tests)
   build:

@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "1.10.1",
+        "version": "1.10.2",
         "news": {
+            "1.10.2": {
+                "en": "Fixed: Gen2 front-light white balance is now applied even while the light is off or at brightness 0 (held until next ON, or brightness restored).",
+                "de": "Behoben: Weißabgleich des Gen2-Frontlichts wird jetzt auch bei ausgeschaltetem Licht oder Helligkeit 0 übernommen (bis zum nächsten Einschalten gehalten bzw. Helligkeit wiederhergestellt).",
+                "ru": "Исправлено: баланс белого переднего света Gen2 теперь применяется даже при выключенном свете или яркости 0 (удерживается до следующего включения либо восстанавливается яркость).",
+                "pt": "Corrigido: o equilíbrio de brancos da luz frontal Gen2 agora é aplicado mesmo com a luz desligada ou brilho 0 (mantido até ligar novamente ou brilho restaurado).",
+                "nl": "Opgelost: de witbalans van het Gen2-voorlicht wordt nu ook toegepast bij uitgeschakeld licht of helderheid 0 (vastgehouden tot de volgende inschakeling of helderheid hersteld).",
+                "fr": "Corrigé : la balance des blancs de l'éclairage frontal Gen2 est désormais appliquée même lumière éteinte ou luminosité 0 (conservée jusqu'au prochain allumage ou luminosité restaurée).",
+                "it": "Corretto: il bilanciamento del bianco della luce frontale Gen2 viene ora applicato anche a luce spenta o luminosità 0 (mantenuto fino alla prossima accensione o luminosità ripristinata).",
+                "es": "Corregido: el balance de blancos de la luz frontal Gen2 ahora se aplica incluso con la luz apagada o brillo 0 (retenido hasta el próximo encendido o brillo restaurado).",
+                "pl": "Naprawiono: balans bieli światła przedniego Gen2 jest teraz stosowany także przy wyłączonym świetle lub jasności 0 (przechowywany do następnego włączenia lub jasność przywrócona).",
+                "uk": "Виправлено: баланс білого переднього світла Gen2 тепер застосовується навіть при вимкненому світлі або яскравості 0 (утримується до наступного вмикання або яскравість відновлюється).",
+                "zh-cn": "已修复：Gen2 前灯白平衡现在即使在灯关闭或亮度为 0 时也会生效（保留至下次开启，或恢复亮度）。"
+            },
             "1.10.1": {
                 "en": "Fixed: direct local stream URL now uses rtsp_tunnel with audio and follows stream_quality (high/low).",
                 "de": "Behoben: direkte lokale Stream-URL nutzt jetzt rtsp_tunnel mit Ton und folgt stream_quality (hoch/niedrig).",
@@ -80,19 +93,6 @@
                 "pl": "Wersja tylko dla dokumentów: odświeżona tabela wersji repozytorium rodzeństwa w pliku README. Żadnych zmian funkcjonalnych.",
                 "uk": "Випуск лише для документів: оновлена ​​таблиця версій однотипного сховища в README. Без функціональних змін.",
                 "zh-cn": "仅文档版本：刷新自述文件中的同级存储库版本表。没有功能变化。"
-            },
-            "1.8.1": {
-                "en": "Pooled keep-alive HTTPS connections for local camera + cloud API calls instead of a fresh connection per request; fixed a related agent-cleanup gap on adapter unload.",
-                "de": "HTTPS-Verbindungen für lokale Kamera- und Cloud-API-Aufrufe werden nun per Keep-Alive-Pool wiederverwendet statt pro Anfrage neu aufgebaut; zugehörige Agent-Cleanup-Lücke beim Adapter-Unload behoben.",
-                "ru": "Объединенные HTTPS-соединения с поддержкой активности для локальной камеры + вызовы облачного API вместо нового соединения на каждый запрос; исправлена ​​проблема с очисткой агента при выгрузке адаптера.",
-                "pt": "Conexões HTTPS keep-alive agrupadas para chamadas de câmera local + API de nuvem em vez de uma nova conexão por solicitação; corrigiu uma lacuna de limpeza do agente relacionada no descarregamento do adaptador.",
-                "nl": "Gepoolde keep-alive HTTPS-verbindingen voor lokale camera- en cloud-API-aanroepen in plaats van een nieuwe verbinding per verzoek; Een gerelateerd gat bij het opschonen van agenten bij het verwijderen van de adapter opgelost.",
-                "fr": "Connexions HTTPS persistantes regroupées pour les appels de caméra locale + API cloud au lieu d'une nouvelle connexion par demande ; correction d’un écart de nettoyage d’agent associé lors du déchargement de l’adaptateur.",
-                "it": "Connessioni HTTPS keep-alive in pool per chiamate API fotocamera locale + cloud invece di una nuova connessione per richiesta; risolto un problema correlato alla pulizia dell'agente durante lo scaricamento dell'adattatore.",
-                "es": "Conexiones HTTPS mantenidas agrupadas para llamadas de cámara local + API en la nube en lugar de una nueva conexión por solicitud; Se corrigió una brecha relacionada con la limpieza del agente en la descarga del adaptador.",
-                "pl": "Łączone połączenia HTTPS utrzymujące aktywność dla wywołań lokalnego aparatu i interfejsu API chmury zamiast nowego połączenia na żądanie; naprawiono powiązaną lukę w czyszczeniu agenta podczas rozładowywania adaptera.",
-                "uk": "Об’єднані підтримувані HTTPS-з’єднання для викликів локальної камери + хмарного API замість нового з’єднання за запитом; виправлено пов’язану прогалину очищення агента під час вивантаження адаптера.",
-                "zh-cn": "用于本地摄像头 + 云 API 调用的池化保持活动 HTTPS 连接，而不是每个请求一个新连接；修复了适配器卸载时相关的代理清理间隙。"
             }
         },
         "titleLang": {
