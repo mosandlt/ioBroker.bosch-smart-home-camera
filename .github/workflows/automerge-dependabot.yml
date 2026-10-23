@@ -1,6 +1,10 @@
 name: Dependabot auto-merge
 
-on: pull_request_target
+# `pull_request` is enough: workflows for Dependabot PRs get the permissions
+# below, so the riskier `pull_request_target` trigger is not needed.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
