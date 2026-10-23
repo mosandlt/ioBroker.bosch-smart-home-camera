@@ -962,6 +962,9 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.10.4 (2026-10-23)
+- Updated: mqtt and the widget build dependencies; security updates for follow-redirects and ip-address.
+
 ### 1.10.3 (2026-10-12)
 - Fixed: a stale FCM device token is now logged out after a confirmed registration.
 - Fixed: lighting writes are serialized per camera (no lost updates, no front-light / wall-washer toggle fighting); stale poll results are dropped; front-light and wall-washer results are acknowledged separately.
