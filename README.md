@@ -963,6 +963,9 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### **WORK IN PROGRESS**
+- Updated: vis-2 widgets rebuilt for React 19 and MUI 9 (vis-2 >= 2.15.2 needed), see ioBroker/ioBroker.vis-2#689.
+
 ### 1.10.4 (2026-10-23)
 - Updated: mqtt and the widget build dependencies; security updates for follow-redirects and ip-address.
 

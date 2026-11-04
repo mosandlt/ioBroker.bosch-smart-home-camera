@@ -31,6 +31,17 @@ export default {
         __WIDGET_VERSION__: JSON.stringify(adapterPack.version),
     },
     base: "./",
+    resolve: {
+        // Same set as the shared modules: the fallback copies inside the widget bundle must be unique too
+        dedupe: [
+            "react",
+            "react-dom",
+            "@emotion/react",
+            "@mui/material",
+            "@mui/system",
+            "@mui/icons-material",
+        ],
+    },
     build: {
         target: "chrome89",
         outDir: "./build",
