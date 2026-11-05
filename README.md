@@ -432,7 +432,7 @@ HLS for low-latency live video instead of the default snapshot refresh.
 
 The adapter ships two built-in **VIS-2 widgets** (React / Module-Federation, built from `src-widgets/`) that can be dropped onto any VIS-2 view without importing a JSON file.
 
-**Requirements:** VIS-2 adapter ≥ 2.13 installed and running.
+**Requirements:** VIS-2 adapter ≥ 2.20.2 installed and running.
 
 ---
 
@@ -962,6 +962,9 @@ HA stays the **reference implementation** — features land there first; the Pyt
 ---
 
 ## Changelog
+
+### **WORK IN PROGRESS**
+- Updated: vis-2 widgets rebuilt for React 19 and MUI 9 (vis-2 >= 2.20.2 needed), see ioBroker/ioBroker.vis-2#689.
 
 ### 1.10.4 (2026-10-23)
 - Updated: mqtt and the widget build dependencies; security updates for follow-redirects and ip-address.
