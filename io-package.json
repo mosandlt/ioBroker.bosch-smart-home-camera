@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "1.10.4",
+        "version": "1.11.0",
         "news": {
+            "1.11.0": {
+                "en": "vis-2 widgets rebuilt for React 19 and MUI 9 (vis-2 >= 2.20.2 required)",
+                "de": "vis-2-Widgets für React 19 und MUI 9 neu gebaut (vis-2 >= 2.20.2 erforderlich)",
+                "ru": "Виджеты vis-2 перестроены для React 19 и MUI 9 (требуется vis-2 >= 2.20.2)",
+                "pt": "Widgets vis-2 reconstruídos para React 19 e MUI 9 (vis-2 >= 2.20.2 necessário)",
+                "nl": "vis-2 widgets herbouwd voor React 19 en MUI 9 (vis-2 >= 2.20.2 vereist)",
+                "fr": "widgets vis-2 reconstruits pour React 19 et MUI 9 (vis-2 >= 2.20.2 requis)",
+                "it": "Widget vis-2 ricostruiti per React 19 e MUI 9 (richiesto vis-2 >= 2.20.2)",
+                "es": "Widgets vis-2 reconstruidos para React 19 y MUI 9 (se requiere vis-2 >= 2.20.2)",
+                "pl": "widżety vis-2 przebudowane dla React 19 i MUI 9 (wymagana vis-2 >= 2.20.2)",
+                "uk": "Віджети vis-2, перебудовані для React 19 і MUI 9 (потрібно vis-2 >= 2.20.2)",
+                "zh-cn": "为 React 19 和 MUI 9 重建的 vis-2 小部件（需要 vis-2 >= 2.20.2）"
+            },
             "1.10.4": {
                 "en": "Updated mqtt and the widget build dependencies; security updates for follow-redirects and ip-address.",
                 "de": "mqtt und Widget-Build-Abhängigkeiten aktualisiert; Sicherheitsupdates für follow-redirects und ip-address.",
@@ -80,19 +93,6 @@
                 "pl": "Nowosc: analiza kamery AI (zewnetrzny punkt koncowy), miekki/twardy reset kamery, zmiana nazwy oraz DP regulacji LED/balansu bieli Gen2 -- plus 2 rundy polowania na bledy, ktore znalazly i naprawily luke SSRF w konfiguracji punktu koncowego AI.",
                 "uk": "Новинка: аналіз камери за допомогою ШІ (зовнішня кінцева точка), програмне/апаратне скидання камери, перейменування та точки даних налаштування світлодіодів/балансу білого Gen2 — плюс 2 раунди пошуку помилок, які знайшли та виправили вразливість SSRF у конфігурації кінцевої точки ШІ.",
                 "zh-cn": "新增：AI摄像头分析（外部端点）、摄像头软/硬重置、重命名以及Gen2 LED/白平衡调节数据点——另外经过2轮对抗性漏洞排查，发现并修复了AI端点配置中的SSRF漏洞以及一个永不过期的硬重置确认。"
-            },
-            "1.8.4": {
-                "en": "Fixed FCM push notifications silently dropping or crashing on a malformed message (Invalid EC key). The FCM library corrupted real-world multi-segment crypto-key/salt headers, matching a fix shipped in the sibling HA integration.",
-                "de": "Fehler behoben: FCM-Push-Benachrichtigungen wurden bei einer fehlerhaften Nachricht (Invalid EC key) stillschweigend verworfen oder stürzten ab. Die FCM-Bibliothek beschädigte mehrsegmentige Crypto-Key/Salt-Header, analog zum Fix in der HA-Integration.",
-                "ru": "Исправлено: push-уведомления FCM молча отбрасывались или вызывали сбой при получении некорректного сообщения (Invalid EC key). Библиотека FCM повреждала многосегментные заголовки crypto-key/salt, как и в исправлении для интеграции HA.",
-                "pt": "Corrigido: notificações push FCM eram descartadas silenciosamente ou travavam com uma mensagem malformada (Invalid EC key). A biblioteca FCM corrompia cabeçalhos crypto-key/salt multissegmentados, igual à correção da integração HA.",
-                "nl": "Opgelost: FCM-pushmeldingen werden stilzwijgend verworpen of crashten bij een misvormd bericht (Invalid EC key). De FCM-bibliotheek beschadigde meersegment crypto-key/salt-headers, net als de fix in de HA-integratie.",
-                "fr": "Correction : les notifications push FCM étaient silencieusement abandonnées ou plantaient sur un message malformé (Invalid EC key). La bibliothèque FCM corrompait les en-têtes crypto-key/salt multi-segments, comme dans le correctif de l'intégration HA.",
-                "it": "Corretto: le notifiche push FCM venivano scartate silenziosamente o causavano un crash con un messaggio malformato (Invalid EC key). La libreria FCM corrompeva gli header crypto-key/salt multi-segmento, come nel fix dell'integrazione HA.",
-                "es": "Corregido: las notificaciones push de FCM se descartaban silenciosamente o fallaban con un mensaje malformado (Invalid EC key). La biblioteca FCM corrompía cabeceras crypto-key/salt multisegmento, igual que en la corrección de la integración HA.",
-                "pl": "Naprawiono: powiadomienia push FCM byly po cichu odrzucane lub powodowaly awarie przy zniekształconej wiadomości (Invalid EC key). Biblioteka FCM uszkadzala wieloczesciowe naglowki crypto-key/salt, analogicznie do poprawki w integracji HA.",
-                "uk": "Виправлено: push-сповіщення FCM мовчки відкидалися або спричиняли збій при отриманні пошкодженого повідомлення (Invalid EC key). Бібліотека FCM пошкоджувала багатосегментні заголовки crypto-key/salt, як і виправлення в інтеграції HA.",
-                "zh-cn": "修复了FCM推送通知在收到格式错误的消息时（Invalid EC key）被静默丢弃或崩溃的问题。FCM库损坏了真实场景中的多段crypto-key/salt请求头，与HA集成中发布的修复相同。"
             }
         },
         "titleLang": {
