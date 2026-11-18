@@ -163,6 +163,9 @@
                 "admin": ">=7.6.20"
             }
         ],
+        "ifInstalledDependencies": {
+            "vis-2": ">=2.20.2"
+        },
         "visWidgets": {
             "vis2BoschCameraWidgets": {
                 "name": "vis2BoschCameraWidgets",
