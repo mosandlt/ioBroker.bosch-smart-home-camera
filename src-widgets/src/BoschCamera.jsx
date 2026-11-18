@@ -199,6 +199,7 @@ const styles = {
         textTransform: "uppercase",
         color: "#6b6b78",
     },
+    gateError: { color: "#f59e0b", fontSize: 12, textAlign: "center", padding: "6px 14px 0", fontFamily: FONT },
     hint: { color: "#8a8a98", fontSize: 13, textAlign: "center", padding: 20, margin: "auto", fontFamily: FONT },
     fullExitBtn: {
         position: "absolute",
@@ -366,6 +367,7 @@ class BoschCamera extends Generic {
         this.state.liveActive = false; // mjpeg canvas first frame received
         this.state.frameLoaded = false; // snapshot <img> has loaded ≥1 good frame
         this.state.streamPhase = "idle"; // idle|gate|connecting|live|stopping
+        this.state.streamError = ""; // translated hint shown on the play gate after a failed go2rtc start
         this.state.maintDismissed = null; // maintenance value the user × -dismissed this session
         this.state.transport = null; // webrtc|hls|null
         this.state.uptime = "";
@@ -1062,12 +1064,14 @@ class BoschCamera extends Generic {
         if (!this.state.cam.privacy && this.state.cam.livestreamAvail && !this.state.cam.livestream) {
             this.props.context.socket.setState(this.dp("livestream_enabled"), true);
         }
-        this.setState({ streamPhase: "connecting", transport: null });
+        this.setState({ streamPhase: "connecting", transport: null, streamError: "" });
         this.stream = new Go2rtcStream({
             baseUrl: base,
             src,
             onPhase: (phase, transport) => this._onStreamPhase(phase, transport),
-            onError: () => this.setState({ streamPhase: "idle", transport: null }),
+            onError: () => {
+                if (this._mounted) this.setState({ streamPhase: "idle", transport: null, streamError: this._go2rtcErrorHint(base) });
+            },
         });
         // wait for the <video> to exist
         await new Promise(r => setTimeout(r, 0));
@@ -1090,8 +1094,20 @@ class BoschCamera extends Generic {
         try {
             await this.stream.start(video, { wantAudio: this.state.audioOn, armed: true });
         } catch {
-            this.setState({ streamPhase: "idle", transport: null });
+            if (this._mounted) this.setState({ streamPhase: "idle", transport: null, streamError: this._go2rtcErrorHint(base) });
         }
+    }
+
+    // Hint for a failed go2rtc start (WebRTC and HLS fallback both failed).
+    // An https page cannot reach an http go2rtc URL (mixed content) and the
+    // browser blocks it silently, so name that case explicitly.
+    _go2rtcErrorHint(base) {
+        const mixed = window.location.protocol === "https:" && /^http:\/\//i.test(base || "");
+        return Generic.t(
+            mixed
+                ? "go2rtc not reachable: this page uses https but the go2rtc URL uses http (blocked by the browser)"
+                : "go2rtc not reachable: check the go2rtc URL and the stream name",
+        );
     }
 
     _onEnterPip = () => _boschPipSetActive(this);
@@ -1463,7 +1479,7 @@ class BoschCamera extends Generic {
             this.setState({ streamPhase: "connecting", liveActive: false });
             this.startMjpeg();
         } else {
-            this.setState({ streamPhase: "connecting" });
+            this.setState({ streamPhase: "connecting", streamError: "" });
             this._startLive();
         }
     };
@@ -1476,6 +1492,7 @@ class BoschCamera extends Generic {
                     <PlayArrow style={{ fontSize: 38, color: "#fff" }} />
                 </div>
                 <div style={styles.gateHint}>{Generic.t(hint)}</div>
+                {this.state.streamError ? <div style={styles.gateError}>{this.state.streamError}</div> : null}
             </div>
         );
     }

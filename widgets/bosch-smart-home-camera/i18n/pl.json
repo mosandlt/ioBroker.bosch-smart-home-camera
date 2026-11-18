@@ -114,5 +114,7 @@
   "Picture-in-picture": "Obraz w obrazie",
   "Picture-in-picture active for another camera": "Obraz w obrazie aktywny dla innej kamery",
   "Last event": "Ostatnie zdarzenie",
-  "Dismiss": "Zamknij"
+  "Dismiss": "Zamknij",
+  "go2rtc not reachable: this page uses https but the go2rtc URL uses http (blocked by the browser)": "go2rtc not reachable: this page uses https but the go2rtc URL uses http (blocked by the browser)",
+  "go2rtc not reachable: check the go2rtc URL and the stream name": "go2rtc not reachable: check the go2rtc URL and the stream name"
 }

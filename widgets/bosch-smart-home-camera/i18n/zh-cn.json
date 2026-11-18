@@ -114,5 +114,7 @@
   "Picture-in-picture": "画中画",
   "Picture-in-picture active for another camera": "画中画正在另一个摄像头上使用",
   "Last event": "最近事件",
-  "Dismiss": "关闭"
+  "Dismiss": "关闭",
+  "go2rtc not reachable: this page uses https but the go2rtc URL uses http (blocked by the browser)": "go2rtc not reachable: this page uses https but the go2rtc URL uses http (blocked by the browser)",
+  "go2rtc not reachable: check the go2rtc URL and the stream name": "go2rtc not reachable: check the go2rtc URL and the stream name"
 }
