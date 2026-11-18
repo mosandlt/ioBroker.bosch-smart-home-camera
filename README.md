@@ -1428,4 +1428,4 @@ Older releases (0.0.1 – 0.3.3) are archived in [CHANGELOG_OLD.md](./CHANGELOG_
 
 MIT License — see [LICENSE](./LICENSE).
 
-Copyright (c) 2026 mosandlt
+Copyright (c) 2026 mosandlt <Info@mosandl.eu>
