@@ -32,7 +32,7 @@ export default {
     },
     base: "./",
     resolve: {
-        // Same set as the shared modules: the fallback copies inside the widget bundle must be unique too
+        // One copy of each React/MUI/emotion package inside the widget bundle (fallbacks and privately bundled icons/system)
         dedupe: [
             "react",
             "react-dom",
