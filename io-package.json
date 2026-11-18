@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "1.11.0",
+        "version": "1.11.1",
         "news": {
+            "1.11.1": {
+                "en": "Added: update now requires vis-2 >= 2.20.2 (ifInstalledDependencies), older vis-2 versions must be updated first",
+                "de": "Neu: Update setzt jetzt vis-2 >= 2.20.2 voraus (ifInstalledDependencies), ältere vis-2-Versionen müssen zuerst aktualisiert werden",
+                "ru": "Добавлено: обновление теперь требует vis-2 >= 2.20.2 (ifInstalledDependencies), старые версии vis-2 нужно сначала обновить",
+                "pt": "Adicionado: a atualização agora exige vis-2 >= 2.20.2 (ifInstalledDependencies), versões antigas do vis-2 devem ser atualizadas primeiro",
+                "nl": "Toegevoegd: update vereist nu vis-2 >= 2.20.2 (ifInstalledDependencies), oudere vis-2-versies moeten eerst worden bijgewerkt",
+                "fr": "Ajouté : la mise à jour exige désormais vis-2 >= 2.20.2 (ifInstalledDependencies), les anciennes versions de vis-2 doivent d'abord être mises à jour",
+                "it": "Aggiunto: l'aggiornamento richiede ora vis-2 >= 2.20.2 (ifInstalledDependencies), le versioni precedenti di vis-2 vanno aggiornate prima",
+                "es": "Añadido: la actualización ahora requiere vis-2 >= 2.20.2 (ifInstalledDependencies), las versiones antiguas de vis-2 deben actualizarse primero",
+                "pl": "Dodano: aktualizacja wymaga teraz vis-2 >= 2.20.2 (ifInstalledDependencies), starsze wersje vis-2 trzeba najpierw zaktualizować",
+                "uk": "Додано: оновлення тепер вимагає vis-2 >= 2.20.2 (ifInstalledDependencies), старі версії vis-2 потрібно спочатку оновити",
+                "zh-cn": "新增:更新现在需要 vis-2 >= 2.20.2 (ifInstalledDependencies),旧版 vis-2 需先更新"
+            },
             "1.11.0": {
                 "en": "vis-2 widgets rebuilt for React 19 and MUI 9 (vis-2 >= 2.20.2 required)",
                 "de": "vis-2-Widgets für React 19 und MUI 9 neu gebaut (vis-2 >= 2.20.2 erforderlich)",
@@ -80,19 +93,6 @@
                 "pl": "Nowość: stan lokalnego interfejsu danych dla kamery Gen2 (oprogramowanie 9.40.105+); z opcjonalnym hasłem dla kamery i aktywnym interfejsem, stream_url wskazuje bezpośrednio na kamerę i nie jest używana żadna sesja strumienia w chmurze. Naprawiono: poprawka push FCM \"Invalid EC key\" działa teraz w czasie wykonania; przetestowano na Node 26.",
                 "uk": "Нове: статус локального інтерфейсу даних для кожної камери Gen2 (прошивка 9.40.105+); з необов’язковим паролем для кожної камери та активним інтерфейсом stream_url вказує безпосередньо на камеру, і сеанс хмарного потоку не використовується. Виправлено: виправлення FCM push \"Invalid EC key\" тепер діє під час виконання; протестовано на Node 26.",
                 "zh-cn": "新功能：每个 Gen2 摄像机的本地数据接口状态（固件 9.40.105+）；通过可选的每个摄像机密码和活动界面，stream_url 直接指向摄像机，并且不使用云流会话。 已修复：FCM 推送 \"Invalid EC key\" 修复现已在运行时生效；已在 Node 26 上测试。"
-            },
-            "1.9.0": {
-                "en": "New: AI camera analysis (external endpoint), camera soft/hard reset, rename, and Gen2 LED/white-balance tuning DPs — plus 2 adversarial bug-hunt passes that found and fixed an SSRF hole in the AI endpoint config and a hard-reset confirmation that never expired.",
-                "de": "Neu: KI-Kamera-Analyse (externer Endpunkt), Kamera Soft-/Hard-Reset, Umbenennen, sowie Gen2 LED/Weissabgleich-DPs -- plus 2 kritische Bug-Hunt-Runden, die eine SSRF-Luecke in der KI-Endpunkt-Konfiguration und eine nie ablaufende Hard-Reset-Bestaetigung fanden und behoben.",
-                "ru": "Новое: анализ камеры с помощью ИИ (внешняя конечная точка), программный/аппаратный сброс камеры, переименование и точки данных настройки светодиодов/баланса белого Gen2 — плюс 2 раунда поиска ошибок, которые нашли и устранили уязвимость SSRF в конфигурации конечной точки ИИ.",
-                "pt": "Novo: análise de câmera por IA (endpoint externo), reset suave/duro da câmera, renomear e DPs de ajuste de LED/balanço de branco Gen2 — além de 2 rodadas de caça a bugs que encontraram e corrigiram uma falha de SSRF na configuração do endpoint de IA.",
-                "nl": "Nieuw: AI-camera-analyse (externe endpoint), zachte/harde camera-reset, hernoemen en Gen2 LED/witbalans-DP's — plus 2 bug-hunt-rondes die een SSRF-lek in de AI-endpointconfiguratie vonden en verhielpen.",
-                "fr": "Nouveau : analyse de caméra par IA (point de terminaison externe), réinitialisation douce/matérielle de la caméra, renommage et DP de réglage LED/balance des blancs Gen2 — plus 2 sessions de chasse aux bugs ayant trouvé et corrigé une faille SSRF dans la configuration du point de terminaison IA.",
-                "it": "Novità: analisi della fotocamera con IA (endpoint esterno), reset soft/hard della fotocamera, rinomina e DP di regolazione LED/bilanciamento del bianco Gen2 — più 2 sessioni di bug-hunt che hanno trovato e corretto una falla SSRF nella configurazione dell'endpoint IA.",
-                "es": "Novedades: análisis de cámara con IA (endpoint externo), reinicio suave/duro de la cámara, cambio de nombre y DPs de ajuste de LED/balance de blancos Gen2 — además de 2 rondas de búsqueda de errores que encontraron y corrigieron un fallo SSRF en la configuración del endpoint de IA.",
-                "pl": "Nowosc: analiza kamery AI (zewnetrzny punkt koncowy), miekki/twardy reset kamery, zmiana nazwy oraz DP regulacji LED/balansu bieli Gen2 -- plus 2 rundy polowania na bledy, ktore znalazly i naprawily luke SSRF w konfiguracji punktu koncowego AI.",
-                "uk": "Новинка: аналіз камери за допомогою ШІ (зовнішня кінцева точка), програмне/апаратне скидання камери, перейменування та точки даних налаштування світлодіодів/балансу білого Gen2 — плюс 2 раунди пошуку помилок, які знайшли та виправили вразливість SSRF у конфігурації кінцевої точки ШІ.",
-                "zh-cn": "新增：AI摄像头分析（外部端点）、摄像头软/硬重置、重命名以及Gen2 LED/白平衡调节数据点——另外经过2轮对抗性漏洞排查，发现并修复了AI端点配置中的SSRF漏洞以及一个永不过期的硬重置确认。"
             }
         },
         "titleLang": {

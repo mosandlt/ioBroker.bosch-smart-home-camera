@@ -963,6 +963,9 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.11.1 (2026-11-18)
+- Added: `ifInstalledDependencies` requires vis-2 >= 2.20.2, so an adapter update cannot break an older vis-2.
+
 ### 1.11.0 (2026-11-18)
 - Updated: vis-2 widgets rebuilt for React 19 and MUI 9 (vis-2 >= 2.20.2 needed), see ioBroker/ioBroker.vis-2#689.
 - Updated: security updates for transitive dependencies (follow-redirects, node-forge).
