@@ -963,6 +963,9 @@ HA stays the **reference implementation** — features land there first; the Pyt
 
 ## Changelog
 
+### 1.11.2 (2026-11-18)
+- Added: the vis-2 camera widget shows a hint under the play button when the go2rtc live view cannot start (e.g. https page with an http go2rtc URL, unknown stream name).
+
 ### 1.11.1 (2026-11-18)
 - Added: `ifInstalledDependencies` requires vis-2 >= 2.20.2, so an adapter update cannot break an older vis-2.
 

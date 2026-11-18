@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "bosch-smart-home-camera",
-        "version": "1.11.1",
+        "version": "1.11.2",
         "news": {
+            "1.11.2": {
+                "en": "Added: vis-2 camera widget shows a hint when the go2rtc live view cannot start (https page with http go2rtc URL, wrong stream name)",
+                "de": "Neu: vis-2-Kamera-Widget zeigt einen Hinweis, wenn die go2rtc-Live-Ansicht nicht startet (https-Seite mit http-go2rtc-URL, falscher Streamname)",
+                "ru": "Добавлено: виджет камеры vis-2 показывает подсказку, если живой просмотр go2rtc не запускается (страница https с URL go2rtc по http, неверное имя потока)",
+                "pt": "Adicionado: o widget de câmera do vis-2 mostra uma dica quando a visualização ao vivo do go2rtc não inicia (página https com URL go2rtc em http, nome de stream errado)",
+                "nl": "Toegevoegd: de vis-2-camerawidget toont een hint als de go2rtc-livebeelden niet starten (https-pagina met http-go2rtc-URL, verkeerde streamnaam)",
+                "fr": "Ajouté : le widget caméra vis-2 affiche un indice lorsque la vue en direct go2rtc ne démarre pas (page https avec URL go2rtc en http, mauvais nom de flux)",
+                "it": "Aggiunto: il widget fotocamera vis-2 mostra un suggerimento quando la vista live di go2rtc non si avvia (pagina https con URL go2rtc in http, nome stream errato)",
+                "es": "Añadido: el widget de cámara de vis-2 muestra una pista cuando la vista en directo de go2rtc no arranca (página https con URL go2rtc en http, nombre de stream incorrecto)",
+                "pl": "Dodano: widget kamery vis-2 pokazuje wskazówkę, gdy podgląd na żywo go2rtc nie startuje (strona https z adresem go2rtc po http, błędna nazwa strumienia)",
+                "uk": "Додано: віджет камери vis-2 показує підказку, коли живий перегляд go2rtc не запускається (сторінка https з URL go2rtc по http, неправильна назва потоку)",
+                "zh-cn": "新增:go2rtc 实时画面无法启动时,vis-2 摄像头小部件会显示提示(https 页面使用 http 的 go2rtc 地址、流名称错误)"
+            },
             "1.11.1": {
                 "en": "Added: update now requires vis-2 >= 2.20.2 (ifInstalledDependencies), older vis-2 versions must be updated first",
                 "de": "Neu: Update setzt jetzt vis-2 >= 2.20.2 voraus (ifInstalledDependencies), ältere vis-2-Versionen müssen zuerst aktualisiert werden",
@@ -80,19 +93,6 @@
                 "pl": "Naprawiono: bezpośredni lokalny URL strumienia używa teraz rtsp_tunnel z dźwiękiem i uwzględnia stream_quality (high/low).",
                 "uk": "Виправлено: прямий локальний URL потоку тепер використовує rtsp_tunnel зі звуком і враховує stream_quality (high/low).",
                 "zh-cn": "已修复：直接本地流地址现使用 rtsp_tunnel，包含音频并遵循 stream_quality（high/low）。"
-            },
-            "1.10.0": {
-                "en": "New: local data interface status per Gen2 camera (firmware 9.40.105+); with an optional per-camera password and an active interface, stream_url points directly at the camera and no cloud stream session is used. Fixed: FCM push \"Invalid EC key\" fix now active at runtime; tested on Node 26.",
-                "de": "Neu: Status der lokalen Datenschnittstelle pro Gen2-Kamera (Firmware 9.40.105+); mit optionalem Kamera-Passwort und aktiver Schnittstelle zeigt stream_url direkt auf die Kamera, ohne Cloud-Stream-Session. Behoben: FCM-Push-Fix \"Invalid EC key\" jetzt zur Laufzeit aktiv; auf Node 26 getestet.",
-                "ru": "Новое: статус локального интерфейса данных для каждой камеры Gen2 (прошивка 9.40.105+); с дополнительным паролем для каждой камеры и активным интерфейсомstream_url указывает непосредственно на камеру, и сеанс облачного потока не используется. Исправлено: исправление FCM push \"Invalid EC key\" теперь работает во время выполнения; протестировано на Node 26.",
-                "pt": "Novo: status da interface de dados local por câmera Gen2 (firmware 9.40.105+); com uma senha opcional por câmera e uma interface ativa, stream_url aponta diretamente para a câmera e nenhuma sessão de streaming na nuvem é usada. Corrigido: correção do push FCM \"Invalid EC key\" agora ativa em tempo de execução; testado no Node 26.",
-                "nl": "Nieuw: lokale data-interfacestatus per Gen2-camera (firmware 9.40.105+); met een optioneel wachtwoord per camera en een actieve interface wijst stream_url rechtstreeks naar de camera en wordt er geen cloudstreamsessie gebruikt. Opgelost: FCM-push-fix \"Invalid EC key\" nu actief tijdens runtime; getest op Node 26.",
-                "fr": "Nouveau : état de l'interface de données locale par caméra Gen2 (firmware 9.40.105+) ; avec un mot de passe facultatif par caméra et une interface active, stream_url pointe directement vers la caméra et aucune session de flux cloud n'est utilisée. Corrigé : le correctif push FCM « Invalid EC key » est désormais actif à l'exécution ; testé sur Node 26.",
-                "it": "Novità: stato dell'interfaccia dati locale per telecamera Gen2 (firmware 9.40.105+); con una password opzionale per telecamera e un'interfaccia attiva, stream_url punta direttamente alla telecamera e non viene utilizzata alcuna sessione di streaming cloud. Corretto: la correzione push FCM \"Invalid EC key\" è ora attiva a runtime; testato su Node 26.",
-                "es": "Nuevo: estado de la interfaz de datos local por cámara Gen2 (firmware 9.40.105+); con una contraseña opcional por cámara y una interfaz activa, stream_url apunta directamente a la cámara y no se utiliza ninguna sesión de transmisión en la nube. Corregido: la corrección del push FCM \"Invalid EC key\" ahora está activa en tiempo de ejecución; probado en Node 26.",
-                "pl": "Nowość: stan lokalnego interfejsu danych dla kamery Gen2 (oprogramowanie 9.40.105+); z opcjonalnym hasłem dla kamery i aktywnym interfejsem, stream_url wskazuje bezpośrednio na kamerę i nie jest używana żadna sesja strumienia w chmurze. Naprawiono: poprawka push FCM \"Invalid EC key\" działa teraz w czasie wykonania; przetestowano na Node 26.",
-                "uk": "Нове: статус локального інтерфейсу даних для кожної камери Gen2 (прошивка 9.40.105+); з необов’язковим паролем для кожної камери та активним інтерфейсом stream_url вказує безпосередньо на камеру, і сеанс хмарного потоку не використовується. Виправлено: виправлення FCM push \"Invalid EC key\" тепер діє під час виконання; протестовано на Node 26.",
-                "zh-cn": "新功能：每个 Gen2 摄像机的本地数据接口状态（固件 9.40.105+）；通过可选的每个摄像机密码和活动界面，stream_url 直接指向摄像机，并且不使用云流会话。 已修复：FCM 推送 \"Invalid EC key\" 修复现已在运行时生效；已在 Node 26 上测试。"
             }
         },
         "titleLang": {
