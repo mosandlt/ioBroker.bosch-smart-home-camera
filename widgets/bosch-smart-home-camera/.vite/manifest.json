@@ -44,8 +44,8 @@
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__mf_owner__4354249038018__loadShare__shared-D8UYvs4E.js"
     ]
   },
-  "_event-label-BwNjeIIR.js": {
-    "file": "assets/event-label-BwNjeIIR.js",
+  "_event-label-DfQEPiu0.js": {
+    "file": "assets/event-label-DfQEPiu0.js",
     "name": "event-label",
     "imports": [
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__mf_owner__4354249038018__loadShare__shared-D8UYvs4E.js",
@@ -87,29 +87,29 @@
     "name": "vite-preload-helper"
   },
   "src/BoschCamera.jsx": {
-    "file": "assets/BoschCamera-Buzx9VGV.js",
+    "file": "assets/BoschCamera-BAmJQ_cq.js",
     "name": "BoschCamera",
     "src": "src/BoschCamera.jsx",
     "isEntry": true,
     "imports": [
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__mf_owner__4354249038018__loadShare__shared-D8UYvs4E.js",
       "_defineProperty-wedqEnww.js",
-      "_event-label-BwNjeIIR.js"
+      "_event-label-DfQEPiu0.js"
     ]
   },
   "src/BoschOverview.jsx": {
-    "file": "assets/BoschOverview-vsD7H2e9.js",
+    "file": "assets/BoschOverview-804yC6cz.js",
     "name": "BoschOverview",
     "src": "src/BoschOverview.jsx",
     "isEntry": true,
     "imports": [
       "__virtual_mf___mfe_internal__vis2BoschCameraWidgets__mf_owner__4354249038018__loadShare__shared-D8UYvs4E.js",
-      "_event-label-BwNjeIIR.js",
+      "_event-label-DfQEPiu0.js",
       "_defineProperty-wedqEnww.js"
     ]
   },
   "src/translations.js": {
-    "file": "assets/translations-DCkyIgPP.js",
+    "file": "assets/translations-BJm2TlGO.js",
     "name": "translations",
     "src": "src/translations.js",
     "isEntry": true

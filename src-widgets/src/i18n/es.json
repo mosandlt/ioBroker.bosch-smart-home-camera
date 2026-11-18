@@ -115,6 +115,6 @@
   "Picture-in-picture active for another camera": "Imagen en imagen activa para otra cámara",
   "Last event": "Último evento",
   "Dismiss": "Descartar",
-  "go2rtc not reachable: this page uses https but the go2rtc URL uses http (blocked by the browser)": "go2rtc not reachable: this page uses https but the go2rtc URL uses http (blocked by the browser)",
-  "go2rtc not reachable: check the go2rtc URL and the stream name": "go2rtc not reachable: check the go2rtc URL and the stream name"
+  "go2rtc not reachable: this page uses https but the go2rtc URL uses http (blocked by the browser)": "go2rtc no accesible: esta página usa https pero la URL de go2rtc usa http (bloqueado por el navegador)",
+  "go2rtc not reachable: check the go2rtc URL and the stream name": "go2rtc no accesible: comprueba la URL de go2rtc y el nombre del stream"
 }

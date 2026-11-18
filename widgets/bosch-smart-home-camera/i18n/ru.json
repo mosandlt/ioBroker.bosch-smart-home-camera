@@ -115,6 +115,6 @@
   "Picture-in-picture active for another camera": "Картинка в картинке активна для другой камеры",
   "Last event": "Последнее событие",
   "Dismiss": "Закрыть",
-  "go2rtc not reachable: this page uses https but the go2rtc URL uses http (blocked by the browser)": "go2rtc not reachable: this page uses https but the go2rtc URL uses http (blocked by the browser)",
-  "go2rtc not reachable: check the go2rtc URL and the stream name": "go2rtc not reachable: check the go2rtc URL and the stream name"
+  "go2rtc not reachable: this page uses https but the go2rtc URL uses http (blocked by the browser)": "go2rtc недоступен: страница использует https, а URL go2rtc — http (блокируется браузером)",
+  "go2rtc not reachable: check the go2rtc URL and the stream name": "go2rtc недоступен: проверьте URL go2rtc и имя потока"
 }

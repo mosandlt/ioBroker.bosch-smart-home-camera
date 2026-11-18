@@ -115,6 +115,6 @@
   "Picture-in-picture active for another camera": "画中画正在另一个摄像头上使用",
   "Last event": "最近事件",
   "Dismiss": "关闭",
-  "go2rtc not reachable: this page uses https but the go2rtc URL uses http (blocked by the browser)": "go2rtc not reachable: this page uses https but the go2rtc URL uses http (blocked by the browser)",
-  "go2rtc not reachable: check the go2rtc URL and the stream name": "go2rtc not reachable: check the go2rtc URL and the stream name"
+  "go2rtc not reachable: this page uses https but the go2rtc URL uses http (blocked by the browser)": "无法连接 go2rtc:此页面使用 https,但 go2rtc 地址使用 http(被浏览器阻止)",
+  "go2rtc not reachable: check the go2rtc URL and the stream name": "无法连接 go2rtc:请检查 go2rtc 地址和流名称"
 }
